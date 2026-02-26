@@ -14,6 +14,8 @@ A structured approach to planning academic papers before writing begins. Covers 
 
 ## When to Use This Skill
 
+> If you don't yet have an idea, use the `research-ideation` skill first to find a problem and design a solution.
+
 - User wants to plan a paper before writing
 - User asks about structuring a paper's story or contributions
 - User needs to plan experiments (comparisons, ablations)

@@ -30,12 +30,25 @@ Simply ask the agent in conversation:
 
 | Skill | Description |
 | ----- | ----------- |
+| [`research-ideation`](#-research-ideation--literature-tree--problem-finding) | 💡 Research ideation, literature tree & problem finding |
 | [`paper-planning`](#-paper-planning--research-paper-planning--outline-generation) | 📐 Research paper planning & outline generation |
-| [`paper-review`](#-paper-review--self-review--rebuttal-preparation) | 🔍 Automated paper review & feedback |
 | [`paper-writing`](#-paper-writing--section-by-section-paper-drafting) | ✍️ End-to-end paper writing assistance |
+| [`experiment-craft`](#-experiment-craft--experiment-debugging--iteration) | 🔧 Experiment debugging, logging & iteration |
+| [`paper-review`](#-paper-review--self-review--quality-assurance) | 🔍 Automated paper review & feedback |
+| [`paper-rebuttal`](#-paper-rebuttal--rebuttal-writing-after-peer-review) | ⚔️ Rebuttal writing after peer review |
 | [`academic-slides`](#-academic-slides--presentation--research-talk-creation) | 🎤 Academic presentation & research talk creation |
 
-> **Paper Suite**: The paper skills work as a pipeline — **planning → writing → review → slides**.
+> **Paper Suite**: The paper skills work as a pipeline — **ideation → planning → writing → experiment → review → rebuttal → slides**.
+
+### 💡 `research-ideation` — Literature Tree & Problem Finding
+
+The starting point of the research pipeline. Guides ideation from literature analysis to solution design:
+
+- **Literature Tree** — Build a novelty tree and challenge-insight tree to map the research landscape
+- **Problem Selection** — 4-level well-established solution check to identify open problems worth pursuing
+- **Solution Design** — Cross-domain transfer and problem decomposition strategies
+- **Paper Reading** — 3-level structured Q&A methodology for deep comprehension
+- **Counterintuitive Rules** — Problem selection matters more than solution design; pursue new failure cases rather than incremental improvements
 
 ### 📐 `paper-planning` — Research Paper Planning & Outline Generation
 
@@ -48,16 +61,6 @@ Guides pre-writing planning before a single word is drafted. Covers four key act
 
 Includes counterintuitive tactics: write your rejection letter first, narrow claims before broadening, and plan fallback narratives.
 
-### 🔍 `paper-review` — Self-Review & Rebuttal Preparation
-
-Systematic self-review before submission using adversarial and counterintuitive review strategies:
-
-- **5-Aspect Checklist** — Contribution sufficiency, writing clarity, results quality, testing completeness, method design
-- **Reverse-Outlining** — Extract the outline from finished paragraphs to verify logical flow
-- **Figure & Table Quality Checks** — Captions, resolution, booktabs, color-blind friendliness
-- **Rejection Simulation** — Force a reject summary first; attack your own novelty claim
-- **Rebuttal Preparation** — 18 tactical rules, champion strategy, score diagnosis, and word count optimization
-
 ### ✍️ `paper-writing` — Section-by-Section Paper Drafting
 
 A proven 11-step workflow for writing academic papers with LaTeX templates:
@@ -67,6 +70,35 @@ A proven 11-step workflow for writing academic papers with LaTeX templates:
 - **LaTeX Assets** — Annotated paper skeleton (`paper-skeleton.tex`) and booktabs table macros (`table-style.tex`)
 - **Writing Principles** — One message per paragraph, topic sentence first, terminology consistency, reverse-outlining
 - **Counterintuitive Tactics** — Underclaim in prose / overdeliver in evidence; lead with mechanism, not just metrics
+
+### 🔧 `experiment-craft` — Experiment Debugging & Iteration
+
+A systematic approach to experiment debugging, logging, and iterative improvement:
+
+- **5-Step Diagnostic Flow** — Collect failures → find a working version → bridge the gap → hypothesize → fix
+- **Counterintuitive Rules** — Change one variable at a time; effective experiments beat more experiments
+- **Experiment Logging** — 5-section structured log template for reproducible records
+- **Handoff to Paper-Writing** — Feed validated results and logs into `paper-writing` for drafting
+
+### 🔍 `paper-review` — Self-Review & Quality Assurance
+
+Systematic self-review before submission using adversarial and counterintuitive review strategies:
+
+- **5-Aspect Checklist** — Contribution sufficiency, writing clarity, results quality, testing completeness, method design
+- **Reverse-Outlining** — Extract the outline from finished paragraphs to verify logical flow
+- **Figure & Table Quality Checks** — Captions, resolution, booktabs, color-blind friendliness
+- **Rejection Simulation** — Force a reject summary first; attack your own novelty claim
+- **Handoff to Rebuttal** — After review, feed identified weaknesses into `paper-rebuttal` for response preparation
+
+### ⚔️ `paper-rebuttal` — Rebuttal Writing After Peer Review
+
+Dedicated rebuttal skill for responding to reviewer feedback after peer review:
+
+- **Score Diagnosis** — Color-code every reviewer comment: red (critical), orange (important), gray (minor), green (positive)
+- **Champion Strategy** — Arm your most positive reviewer with evidence for the Area Chair discussion
+- **Tactical Writing** — 18 rules for structure, content, and tone in rebuttal responses
+- **Counterintuitive Principles** — Submit even with extreme scores; concede small points to win the big argument
+- **Common Concerns** — Response strategies for 12 frequently raised reviewer complaints
 
 ### 🎤 `academic-slides` — Presentation & Research Talk Creation
 
@@ -81,7 +113,6 @@ A structured approach to creating academic presentations and preparing research 
 ## 🎯 ᯓ➤ Roadmap
 
 Coming soon:
-- [ ] 💻 **Experiment Skills** — Automated experiment design, execution & analysis
 - [ ] 🧠 **Self-Evolution Suite** — Skills that learn, adapt & improve themselves
 - [ ] 🏅 **Math Olympiad** — Advanced mathematical reasoning & problem solving
 - [ ] 🎨 **Visual Generation** — Diagrams, figures & graphic content creation
@@ -123,7 +154,7 @@ Stay tuned — more skills are on the way!
                width="100" height="100"
                style="object-fit: cover; border-radius: 20%;" alt="Yougang Lyu"/>
           <br />
-          <sub><b>Yougang Lyu</b><sup>§</sup></sub>
+          <sub><b>Yougang Lyu</b><sup>§1</sup></sub>
         </a>
       </td>
     </tr>
@@ -131,6 +162,8 @@ Stay tuned — more skills are on the way!
 </table>
 
 > <sup>‡</sup> Core Developer <sup>†</sup> Project Lead & Engineering Lead <sup>§</sup> Correspondent
+
+> <sup>1</sup> Xiaoyi DeepResearch Team
 
 For any enquiries or collaboration opportunities, please contact: [**EvoScientist.ai@gmail.com**](mailto:evoscientist.ai@gmail.com)
 

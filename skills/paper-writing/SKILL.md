@@ -167,3 +167,4 @@ Before invoking `paper-review`, verify this checklist:
 | Writing Principles | [writing-principles.md](references/writing-principles.md) | Any time during writing |
 | Supplementary | [supplementary-guide.md](references/supplementary-guide.md) | Deciding main vs. supplementary content |
 | Counterintuitive strategy | [counterintuitive-writing.md](references/counterintuitive-writing.md) | Improving reviewer trust and novelty perception |
+| Writing Practice | [writing-practice.md](references/writing-practice.md) | Building writing ability through deliberate practice |

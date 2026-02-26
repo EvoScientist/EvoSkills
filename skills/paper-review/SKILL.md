@@ -1,11 +1,11 @@
 ---
 name: paper-review
-description: "Guides self-review of academic papers before submission with adversarial and counterintuitive review tactics. Provides a 5-aspect checklist (contribution, writing clarity, results quality, testing completeness, method design), reverse-outlining, figure/table checks, rejection simulation, and rebuttal preparation. Use when the user wants to review, check, or improve a paper draft, stress-test novelty claims, prepare for reviewer feedback, or write a rebuttal."
+description: "Guides self-review of academic papers before submission with adversarial and counterintuitive review tactics. Provides a 5-aspect checklist (contribution, writing clarity, results quality, testing completeness, method design), reverse-outlining, figure/table checks, and rejection simulation. Use when the user wants to review, check, or improve a paper draft, stress-test novelty claims, or prepare for reviewer feedback."
 allowed-tools: "read_file edit_file write_file think_tool"
 metadata:
   author: EvoScientist
   version: '1.0.0'
-  tags: [academic writing, paper review, self-review, rebuttal, checklist]
+  tags: [academic writing, paper review, self-review, checklist]
 ---
 
 # Paper Review
@@ -17,8 +17,9 @@ A systematic approach to self-reviewing academic papers before submission. Cover
 - User wants to review or check a paper draft before submission
 - User asks for feedback on paper quality or completeness
 - User wants to prepare for potential reviewer criticism
-- User needs to write or prepare a rebuttal
-- User mentions "review paper", "check my draft", "self-review", "rebuttal"
+- User mentions "review paper", "check my draft", "self-review"
+
+> If the user has already received reviewer comments and needs to write a rebuttal, use the `paper-rebuttal` skill instead.
 
 ## Prerequisites
 
@@ -190,14 +191,17 @@ Apply this to:
 
 ---
 
-## Rebuttal Preparation
+## Handoff to Rebuttal
 
-When reviews come back, refer to [references/rebuttal-guide.md](references/rebuttal-guide.md) for guidance on:
-- **Score diagnosis**: Identifying the 1-2 concerns that actually drive each reviewer's score
-- **Champion strategy**: Writing rebuttals that arm your positive reviewer for the discussion phase
-- **18 tactical rules**: Structure, content, tone, and advanced tactics for effective responses
-- **Word count optimization**: Maximizing impact under strict venue word limits
-- **Counterintuitive principles**: When to concede, when to add experiments vs. argue, and why prebuttals work
+When reviews come back, use the `paper-rebuttal` skill for:
+- Score diagnosis and review color-coding
+- Champion strategy (arming your positive reviewer for discussion)
+- 18 tactical rules for structure, content, and tone
+- Counterintuitive rebuttal principles
+
+Your self-review artifacts (reject-first simulation, claim-evidence audit, prebuttal drafts from the counterintuitive protocol) feed directly into the rebuttal process.
+
+---
 
 See [references/review-checklist.md](references/review-checklist.md) for an expanded version of the 5-aspect checklist with more detailed sub-questions.
 
