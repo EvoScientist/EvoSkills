@@ -163,7 +163,7 @@ Stay tuned — more skills are on the way!
 
 > <sup>‡</sup>Core Developer <sup>†</sup>Project Lead & Engineering Lead <sup>§</sup>Project Correspondent
 
-> Xiaoyi DeepResearch Team and the wider open-source community contribute to this project.
+> *Xiaoyi DeepResearch Team* and the wider open-source community contribute to this project.
 
 For any enquiries or collaboration opportunities, please contact: [**EvoScientist.ai@gmail.com**](mailto:evoscientist.ai@gmail.com)
 
