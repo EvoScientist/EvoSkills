@@ -145,7 +145,7 @@ Stay tuned — more skills are on the way!
                width="100" height="100"
                style="object-fit: cover; border-radius: 20%;" alt="Xi Zhang"/>
           <br />
-          <sub><b>Xi Zhang</b><sup>†</sup></sub>
+          <sub><b>Xi Zhang</b><sup>†§</sup></sub>
         </a>
       </td>
       <td align="center">
@@ -161,7 +161,7 @@ Stay tuned — more skills are on the way!
   </tbody>
 </table>
 
-> <sup>‡</sup>Core Developer <sup>†</sup>Project Lead & Engineering Lead <sup>§</sup>Project Correspondent
+> <sup>‡</sup>Core Developer <sup>†</sup>Project Lead & Engineering Lead <sup>§</sup>Project Owner
 
 > *Xiaoyi DeepResearch Team* and the wider open-source community contribute to this project.
 
