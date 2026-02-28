@@ -131,8 +131,8 @@ Stay tuned — more skills are on the way!
   <tbody>
     <tr>
       <td align="center">
-        <a href="https://x.com/EvoScientist">
-          <img src="https://pbs.twimg.com/profile_images/2020492875340136448/CbdhV-u__400x400.jpg"
+        <a href="https://github.com/EvoScientist/EvoScientist">
+          <img src="https://avatars.githubusercontent.com/u/257286936?s=200&v=4"
                width="100" height="100"
                style="object-fit: cover; border-radius: 20%;" alt="Xi Zhang"/>
           <br />
