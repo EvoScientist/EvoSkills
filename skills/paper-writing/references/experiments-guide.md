@@ -10,6 +10,73 @@ The Experiments section must answer three questions:
 
 ---
 
+## Experimental Analysis Writing Style
+
+### Use Structured Observations, Not Continuous Paragraphs
+
+When presenting experimental results and analysis (especially for Research Questions), prefer **structured observation lists** over continuous paragraphs:
+
+**Anti-pattern** (continuous paragraphs):
+```latex
+\subsection{Main Results (RQ1)}
+Our method achieves strong performance on the benchmark. 
+The results show improvements across all metrics. 
+We observe that the model generalizes well...
+```
+
+**Best practice** (structured observations):
+```latex
+\subsection{Main Results (RQ1)}
+
+We evaluate our method on the benchmark dataset. 
+Based on the results in Table~\ref{tab:main}, we have four main observations:
+\begin{itemize}[leftmargin=*,nosep]
+\item \textbf{Method's innovation X achieves result Y.} [Detailed explanation with specific numbers, followed by deeper analysis of why this happens...]
+
+\item \textbf{Method's feature Z enables capability W.} [Empirical observations, then mechanistic explanation...]
+
+\item \textbf{Method's design choice A produces expected trade-off B.} [Evidence from results, then interpretation...]
+\end{itemize}
+```
+
+### Observation Structure Template
+
+Each observation should follow this three-part structure:
+
+1. **Bold title (innovation → result)**: State the method's innovation point and the resulting phenomenon
+2. **Empirical evidence**: Present specific numbers, comparisons, or patterns from tables/figures
+3. **Mechanistic explanation**: Explain why this result occurs, connecting back to method design
+
+### Use Method Name as Subject
+
+- All observations should use your **method name** as the subject (e.g., "EvoIdeator achieves...", "EvoIdeator's mechanism enables...")
+- Avoid generic subjects like "our model", "the system", or "we observe that"
+- Exception: When describing universal findings that apply to all models, use neutral subjects ("all models show...")
+
+### Subsection Titles Should Be Concise
+
+Research question subsections should use **3-5 words + RQ marker**:
+- ✅ `\subsection{Main Results (RQ1)}`
+- ✅ `\subsection{Additive Effects Analysis (RQ2)}`
+- ✅ `\subsection{Cross-Judge Generalization Analysis (RQ3)}`
+- ❌ `\subsection{Detailed Analysis of Language Feedback Quality Across Different Large Language Model Providers (RQ3)}`
+
+### Research Question Formulation
+
+State research questions with precision and method-centricity:
+
+**Anti-pattern** (vague, method-agnostic):
+- "Does the setup work better than baselines?"
+- "Do components combine additively?"
+- "How does feedback quality depend on the judge?"
+
+**Best practice** (precise, method-centric):
+- "Does [MethodName] outperform [specific baselines] on [specific evaluation dimension]?"
+- "Do [MethodName]'s [component A] and [component B] combine additively, and what are their individual contributions?"
+- "Does [MethodName]'s [specific mechanism] generalize to [specific test condition]?"
+
+---
+
 ## Comparison Experiments
 
 ### Version 1 — Existing Baselines
