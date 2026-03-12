@@ -4,7 +4,7 @@
 
 ## 📦 Installation
 
-### In-session commands with EvoScientist
+### In-session commands
 
 Install all skills at once:
 
