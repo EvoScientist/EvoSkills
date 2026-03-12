@@ -56,8 +56,8 @@ The diagram above shows the full EvoScientist pipeline. The **Researcher Agent**
 ```mermaid
 flowchart LR
     A["<b>🔬 Research Phase</b><br/>💡 research-ideation<br/>🏆 idea-tournament"]
-    --> B["<b>🧪 Experiment Phase</b><br/>📐 paper-planning<br/>⚗️ experiment-pipeline<br/>🔧 experiment-craft"]
-    --> C["<b>📝 Writing Phase</b><br/>✍️ paper-writing<br/>🔍 paper-review<br/>💬 paper-rebuttal<br/>🎓 academic-slides"]
+    --> B["<b>🧪 Experiment Phase</b><br/>📐 paper-planning<br/>🧪 experiment-pipeline<br/>🔧 experiment-craft"]
+    --> C["<b>📝 Writing Phase</b><br/>✍️ paper-writing<br/>🔍 paper-review<br/>💬 paper-rebuttal<br/>🎤 academic-slides"]
 
     D[("🧠 evo-memory<br/>(IDE · IVE · ESE)")] <--> A
     D <--> B
