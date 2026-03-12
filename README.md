@@ -239,7 +239,14 @@ For any enquiries or collaboration opportunities, please contact: [**EvoScientis
 
 We welcome contributions! See our [Contributing Guidelines](./CONTRIBUTING.md) for how to improve existing skills or add new ones.
 
+### 📈 Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=EvoScientist/EvoSkills&type=date&legend=top-left)](https://www.star-history.com/#EvoScientist/EvoSkills&type=date&legend=top-left)
+
 ### 📝 Citation
+
+If you find our paper and code useful in your research and applications, please cite using this BibTeX:
+
 ```bibtex
 @article{evoscientist2026, 
   title={EvoScientist: Towards Multi-Agent Evolving AI Scientists for End-to-End Scientific Discovery}, 
@@ -248,10 +255,6 @@ We welcome contributions! See our [Contributing Guidelines](./CONTRIBUTING.md) f
   year={2026} 
 }
 ```
-
-### 📈 Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=EvoScientist/EvoSkills&type=date&legend=top-left)](https://www.star-history.com/#EvoScientist/EvoSkills&type=date&legend=top-left)
 
 <p align="right"><a href="#top">🔝Back to top</a></p>
 
