@@ -53,18 +53,19 @@ The diagram above shows the full EvoScientist pipeline. The **Researcher Agent**
 
 #### 🎢 Skill Pipeline
 
-```
-research-ideation          (find direction + literature tree)
-       ↓
-idea-tournament  ←→  evo-memory (M_I: read feasible/unsuccessful directions)
-       ↓                    ↑
-paper-planning              │
-       ↓                    │
-experiment-pipeline  ←→  evo-memory (M_E: read/write strategies; IVE/ESE)
-       ↓
-experiment-craft       (diagnose failures within pipeline stages)
-       ↓
-paper-writing → paper-review → paper-rebuttal → academic-slides
+```mermaid
+flowchart LR
+    A["<b>🔬 Research Phase</b><br/>💡 research-ideation<br/>🏆 idea-tournament"]
+    --> B["<b>🧪 Experiment Phase</b><br/>📐 paper-planning<br/>⚗️ experiment-pipeline<br/>🔧 experiment-craft"]
+    --> C["<b>📝 Writing Phase</b><br/>✍️ paper-writing<br/>🔍 paper-review<br/>💬 paper-rebuttal<br/>🎓 academic-slides"]
+
+    D[("🧠 evo-memory<br/>(IDE · IVE · ESE)")] <--> A
+    D <--> B
+
+    style A fill:#7C3AED,stroke:#5B21B6,stroke-width:2px,color:#fff
+    style B fill:#D97706,stroke:#B45309,stroke-width:2px,color:#fff
+    style C fill:#16A34A,stroke:#15803D,stroke-width:2px,color:#fff
+    style D fill:#475569,stroke:#334155,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -243,7 +244,9 @@ We welcome contributions! See our [Contributing Guidelines](./CONTRIBUTING.md) f
 
 [![Star History Chart](https://api.star-history.com/svg?repos=EvoScientist/EvoSkills&type=date&legend=top-left)](https://www.star-history.com/#EvoScientist/EvoSkills&type=date&legend=top-left)
 
-### 📝 Citation
+<p align="right"><a href="#top">🔝Back to top</a></p>
+
+## 📝 Citation
 
 If you find our paper and code useful in your research and applications, please cite using this BibTeX:
 
