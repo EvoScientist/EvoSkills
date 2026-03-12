@@ -27,7 +27,8 @@ Simply ask the agent in conversation:
 ```
 
 > [!TIP]
-> These skills also work with other coding agents! Install to any agent (Claude Code, OpenCode, Cursor, Codex, Gemini CLI, Qwen Code) with one command via [skills.sh](https://skills.sh/):
+> **Not using EvoScientist?** These skills are compatible with any coding agent.
+> One command via [skills.sh](https://skills.sh/) to install on Claude Code, OpenCode, Cursor, Codex, Gemini CLI, DeepAgents, and more:
 > ```bash
 > npx skills add EvoScientist/EvoSkills
 > ```
