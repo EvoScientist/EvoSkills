@@ -4,6 +4,9 @@
 
 ## 📦 Installation
 
+> [!IMPORTANT]
+> These skills are purpose-built for EvoScientist — together they amplify each other, unlocking the full potential of both the agent and the skills. Under EvoScientist, skills evolve across research cycles through persistent memory (evo-memory).
+
 ### In-session commands
 
 Install all skills at once:
@@ -28,7 +31,7 @@ Simply ask the agent in conversation:
 
 > [!TIP]
 > **Not using EvoScientist?** These skills are compatible with any coding agent.
-> One command via [skills.sh](https://skills.sh/) to install on Claude Code, OpenCode, Cursor, Codex, Gemini CLI, DeepAgents, and more:
+> One command via [**skills.sh**](https://skills.sh/) to install on Claude Code, OpenCode, Cursor, Codex, Gemini CLI, DeepAgents, and more:
 > ```bash
 > npx skills add EvoScientist/EvoSkills
 > ```
