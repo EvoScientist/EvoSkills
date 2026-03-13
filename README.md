@@ -253,7 +253,7 @@ We welcome contributions! See our [Contributing Guidelines](./CONTRIBUTING.md) f
 
 ### 📈 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=EvoScientist/EvoSkills&type=date&legend=top-left)](https://www.star-history.com/#EvoScientist/EvoSkills&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=EvoScientist/EvoSkills&type=date&legend=bottom-right)](https://www.star-history.com/?repos=EvoScientist%2FEvoSkills&type=date&legend=bottom-right)
 
 <p align="right"><a href="#top">🔝Back to top</a></p>
 
