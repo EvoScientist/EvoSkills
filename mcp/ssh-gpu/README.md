@@ -1,0 +1,196 @@
+# Remote SSH GPU Execution with MCP
+
+> **⚠️ Security Warning**
+>
+> Configuring an SSH MCP server gives the AI agent **full, unsupervised access to the remote machine**.
+> Every command the agent generates — including destructive ones — will execute on that machine without
+> human approval. Only connect to machines you fully control and accept this risk explicitly.
+
+This guide explains how to configure EvoScientist for remote GPU experiment execution using SSH MCP servers.
+
+## Overview
+
+Instead of building a custom `RemoteSSHBackend`, EvoScientist leverages the existing MCP infrastructure to enable remote GPU execution. By configuring an SSH MCP server, your `code-agent` and `debug-agent` gain access to SSH tools (`ssh_execute`, `ssh_upload`, `ssh_download`) that allow them to:
+
+- Execute GPU-dependent commands (training, inference) on remote servers
+- Sync experiment code to remote servers
+- Retrieve results and artifacts
+- Check remote GPU status via `nvidia-smi`
+- Run long-lived jobs using `screen`/`tmux`
+
+## Prerequisites
+
+1. **SSH MCP Server**: Install an SSH MCP server. Available options include:
+   - Check the [MCP Servers Directory](https://github.com/modelcontextprotocol/servers) for SSH-capable servers
+   - Any SSH-capable MCP server that provides `ssh_execute`, `ssh_upload`, `ssh_download` tools
+   - Verify server capabilities match the tool names in your mcp.yaml configuration
+
+2. **SSH Key Authentication**: Set up SSH key-based authentication to your remote GPU server
+
+3. **Remote Environment**: Ensure your remote server has:
+   - CUDA drivers installed
+   - Required Python packages (or conda environment)
+   - Sufficient disk space for experiments
+
+## Configuration
+
+### Step 1: Install SSH MCP Server
+
+For Node.js-based SSH servers (check specific server name):
+
+```bash
+# Install globally (if required by your chosen server)
+npm install -g <mcp-ssh-server-package>
+
+# Or use npx (no installation required)
+npx -y <mcp-ssh-server-package> --help
+```
+
+**Note**: Replace `<mcp-ssh-server-package>` with the actual package name of your chosen SSH MCP server.
+Check the server's documentation for the correct package name and available tools.
+
+### Step 2: Create MCP Configuration
+
+Create or edit `~/.config/evoscientist/mcp.yaml`:
+
+```yaml
+ssh-gpu:
+  transport: stdio
+  command: npx
+  args: ["-y", "mcp-server-ssh@0.6.0"]
+  env:
+    SSH_HOST: "your-gpu-server.example.com"
+    SSH_USER: "your-username"
+    SSH_KEY_PATH: "~/.ssh/id_rsa"
+    # Optional: SSH port (default: 22)
+    # SSH_PORT: "2222"
+  expose_to: [code-agent, debug-agent]
+```
+
+### Step 3: Activate Configuration
+
+After creating the config file, start an EvoScientist session. The SSH MCP
+server will be loaded automatically from `~/.config/evoscientist/mcp.yaml`.
+
+**Note**: You can also use in-session commands `/mcp add` to add a server interactively,
+and `/mcp check <name>` to validate config and run a live connection + GPU check.
+
+## Usage
+
+### Remote Experiment Execution
+
+When SSH MCP tools are available, the `code-agent` will automatically:
+
+1. **Sync code to remote server**:
+   ```
+   Use ssh_upload to transfer experiment files
+   ```
+
+2. **Execute GPU-dependent commands**:
+   ```
+   Use ssh_execute to run:
+   - nvidia-smi (check GPU status)
+   - python train.py (run training)
+   - python inference.py (run inference)
+   ```
+
+3. **Handle long-running jobs**:
+   ```
+   Consider using screen/tmux via ssh_execute:
+   ssh_execute "screen -dmS experiment python train.py"
+   ```
+
+4. **Retrieve results**:
+   ```
+   Use ssh_download to pull results/artifacts
+   ```
+
+### Remote Debugging
+
+The `debug-agent` will use SSH tools to:
+
+1. Reproduce failures on the remote server
+2. Check remote environment (CUDA version, package versions)
+3. Retrieve remote logs for analysis
+
+## Example Workflow
+
+```bash
+# 1. Pre-configure ~/.config/evoscientist/mcp.yaml (see Step 2 above)
+
+# 2. Start agent session
+EvoScientist
+
+# 3. Task: Run training experiment
+"Run training on remote GPU server with dataset X"
+
+# Agent will:
+# - Upload code via ssh_upload
+# - Execute via ssh_execute
+# - Monitor progress
+# - Download results via ssh_download
+```
+
+## Troubleshooting
+
+### SSH Connection Fails
+
+1. Verify SSH key is correct and has proper permissions:
+   ```bash
+   chmod 600 ~/.ssh/id_rsa
+   ssh-add ~/.ssh/id_rsa
+   ```
+
+2. Test manual SSH connection:
+   ```bash
+   ssh your-username@your-gpu-server.example.com
+   ```
+
+### SSH MCP Tools Not Available
+
+1. Check `mcp.yaml` configuration
+2. Verify `expose_to` includes `code-agent` and/or `debug-agent`
+3. Reload agent session: `/new` or restart CLI
+
+### Remote Commands Hang
+
+Use `screen` or `tmux` for long-running jobs:
+
+```bash
+# Start detached screen session
+ssh_execute "screen -dmS train python train.py"
+
+# Attach later to check status
+ssh_execute "screen -r train"
+```
+
+## Security Considerations
+
+> **⚠️ Full unsupervised access**: The agent can execute any command on the remote machine without
+> asking for confirmation. Treat this as equivalent to giving the agent an interactive shell.
+
+- **SSH Keys**: Never commit SSH private keys to repositories
+- **Environment Variables**: Use secure methods to manage SSH credentials
+- **Network**: Consider using VPN or bastion hosts for production deployments
+- **Least privilege**: Use a dedicated user with restricted permissions on the remote server
+
+## Backward Compatibility
+
+When no SSH MCP server is configured:
+- Agents execute experiments locally as before
+- No changes to existing behavior
+- No new dependencies required
+
+## Alternative SSH MCP Servers
+
+| Server | Language | Tools | Notes |
+|--------|----------|-------|-------|
+| `<your-ssh-server>` | Varies | ssh_execute, ssh_upload, ssh_download | Check server documentation |
+| `mcp-server-shell` | Python | shell_execute | Limited to shell commands |
+| Custom | Any | Varies | Can implement custom SSH logic |
+
+## Further Reading
+
+- [MCP Documentation](https://modelcontextprotocol.io/)
+- [MCP Server Directory](https://github.com/modelcontextprotocol/servers)
+- [SSH Server Implementation](https://github.com/modelcontextprotocol/servers/tree/main/src/ssh)
