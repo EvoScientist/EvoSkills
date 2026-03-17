@@ -5,7 +5,7 @@ allowed-tools: "write_file edit_file read_file think_tool"
 metadata:
   author: EvoScientist
   version: '1.0.0'
-  tags: [academic writing, rebuttal, peer review, reviewer response]
+  tags: [core, writing, academic-writing, peer-review]
 ---
 
 # Paper Rebuttal

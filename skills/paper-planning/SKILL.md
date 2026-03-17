@@ -5,7 +5,7 @@ allowed-tools: "write_file edit_file read_file think_tool"
 metadata:
   author: EvoScientist
   version: '1.0.0'
-  tags: [academic writing, paper planning, experiment design, research]
+  tags: [core, research, writing, academic-writing, experiment-design]
 ---
 
 # Paper Planning

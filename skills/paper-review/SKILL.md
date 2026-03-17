@@ -5,7 +5,7 @@ allowed-tools: "read_file edit_file write_file think_tool"
 metadata:
   author: EvoScientist
   version: '1.0.0'
-  tags: [academic writing, paper review, self-review, checklist]
+  tags: [core, writing, academic-writing, peer-review]
 ---
 
 # Paper Review

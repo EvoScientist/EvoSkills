@@ -5,7 +5,7 @@ allowed-tools: "write_file edit_file read_file think_tool"
 metadata:
   author: EvoScientist
   version: '1.0.0'
-  tags: [memory, evolution, self-improvement, research learning, knowledge management]
+  tags: [core, meta-learning]
 ---
 
 # Evo-Memory

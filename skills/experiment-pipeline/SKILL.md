@@ -5,7 +5,7 @@ allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
   version: '1.0.0'
-  tags: [experiments, pipeline, baseline, ablation, research methodology]
+  tags: [core, experimentation, experiment-design]
 ---
 
 # Experiment Pipeline

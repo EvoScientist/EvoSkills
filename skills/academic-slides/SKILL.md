@@ -5,7 +5,7 @@ allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
   version: '1.0.0'
-  tags: [academic presentation, slides, research talk, conference]
+  tags: [core, writing, presentation, academic-writing]
 ---
 
 # Academic Slides
