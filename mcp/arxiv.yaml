@@ -1,0 +1,8 @@
+name: arxiv
+label: "ArXiv  (search & fetch academic papers from arXiv)"
+description: "Search and fetch academic papers from arXiv"
+tags: [research]
+transport: stdio
+command: arxiv-mcp-server
+args: []
+pip_package: arxiv-mcp-server

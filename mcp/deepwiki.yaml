@@ -1,0 +1,6 @@
+name: deepwiki
+label: "DeepWiki  (search & read GitHub repo documentation)"
+description: "Search and read GitHub repository documentation"
+tags: [docs, research]
+transport: streamable_http
+url: "https://mcp.deepwiki.com/mcp"

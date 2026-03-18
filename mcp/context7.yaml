@@ -1,0 +1,12 @@
+name: context7
+label: "Context7  (fast documentation lookup — API key unlocks higher rate limits)"
+description: "Fast documentation lookup for libraries and frameworks"
+tags: [docs, search]
+transport: stdio
+command: npx
+args: ["-y", "@upstash/context7-mcp"]
+env:
+  CONTEXT7_API_KEY: "${CONTEXT7_API_KEY}"
+env_key: CONTEXT7_API_KEY
+env_hint: "export CONTEXT7_API_KEY=... (optional — unlocks higher rate limits)"
+env_optional: true

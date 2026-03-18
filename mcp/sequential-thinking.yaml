@@ -1,0 +1,7 @@
+name: sequential-thinking
+label: "Sequential Thinking  (structured reasoning for non-reasoning models)"
+description: "Chain-of-thought reasoning with sequential thinking steps"
+tags: [reasoning, core]
+transport: stdio
+command: npx
+args: ["-y", "@modelcontextprotocol/server-sequential-thinking"]

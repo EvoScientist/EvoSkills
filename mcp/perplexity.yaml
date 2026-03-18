@@ -1,0 +1,11 @@
+name: perplexity
+label: "Perplexity  (AI-powered web search — requires PERPLEXITY_API_KEY)"
+description: "AI-powered web search via Perplexity"
+tags: [search, research]
+transport: stdio
+command: npx
+args: ["-y", "@perplexity-ai/mcp-server"]
+env:
+  PERPLEXITY_API_KEY: "${PERPLEXITY_API_KEY}"
+env_key: PERPLEXITY_API_KEY
+env_hint: "export PERPLEXITY_API_KEY=pplx-... (get one at perplexity.ai/settings/api)"
