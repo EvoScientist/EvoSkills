@@ -1,0 +1,6 @@
+name: exa
+label: "Exa  (neural web search, code context, and company research)"
+description: "Neural web search and content retrieval via Exa"
+tags: [search, research]
+transport: http
+url: "https://mcp.exa.ai/mcp"
