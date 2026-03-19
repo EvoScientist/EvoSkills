@@ -1,7 +1,7 @@
 name: arxiv
 label: "ArXiv  (search & fetch academic papers from arXiv)"
 description: "Search and fetch academic papers from arXiv"
-tags: [research]
+tags: [academic-search, onboarding]
 transport: stdio
 command: arxiv-mcp-server
 args: []
