@@ -1,7 +1,7 @@
 name: context7
 label: "Context7  (fast documentation lookup — API key unlocks higher rate limits)"
 description: "Fast documentation lookup for libraries and frameworks"
-tags: [docs, search]
+tags: [documentation, onboarding]
 transport: stdio
 command: npx
 args: ["-y", "@upstash/context7-mcp"]

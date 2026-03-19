@@ -1,7 +1,7 @@
 name: perplexity
 label: "Perplexity  (AI-powered web search — requires PERPLEXITY_API_KEY)"
 description: "AI-powered web search via Perplexity"
-tags: [search, research]
+tags: [web-search, onboarding]
 transport: stdio
 command: npx
 args: ["-y", "@perplexity-ai/mcp-server"]
