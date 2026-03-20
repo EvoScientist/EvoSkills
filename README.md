@@ -237,6 +237,15 @@ Stay tuned — more skills are on the way!
           <sub><b>Yougang Lyu</b></sub>
         </a>
       </td>
+      <td align="center">
+        <a href="https://din0s.me/">
+          <img src="https://din0s.me/images/pk.jpg"
+               width="100" height="100"
+               style="object-fit: cover; border-radius: 20%;" alt="Dinos Papakostas"/>
+          <br />
+          <sub><b>Dinos Papakostas</b></sub>
+        </a>
+      </td>
     </tr>
   </tbody>
 </table>

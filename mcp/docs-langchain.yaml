@@ -1,0 +1,6 @@
+name: docs-langchain
+label: "Docs by LangChain  (documentation for building agents)"
+description: "Documentation for building agents with LangChain"
+tags: [documentation, onboarding]
+transport: streamable_http
+url: "https://docs.langchain.com/mcp"
