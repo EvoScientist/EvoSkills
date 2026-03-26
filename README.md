@@ -54,6 +54,15 @@ Simply ask the agent in conversation:
 
 > **Paper Suite + Self-Evolution Suite**: Each skill is self-contained — use them individually or combine freely. The self-evolution skills (`idea-tournament`, `experiment-pipeline`, `evo-memory`) form a learning loop that improves across research cycles.
 
+## 🔌 MCP Server Marketplace
+
+The [`mcp/`](./mcp/) directory contains a curated collection of [MCP](https://modelcontextprotocol.io/) servers that extend agents with external tools — web search, academic paper retrieval, documentation lookup, and more. Browse the [full list](./mcp/README.md) or install directly:
+
+```bash
+/install-mcp              # interactive browser
+EvoSci mcp install arxiv  # install by name
+```
+
 ### ⛳️ Framework Overview
 
 <p align="center">
@@ -258,7 +267,7 @@ For any enquiries or collaboration opportunities, please contact: [**EvoScientis
 
 ## 🤝 Contributing
 
-We welcome contributions! See our [Contributing Guidelines](./CONTRIBUTING.md) for how to improve existing skills or add new ones.
+We welcome contributions! See the guides for [skills](./skills/README.md) and [MCP servers](./mcp/README.md), or start with the [Contributing Guidelines](./CONTRIBUTING.md).
 
 ### 📈 Star History
 
