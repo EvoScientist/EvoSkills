@@ -27,6 +27,7 @@ EvoScientist discovers skills by scanning `skills/*/SKILL.md`. Each skill is loa
 | [`paper-review`](paper-review/) | Automated paper review & feedback |
 | [`paper-rebuttal`](paper-rebuttal/) | Rebuttal writing after peer review |
 | [`academic-slides`](academic-slides/) | Academic presentation & research talk creation |
+| [`iterative-coder`](iterative-coder/) | Iterative code refinement (plan → code → evaluate → refine cycles) |
 | [`evo-memory`](evo-memory/) | Persistent research memory & self-evolution |
 
 ## Contributing a Skill
