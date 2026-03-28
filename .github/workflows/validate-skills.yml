@@ -1,0 +1,22 @@
+name: Validate Skills
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["skills/**/SKILL.md"]
+  pull_request:
+    paths: ["skills/**/SKILL.md"]
+
+jobs:
+  validate-frontmatter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Validate SKILL.md frontmatter
+        run: python .github/scripts/validate_skills.py
