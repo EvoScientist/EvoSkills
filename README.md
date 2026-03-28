@@ -46,6 +46,7 @@ Simply ask the agent in conversation:
 | [`paper-planning`](#-paper-planning--research-paper-planning--outline-generation) | 📐 Research paper planning & outline generation |
 | [`experiment-pipeline`](#-experiment-pipeline--4-stage-experiment-execution) | 🧪 Structured 4-stage experiment execution |
 | [`experiment-craft`](#-experiment-craft--experiment-debugging--iteration) | 🔧 Experiment debugging, logging & iteration |
+| [`experiment-iterative-coder`](#-experiment-iterative-coder--iterative-code-refinement) | 🔄 Iterative code refinement (plan → code → evaluate → refine) |
 | [`paper-writing`](#-paper-writing--section-by-section-paper-drafting) | ✍️ End-to-end paper writing assistance |
 | [`paper-review`](#-paper-review--self-review--quality-assurance) | 🔍 Automated paper review & feedback |
 | [`paper-rebuttal`](#-paper-rebuttal--rebuttal-writing-after-peer-review) | 💬 Rebuttal writing after peer review |
@@ -142,6 +143,17 @@ A systematic approach to experiment debugging, logging, and iterative improvemen
 - **Counterintuitive Rules** — Change one variable at a time; effective experiments beat more experiments
 - **Experiment Logging** — 5-section structured log template for reproducible records
 - **Handoff to Paper-Writing** — Feed validated results and logs into `paper-writing` for drafting
+
+### 🔄 `experiment-iterative-coder` — Iterative Code Refinement
+
+Structured plan → code → evaluate → refine cycles for higher code quality:
+
+- **Phase Decomposition** — Break complex tasks into 1-5 sequential phases
+- **Iteration Loop** — Up to 3 iterations per phase (10 total): plan, code, run lint/tests, score, decide
+- **Objective Evaluation** — ruff lint + pytest with dynamic score weighting and hard caps
+- **Failure Mode Guidance** — Targeted responses for timeout, syntax, import, test, and lint failures
+
+Integrates with `experiment-craft` for stuck diagnoses and `evo-memory` for loading prior strategies.
 
 ### ✍️ `paper-writing` — Section-by-Section Paper Drafting
 

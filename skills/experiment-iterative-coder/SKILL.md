@@ -1,5 +1,5 @@
 ---
-name: iterative-coder
+name: experiment-iterative-coder
 description: "Iterative code refinement through plan → code → evaluate → refine cycles. Runs lint checks (ruff), tests (pytest), and structured self-evaluation each cycle, then diagnoses failures and refines. Decomposes complex tasks into sequential phases, iterates up to 3 times per phase (10 total). Use when: the main agent delegates a code task with 'MODE: MORE_EFFORT', the user selects 'More Effort' code generation mode, or the task explicitly requests iterative refinement for higher code quality. Do NOT use for single-pass code generation (Lite mode), experiment pipeline orchestration (use experiment-pipeline), or diagnosing a specific experiment failure (use experiment-craft)."
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
