@@ -77,7 +77,7 @@ The diagram above shows the full EvoScientist pipeline. The **Researcher Agent**
 ```mermaid
 flowchart LR
     A["<b>🔬 Research Phase</b><br/>💡 research-ideation<br/>🏆 idea-tournament"]
-    --> B["<b>⚙️ Experiment Phase</b><br/>📐 paper-planning<br/>🧪 experiment-pipeline<br/>🔧 experiment-craft"]
+    --> B["<b>⚙️ Experiment Phase</b><br/>📐 paper-planning<br/>🧪 experiment-pipeline<br/>🔧 experiment-craft<br/>🔄 experiment-iterative-coder"]
     --> C["<b>📝 Writing Phase</b><br/>✍️ paper-writing<br/>🔍 paper-review<br/>💬 paper-rebuttal<br/>🎤 academic-slides"]
 
     D[("🧠 evo-memory<br/>(IDE · IVE · ESE)")] <--> A
@@ -211,11 +211,14 @@ Read by `idea-tournament` and `experiment-pipeline` at cycle start; updated afte
 
 ## 🎯 ᯓ➤ Roadmap
 
-Coming soon:
+Completed:
 - [x] 🧠 **Self-Evolution Suite** — `idea-tournament`, `experiment-pipeline`, `evo-memory`
+- [x] 📚 **Literature Survey** — Systematic literature search, filtering, and survey generation
+- [x] 🔄 **Iterative Coder** — Iterative code refinement with plan → code → evaluate → refine cycles
+
+Coming soon:
 - [ ] 🏅 **Math Olympiad** — Advanced mathematical reasoning & problem solving
 - [ ] 🎨 **Visual Generation** — Diagrams, figures & graphic content creation
-- [ ] 📚 **Literature Survey** — Systematic literature search, filtering, and survey generation
 - [ ] 🔬 **Paper Reproduction** — Read a paper, reproduce its core results, and verify claims
 - [ ] 💡 **Grant & Proposal Writing** — Research proposal drafting with funding agency conventions
 - [ ] 🤖 **Peer Debate** — Multi-agent adversarial discussion to stress-test research ideas
@@ -267,6 +270,15 @@ Stay tuned — more skills are on the way!
           <sub><b>Dinos Papakostas</b></sub>
         </a>
       </td>
+      <td align="center">
+        <a href="https://go0day.github.io/">
+          <img src="https://go0day.github.io/authors/admin/avatar_hu_ee1051aceae96124.png"
+               width="100" height="100"
+               style="object-fit: cover; border-radius: 20%;" alt="Yuyue Zhao"/>
+          <br />
+          <sub><b>Yuyue Zhao</b></sub>
+        </a>
+      </td>
     </tr>
   </tbody>
 </table>
@@ -280,6 +292,12 @@ For any enquiries or collaboration opportunities, please contact: [**EvoScientis
 ## 🤝 Contributing
 
 We welcome contributions! See the guides for [skills](./skills/README.md) and [MCP servers](./mcp/README.md), or start with the [Contributing Guidelines](./CONTRIBUTING.md).
+
+Every contribution brings us one step closer to a future where AI accelerates scientific breakthroughs for all of humanity.
+
+<a href="https://github.com/EvoScientist/EvoSkills/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=EvoScientist/EvoSkills" />
+</a>
 
 ### 📈 Star History
 
