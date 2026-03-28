@@ -9,5 +9,15 @@ build/
 .DS_Store
 Thumbs.db
 
+# IDE / Tools
+.vscode/
+.idea/
+.claude/
+
 # Optimization artifacts (eval results, intermediate logs)
 optimization/
+
+# Project specific
+workspace/
+*CLAUDE.md
+*AGENTS.md
