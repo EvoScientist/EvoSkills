@@ -6,7 +6,7 @@ Serves the generated slides with an interactive viewer. Users can write
 feedback per slide and save it directly back to slides_plan.json.
 
 Usage:
-  python skills/ppt-generator/scripts/serve_viewer.py \
+  python skills/nano-banana/scripts/serve_viewer.py \
     --dir ppt_output \
     --plan slides_plan.json \
     --port 8080

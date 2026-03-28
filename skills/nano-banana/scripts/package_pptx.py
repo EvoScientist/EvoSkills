@@ -6,7 +6,7 @@ Takes a directory of slide images and packages them into a PowerPoint
 presentation with 16:9 aspect ratio, full-bleed images.
 
 Usage:
-  python skills/ppt-generator/scripts/package_pptx.py \
+  python skills/nano-banana/scripts/package_pptx.py \
     --dir ppt_output \
     --output my_presentation.pptx
 """
@@ -75,7 +75,7 @@ def main():
         description="Package slide images into a .pptx file",
         epilog="""
 Example usage:
-  python skills/ppt-generator/scripts/package_pptx.py \\
+  python skills/nano-banana/scripts/package_pptx.py \\
     --dir ppt_output/images \\
     --output presentation.pptx
 """,

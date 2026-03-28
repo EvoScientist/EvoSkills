@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-PPT Generator - Generate PPT slide images using Google Gemini API.
+Nano Banana - Generate presentation slide images using Google Gemini API.
 
-This script generates PPT slide images based on a slide plan and style template,
+This script generates presentation slide images based on a slide plan and style template,
 then creates an HTML viewer for playback.
 """
 
@@ -31,7 +31,7 @@ SUPPORTED_MODELS = [
     "gemini-2.5-flash-image",           # Fastest, basic quality
 ]
 
-# Skill root directory (ppt-generator/)
+# Skill root directory (nano-banana/)
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TEMPLATE_PATH = str(SKILL_ROOT / "templates" / "viewer.html")
 
@@ -360,13 +360,13 @@ def save_prompts(output_dir: str, prompts_data: Dict[str, Any]) -> str:
 def create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure argument parser."""
     parser = argparse.ArgumentParser(
-        description="PPT Generator - Generate PPT images using Gemini API",
+        description="Nano Banana - Generate slide images using Gemini API",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Example usage:
-  python skills/ppt-generator/scripts/generate_ppt.py \\
+  python skills/nano-banana/scripts/generate_ppt.py \\
     --plan slides_plan.json \\
-    --style skills/ppt-generator/styles/lineal-color.md \\
+    --style skills/nano-banana/styles/lineal-color.md \\
     --output ppt_output
 
 Environment variables (checked in order):

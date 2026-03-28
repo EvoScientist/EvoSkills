@@ -1,14 +1,14 @@
 ---
-name: ppt-generator
-description: "Generate professional presentation slides and high-quality illustrations using Gemini image generation API, with interactive browser-based review and iterative editing. Full workflow: content planning conversation → slides_plan.json → batch image generation → review with feedback → targeted slide editing → PPTX packaging. Use when: user wants to create a presentation, make slides, generate a PPT/PPTX, prepare a talk deck, design visual slide content, or generate high-quality figures/illustrations for papers and documents. Do NOT use for: writing academic papers (use paper-writing) or planning academic conference talk narrative structure (use academic-slides)."
+name: nano-banana
+description: "Generate professional presentation slides and high-quality illustrations using Gemini image generation API (Nano Banana 2), with interactive browser-based review and iterative editing. Full workflow: content planning conversation → slides_plan.json → batch image generation → review with feedback → targeted slide editing → PPTX packaging. Use when: user wants to create a presentation, make slides, generate a PPT/PPTX, prepare a talk deck, design visual slide content, or generate high-quality figures/illustrations for papers and documents. Do NOT use for: writing academic papers (use paper-writing) or planning academic conference talk narrative structure (use academic-slides)."
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
-  author: Xi Zhang
+  author: EvoScientist
   version: '1.0.0'
-  tags: [presentation, ppt, slides, image-generation, gemini]
+  tags: [core, presentation, image-generation]
 ---
 
-# PPT Generator
+# Nano Banana
 
 Generate high-quality presentation slides as images using Gemini's image generation API, review them interactively in a browser, and iteratively edit based on feedback.
 
@@ -182,9 +182,9 @@ For first-time generation, recommend `gemini-3.1-flash-image-preview` (fast iter
 ### Generate Command
 
 ```bash
-python /skills/ppt-generator/scripts/generate_ppt.py \
+python /skills/nano-banana/scripts/generate_ppt.py \
   --plan slides_plan.json \
-  --style /skills/ppt-generator/styles/lineal-color.md \
+  --style /skills/nano-banana/styles/lineal-color.md \
   --model gemini-3.1-flash-image-preview \
   --output ppt_output
 ```
@@ -215,7 +215,7 @@ ppt_output/
 Start the interactive review server so the user can review slides and write feedback:
 
 ```bash
-python /skills/ppt-generator/scripts/serve_viewer.py \
+python /skills/nano-banana/scripts/serve_viewer.py \
   --dir ppt_output \
   --plan slides_plan.json \
   --port 8080
@@ -235,7 +235,7 @@ Wait for the user to confirm they have saved their feedback before proceeding.
 Read `slides_plan.json` and find all slides with a non-empty `feedback` field. For each one, run the edit script:
 
 ```bash
-python /skills/ppt-generator/scripts/edit_slide.py \
+python /skills/nano-banana/scripts/edit_slide.py \
   --input ppt_output/images/slide-{NUMBER}.png \
   --instruction "{FEEDBACK_TEXT}" \
   --output ppt_output/images/slide-{NUMBER}.png \
@@ -260,7 +260,7 @@ If the user has more feedback, repeat Phase 4-5. This review-edit cycle continue
 Once the user approves all slides, ask for the desired filename and package them:
 
 ```bash
-python /skills/ppt-generator/scripts/package_pptx.py \
+python /skills/nano-banana/scripts/package_pptx.py \
   --dir ppt_output/images \
   --output presentation.pptx
 ```
