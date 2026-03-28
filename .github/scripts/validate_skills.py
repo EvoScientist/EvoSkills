@@ -82,7 +82,9 @@ def main():
 
     print()
     if all_errors:
-        print(f"❌ {len(all_errors)} error(s) in {len(set(e.split(':')[0] for e in all_errors))} skill(s)")
+        print(
+            f"❌ {len(all_errors)} error(s) in {len(set(e.split(':')[0] for e in all_errors))} skill(s)"
+        )
         sys.exit(1)
     else:
         print(f"✅ All {len(skill_files)} skills passed validation")
