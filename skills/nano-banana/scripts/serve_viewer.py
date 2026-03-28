@@ -20,7 +20,6 @@ import webbrowser
 from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import parse_qs
 
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
@@ -110,8 +109,12 @@ def main():
     parser = argparse.ArgumentParser(description="PPT Viewer Server")
     parser.add_argument("--dir", required=True, help="Output directory with images/")
     parser.add_argument("--plan", required=True, help="Path to slides_plan.json")
-    parser.add_argument("--port", type=int, default=8080, help="Server port (default: 8080)")
-    parser.add_argument("--no-open", action="store_true", help="Don't auto-open browser")
+    parser.add_argument(
+        "--port", type=int, default=8080, help="Server port (default: 8080)"
+    )
+    parser.add_argument(
+        "--no-open", action="store_true", help="Don't auto-open browser"
+    )
     args = parser.parse_args()
 
     if not os.path.isdir(args.dir):

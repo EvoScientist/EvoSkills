@@ -12,7 +12,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
 
@@ -26,9 +26,9 @@ DEFAULT_MODEL = "gemini-3-pro-image-preview"
 OUTPUT_BASE_DIR = "ppt_output"
 
 SUPPORTED_MODELS = [
-    "gemini-3-pro-image-preview",       # Best quality, moderate speed
-    "gemini-3.1-flash-image-preview",   # Fast, good quality
-    "gemini-2.5-flash-image",           # Fastest, basic quality
+    "gemini-3-pro-image-preview",  # Best quality, moderate speed
+    "gemini-3.1-flash-image-preview",  # Fast, good quality
+    "gemini-2.5-flash-image",  # Fastest, basic quality
 ]
 
 # Skill root directory (nano-banana/)
@@ -39,6 +39,7 @@ DEFAULT_TEMPLATE_PATH = str(SKILL_ROOT / "templates" / "viewer.html")
 # =============================================================================
 # Environment Configuration
 # =============================================================================
+
 
 def find_and_load_env() -> bool:
     """
@@ -58,6 +59,7 @@ def find_and_load_env() -> bool:
 # =============================================================================
 # Style Template
 # =============================================================================
+
 
 def load_style_template(style_path: str) -> dict:
     """
@@ -98,7 +100,11 @@ def load_style_template(style_path: str) -> dict:
             return ""
         start += len(header) + 1
         end_candidates = [text.find("\n### ", start), text.find("\n## ", start)]
-        end = min(e for e in end_candidates if e != -1) if any(e != -1 for e in end_candidates) else -1
+        end = (
+            min(e for e in end_candidates if e != -1)
+            if any(e != -1 for e in end_candidates)
+            else -1
+        )
         return text[start:end].strip() if end != -1 else text[start:].strip()
 
     def strip_code_fence(text: str) -> str:
@@ -111,26 +117,42 @@ def load_style_template(style_path: str) -> dict:
         return "\n".join(lines).strip()
 
     # Support both English and Chinese section headers
-    base = extract_section(raw, "## Base Prompt") or extract_section(raw, "## 基础提示词模板")
+    base = extract_section(raw, "## Base Prompt") or extract_section(
+        raw, "## 基础提示词模板"
+    )
 
-    examples_section = extract_section(raw, "## Examples") or extract_section(raw, "## 使用示例")
-    cover_raw  = extract_subsection(examples_section, "### Cover") or extract_subsection(examples_section, "### 生成封面页")
-    content_raw = extract_subsection(examples_section, "### Content") or extract_subsection(examples_section, "### 生成内容页")
-    data_raw   = extract_subsection(examples_section, "### Data") or extract_subsection(examples_section, "### 生成数据页")
+    examples_section = extract_section(raw, "## Examples") or extract_section(
+        raw, "## 使用示例"
+    )
+    cover_raw = extract_subsection(examples_section, "### Cover") or extract_subsection(
+        examples_section, "### 生成封面页"
+    )
+    content_raw = extract_subsection(
+        examples_section, "### Content"
+    ) or extract_subsection(examples_section, "### 生成内容页")
+    data_raw = extract_subsection(examples_section, "### Data") or extract_subsection(
+        examples_section, "### 生成数据页"
+    )
 
-    cover   = strip_code_fence(cover_raw)   if cover_raw   else ""
+    cover = strip_code_fence(cover_raw) if cover_raw else ""
     content = strip_code_fence(content_raw) if content_raw else ""
-    data    = strip_code_fence(data_raw)    if data_raw    else ""
+    data = strip_code_fence(data_raw) if data_raw else ""
 
     # Fallback: if no per-type templates found, use page-type template descriptions
     if not cover:
-        cover_desc = extract_subsection(raw, "### Cover Template") or extract_subsection(raw, "### 封面页模板")
+        cover_desc = extract_subsection(
+            raw, "### Cover Template"
+        ) or extract_subsection(raw, "### 封面页模板")
         cover = f"{base}\n\nPlease generate a cover slide.\n{cover_desc}"
     if not content:
-        content_desc = extract_subsection(raw, "### Content Template") or extract_subsection(raw, "### 内容页模板")
+        content_desc = extract_subsection(
+            raw, "### Content Template"
+        ) or extract_subsection(raw, "### 内容页模板")
         content = f"{base}\n\nPlease generate a content slide.\n{content_desc}"
     if not data:
-        data_desc = extract_subsection(raw, "### Data Template") or extract_subsection(raw, "### 数据页模板")
+        data_desc = extract_subsection(raw, "### Data Template") or extract_subsection(
+            raw, "### 数据页模板"
+        )
         data = f"{base}\n\nPlease generate a data/summary slide.\n{data_desc}"
 
     return {"base": base, "cover": cover, "content": content, "data": data}
@@ -139,6 +161,7 @@ def load_style_template(style_path: str) -> dict:
 # =============================================================================
 # Prompt Generation
 # =============================================================================
+
 
 def generate_prompt(
     style_template: dict,
@@ -161,7 +184,7 @@ def generate_prompt(
         Complete prompt string for image generation.
     """
     is_cover = page_type == "cover" or slide_number == 1
-    is_data  = page_type == "data"
+    is_data = page_type == "data"
 
     if is_cover:
         template = style_template.get("cover", "")
@@ -195,6 +218,7 @@ def generate_prompt(
 # Image Generation
 # =============================================================================
 
+
 def get_gemini_client(api_key: Optional[str] = None):
     """
     Initialize and return Gemini API client.
@@ -217,7 +241,9 @@ def get_gemini_client(api_key: Optional[str] = None):
         print("Please run: pip install google-genai")
         sys.exit(1)
 
-    key = api_key or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    key = (
+        api_key or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    )
     if not key:
         print("Error: No API key provided.")
         print("Options:")
@@ -272,6 +298,7 @@ def generate_slide(
         for part in response.parts:
             if part.inline_data is not None:
                 from PIL import Image
+
                 image_path = os.path.join(
                     output_dir, "images", f"slide-{slide_number:02d}.png"
                 )
@@ -294,6 +321,7 @@ def generate_slide(
 # =============================================================================
 # Output Generation
 # =============================================================================
+
 
 def generate_viewer_html(
     output_dir: str,
@@ -356,6 +384,7 @@ def save_prompts(output_dir: str, prompts_data: Dict[str, Any]) -> str:
 # =============================================================================
 # Main Entry Point
 # =============================================================================
+
 
 def create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure argument parser."""
@@ -471,16 +500,26 @@ def main() -> None:
         )
 
         # Generate image
-        image_path = generate_slide(prompt, slide_number, total_slides, output_dir, args.resolution, args.api_key, args.model)
+        image_path = generate_slide(
+            prompt,
+            slide_number,
+            total_slides,
+            output_dir,
+            args.resolution,
+            args.api_key,
+            args.model,
+        )
 
         # Record prompt data
-        prompts_data["slides"].append({
-            "slide_number": slide_number,
-            "page_type": page_type,
-            "content": content_text,
-            "prompt": prompt,
-            "image_path": image_path,
-        })
+        prompts_data["slides"].append(
+            {
+                "slide_number": slide_number,
+                "page_type": page_type,
+                "content": content_text,
+                "prompt": prompt,
+                "image_path": image_path,
+            }
+        )
 
     # Save prompts
     save_prompts(output_dir, prompts_data)
@@ -489,7 +528,9 @@ def main() -> None:
     generate_viewer_html(output_dir, total_slides, args.template)
 
     failed = sum(1 for s in prompts_data["slides"] if s["image_path"] is None)
-    print(f"Done. {total_slides - failed}/{total_slides} slides generated. Output: {output_dir}/")
+    print(
+        f"Done. {total_slides - failed}/{total_slides} slides generated. Output: {output_dir}/"
+    )
 
 
 if __name__ == "__main__":

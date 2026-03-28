@@ -14,7 +14,6 @@ Usage:
 import argparse
 import os
 import sys
-from pathlib import Path
 
 
 def package_pptx(image_dir: str, output_path: str) -> str:
@@ -38,7 +37,11 @@ def package_pptx(image_dir: str, output_path: str) -> str:
 
     # Find all slide images, sorted by number
     images = sorted(
-        [f for f in os.listdir(image_dir) if f.startswith("slide-") and f.endswith(".png")]
+        [
+            f
+            for f in os.listdir(image_dir)
+            if f.startswith("slide-") and f.endswith(".png")
+        ]
     )
 
     if not images:
@@ -56,8 +59,10 @@ def package_pptx(image_dir: str, output_path: str) -> str:
         slide = prs.slides.add_slide(blank_layout)
         slide.shapes.add_picture(
             img_path,
-            Emu(0), Emu(0),
-            prs.slide_width, prs.slide_height,
+            Emu(0),
+            Emu(0),
+            prs.slide_width,
+            prs.slide_height,
         )
 
     # Ensure output directory exists
@@ -80,7 +85,9 @@ Example usage:
     --output presentation.pptx
 """,
     )
-    parser.add_argument("--dir", required=True, help="Directory containing slide-XX.png images")
+    parser.add_argument(
+        "--dir", required=True, help="Directory containing slide-XX.png images"
+    )
     parser.add_argument("--output", required=True, help="Output .pptx file path")
 
     args = parser.parse_args()

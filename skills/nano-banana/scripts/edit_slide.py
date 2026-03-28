@@ -9,7 +9,6 @@ version using Gemini's image editing (text + image -> image) capability.
 import argparse
 import os
 import sys
-from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -32,6 +31,7 @@ SUPPORTED_MODELS = [
 # API Client
 # =============================================================================
 
+
 def get_gemini_client(api_key: Optional[str] = None):
     """Initialize Gemini API client. Priority: arg > GOOGLE_API_KEY > GEMINI_API_KEY."""
     try:
@@ -41,7 +41,9 @@ def get_gemini_client(api_key: Optional[str] = None):
         print("Please run: pip install google-genai")
         sys.exit(1)
 
-    key = api_key or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    key = (
+        api_key or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    )
     if not key:
         print("Error: No API key provided.")
         print("Options: --api-key <key> | GOOGLE_API_KEY env | GEMINI_API_KEY env")
@@ -53,6 +55,7 @@ def get_gemini_client(api_key: Optional[str] = None):
 # =============================================================================
 # Image Editing
 # =============================================================================
+
 
 def edit_slide(
     input_path: str,
@@ -104,7 +107,7 @@ def edit_slide(
                 print(f"OK: {output_path}")
                 return output_path
 
-        print(f"FAIL: No image data returned")
+        print("FAIL: No image data returned")
         return None
 
     except Exception as e:
@@ -115,6 +118,7 @@ def edit_slide(
 # =============================================================================
 # Main
 # =============================================================================
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
