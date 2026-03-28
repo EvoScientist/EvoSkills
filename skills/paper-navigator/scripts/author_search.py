@@ -3,63 +3,36 @@
 
 import argparse
 import json
-import os
 import sys
-import time
 
 import httpx
 
-S2_BASE = "https://api.semanticscholar.org/graph/v1"
+from utils import S2_BASE, s2_headers, request_with_retry
+
 AUTHOR_FIELDS = "authorId,name,affiliations,paperCount,citationCount,hIndex"
-PAPER_FIELDS = "paperId,externalIds,title,year,citationCount,tldr,isOpenAccess,openAccessPdf"
-
-MAX_RETRIES = 3
-RETRY_DELAYS = [2, 4, 8]
-
-
-def _headers() -> dict:
-    h = {"User-Agent": "EvoScientist/1.0 (paper-navigator)"}
-    key = os.environ.get("S2_API_KEY")
-    if key:
-        h["x-api-key"] = key
-    return h
-
-
-def _request_with_retry(client: httpx.Client, url: str, params: dict | None = None) -> dict:
-    for attempt in range(MAX_RETRIES):
-        try:
-            resp = client.get(url, params=params, headers=_headers(), timeout=30)
-            if resp.status_code == 429 or resp.status_code >= 500:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_DELAYS[attempt])
-                    continue
-            resp.raise_for_status()
-            return resp.json()
-        except httpx.HTTPStatusError:
-            raise
-        except httpx.HTTPError as e:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAYS[attempt])
-                continue
-            raise SystemExit(f"Error: {e}") from e
-    return {}
+PAPER_FIELDS = "paperId,externalIds,title,year,citationCount,isOpenAccess,openAccessPdf"
 
 
 def search_author(name: str) -> list[dict]:
     """Search for authors by name."""
     with httpx.Client() as client:
-        data = _request_with_retry(client, f"{S2_BASE}/author/search",
-                                   {"query": name, "fields": AUTHOR_FIELDS, "limit": 5})
+        data = request_with_retry(
+            client,
+            f"{S2_BASE}/author/search",
+            {"query": name, "fields": AUTHOR_FIELDS, "limit": 5},
+            s2_headers(),
+        )
     return data.get("data", [])
 
 
 def get_author_papers(author_id: str, limit: int = 20) -> list[dict]:
     """Get papers by a specific author."""
     with httpx.Client() as client:
-        data = _request_with_retry(
+        data = request_with_retry(
             client,
             f"{S2_BASE}/author/{author_id}/papers",
-            {"fields": PAPER_FIELDS, "limit": min(limit, 1000)}
+            {"fields": PAPER_FIELDS, "limit": min(limit, 1000)},
+            s2_headers(),
         )
     return data.get("data", [])
 
@@ -71,9 +44,11 @@ def format_author(a: dict) -> str:
     papers = a.get("paperCount", 0)
     citations = a.get("citationCount", 0)
     h_index = a.get("hIndex", "?")
-    return (f"**{name}** (ID: `{aid}`)\n"
-            f"  Affiliation: {affiliations} | Papers: {papers} | "
-            f"Citations: {citations} | h-index: {h_index}")
+    return (
+        f"**{name}** (ID: `{aid}`)\n"
+        f"  Affiliation: {affiliations} | Papers: {papers} | "
+        f"Citations: {citations} | h-index: {h_index}"
+    )
 
 
 def format_paper(p: dict, idx: int) -> str:
@@ -84,11 +59,7 @@ def format_paper(p: dict, idx: int) -> str:
     arxiv = ext.get("ArXiv", "")
     id_str = f"arXiv:`{arxiv}`" if arxiv else f"S2:`{p.get('paperId', '')[:12]}…`"
 
-    tldr = ""
-    if p.get("tldr") and p["tldr"].get("text"):
-        tldr = f"\n  > {p['tldr']['text']}"
-
-    return f"{idx}. **{title}** ({year}) — ⭐{citations} — {id_str}{tldr}"
+    return f"{idx}. **{title}** ({year}) — ⭐{citations} — {id_str}"
 
 
 def main():
@@ -96,7 +67,9 @@ def main():
     parser.add_argument("--name", help="Author name to search")
     parser.add_argument("--author-id", help="S2 author ID (skip name search)")
     parser.add_argument("--papers", action="store_true", help="List author's papers")
-    parser.add_argument("--limit", "-l", type=int, default=20, help="Max papers (default 20)")
+    parser.add_argument(
+        "--limit", "-l", type=int, default=20, help="Max papers (default 20)"
+    )
     parser.add_argument("--sort-by", choices=["citations", "year"], default="year")
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
@@ -136,7 +109,7 @@ def main():
         else:
             papers.sort(key=lambda p: p.get("year", 0), reverse=True)
 
-        papers = papers[:args.limit]
+        papers = papers[: args.limit]
 
         if args.json:
             print(json.dumps(papers, indent=2))

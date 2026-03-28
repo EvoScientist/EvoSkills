@@ -96,25 +96,48 @@ Returns the target URL content as clean Markdown. Works with:
 
 ---
 
-## Papers With Code API
+## HuggingFace API
 
-**Base URL:** `https://paperswithcode.com/api/v1`
+**Base URL:** `https://huggingface.co/api`
 
-**Auth:** None required
-**Rate limit:** Generous (undocumented)
+**Auth:** Optional `HF_TOKEN` env var (header: `Authorization: Bearer <token>`)
+**Rate limit:** 500 requests / 300 seconds per IP
 
 ### Key Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/papers/?q=...` | GET | Search papers |
-| `/papers/?arxiv_id=...` | GET | Find paper by arXiv ID |
-| `/papers/{id}/repositories/` | GET | Code repos for a paper |
-| `/tasks/?q=...` | GET | Search tasks/benchmarks |
-| `/tasks/{id}/datasets/` | GET | Datasets for a task |
-| `/evaluations/?task=...&dataset=...` | GET | SOTA results |
-| `/datasets/?q=...` | GET | Search datasets |
+| `/papers/{arxiv_id}` | GET | Paper metadata (title, authors, githubRepo, githubStars) |
+| `/papers/search?q=...&limit=N` | GET | Hybrid semantic + full-text paper search |
+| `/daily_papers?date=YYYY-MM-DD` | GET | Daily papers feed |
+| `/models?search=...&sort=downloads` | GET | Search models |
+| `/models?pipeline_tag=...&sort=likes` | GET | Models by task category |
+| `/models?filter=arxiv:{id}` | GET | Models linked to a paper |
+| `/datasets?search=...&limit=N` | GET | Search datasets |
+| `/datasets?filter=arxiv:{id}` | GET | Datasets linked to a paper |
 
-### IDs
+### Paper Page (Markdown)
 
-Paper IDs and task IDs use URL-slug format (e.g. `attention-is-all-you-need`, `machine-translation`).
+Fetch paper content as Markdown:
+```
+GET https://huggingface.co/papers/{arxiv_id}.md
+```
+
+### Pipeline Tags (Task Categories)
+
+Common tags: `text-generation`, `text-classification`, `image-classification`, `object-detection`, `automatic-speech-recognition`, `text-to-image`, `translation`, `summarization`, `question-answering`, `fill-mask`
+
+---
+
+## GitHub API
+
+**Base URL:** `https://api.github.com`
+
+**Auth:** Optional `GITHUB_TOKEN` env var (header: `Authorization: token <token>`)
+**Rate limit:** 10 req/min unauthenticated, 5,000 req/hr with token
+
+### Key Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/search/repositories?q=...&sort=stars` | GET | Search repos by keyword |

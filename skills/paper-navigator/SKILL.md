@@ -1,14 +1,11 @@
 ---
 name: paper-navigator
-description: >
-  End-to-end academic paper workflow: disambiguate queries, discover papers (search,
-  citation traversal, recommendations, arXiv monitoring, trending detection, GitHub
-  search), evaluate them (TLDR, citation metrics, code availability, SOTA ranking),
-  read full text with structured analysis (3-level reading strategy), and organize
-  into literature maps (novelty tree, challenge-insight tree) or structured reports.
-  Use when the user asks about finding papers, reading a paper, related work,
-  literature survey, citation analysis, new papers, research trends, paper
-  implementations, SOTA results, datasets, or generating literature reports.
+description: "End-to-end academic paper workflow: disambiguate queries, discover papers (search, citation traversal, recommendations, arXiv monitoring, trending, GitHub search), evaluate (TLDR, citations, code, SOTA), read with structured analysis (3-level strategy), and organize into literature maps or reports. Use when: finding papers, reading a paper, related work, literature survey, citation analysis, research trends, SOTA results, datasets, or literature reports. Do NOT use for writing a literature review section (use paper-writing), comparing research ideas (use idea-tournament), or planning paper structure (use paper-planning)."
+allowed-tools: "write_file edit_file read_file think_tool execute"
+metadata:
+  author: EvoScientist
+  version: '1.0.0'
+  tags: [core, research, literature, papers, search, citation]
 ---
 
 # Paper Navigator
@@ -18,7 +15,6 @@ End-to-end paper workflow in five stages:
 ```
 ┌──────────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
 │ Disambiguate │ →  │ Discover │ →  │ Evaluate │ →  │   Read   │ →  │ Organize │
-│ 意图分析     │    │ 发现论文  │    │ 筛选评估  │    │ 深度阅读  │    │ 文献图谱  │
 └──────────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘
 ```
 
@@ -33,6 +29,8 @@ End-to-end paper workflow in five stages:
 **Setup:** All scripts use `httpx` (already in project). Optional env vars for higher rate limits:
 - `S2_API_KEY` — Semantic Scholar ([request here](https://www.semanticscholar.org/product/api#api-key))
 - `JINA_API_KEY` — Jina Reader (free tier works without key)
+- `GITHUB_TOKEN` — GitHub personal access token (for higher rate limits on `github_search`, `find_code`)
+- `HF_TOKEN` — HuggingFace token (optional, for higher rate limits on `find_code`, `dataset_search`, `sota`)
 
 Scripts are in `EvoScientist/skills/paper-navigator/scripts/`. Run via `python EvoScientist/skills/paper-navigator/scripts/<name>.py`.
 
@@ -204,14 +202,14 @@ python scripts/find_code.py --arxiv-id 1706.03762
 
 Returns: GitHub URLs, stars, framework, whether official implementation.
 
-### SOTA Ranking
+### Top Models by Task
 
 ```bash
-python scripts/sota.py --task "Machine Translation" --dataset "WMT14 EN-DE"
-# List available tasks first:
-python scripts/sota.py --task "Machine Translation" --list-tasks
-# List datasets for a task:
-python scripts/sota.py --task "Machine Translation" --list-datasets
+python scripts/sota.py --task "text-generation" --limit 10
+# List available pipeline tags:
+python scripts/sota.py --task "translation" --list-tasks
+# Sort by likes instead of downloads:
+python scripts/sota.py --task "text-generation" --sort likes
 ```
 
 ### Dataset Discovery
@@ -379,8 +377,8 @@ python scripts/literature_report.py --paper-ids ArXiv:2601.07372 --output /artif
 > "I need a baseline for text classification with code"
 
 1. **Discover:** `scholar_search --query "text classification" --sort-by citations`
-2. **Evaluate:** `find_code` on top results + `sota --task "Text Classification"` → pick one with official code + strong results
-3. Output: recommended baseline + GitHub link + SOTA position
+2. **Evaluate:** `find_code` on top results + `sota --task "text-classification"` → pick one with official code + high downloads
+3. Output: recommended baseline + GitHub link + model page
 
 ### Workflow 5: Read a Paper by URL
 
@@ -427,8 +425,8 @@ Scripts accept multiple ID formats and normalize automatically:
 | Semantic Scholar | ~100 req / 5 min | ~1 req/s sustained |
 | arXiv | 1 req / 3s (courtesy) | N/A |
 | Jina Reader | Free tier | Higher with key |
-| Papers With Code | Generous | N/A |
-| GitHub | 10 req/min | 5,000 req/hr |
+| HuggingFace | 500 req / 300s | Higher with `HF_TOKEN` |
+| GitHub | 10 req/min (unauthenticated) | 5,000 req/hr (set `GITHUB_TOKEN`) |
 
 ### Error Handling
 

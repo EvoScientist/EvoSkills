@@ -8,39 +8,15 @@ or matching keywords.
 import argparse
 import json
 import sys
-import time
-import urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 
 import httpx
 
+from utils import arxiv_headers, request_with_retry
+
 ARXIV_API = "https://export.arxiv.org/api/query"
 NS = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
-
-MAX_RETRIES = 3
-RETRY_DELAYS = [2, 4, 8]
-
-
-_UA = {"User-Agent": "EvoScientist/1.0 (paper-navigator)"}
-
-
-def _request_with_retry(client: httpx.Client, url: str, params: dict) -> str:
-    for attempt in range(MAX_RETRIES):
-        try:
-            resp = client.get(url, params=params, headers=_UA, timeout=30)
-            if resp.status_code == 429 or resp.status_code >= 500:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_DELAYS[attempt])
-                    continue
-            resp.raise_for_status()
-            return resp.text
-        except httpx.HTTPError as e:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAYS[attempt])
-                continue
-            raise SystemExit(f"Error: {e}") from e
-    return ""
 
 
 def _parse_entries(xml_text: str) -> list[dict]:
@@ -82,21 +58,25 @@ def _parse_entries(xml_text: str) -> list[dict]:
         if comment_el is not None and comment_el.text:
             comment = comment_el.text.strip()
 
-        papers.append({
-            "arxiv_id": arxiv_id,
-            "title": title,
-            "authors": authors,
-            "summary": summary[:300],
-            "categories": categories,
-            "published": published,
-            "updated": updated,
-            "pdf_url": pdf_url,
-            "comment": comment,
-        })
+        papers.append(
+            {
+                "arxiv_id": arxiv_id,
+                "title": title,
+                "authors": authors,
+                "summary": summary[:300],
+                "categories": categories,
+                "published": published,
+                "updated": updated,
+                "pdf_url": pdf_url,
+                "comment": comment,
+            }
+        )
     return papers
 
 
-def fetch_by_categories(categories: list[str], days: int = 1, limit: int = 50) -> list[dict]:
+def fetch_by_categories(
+    categories: list[str], days: int = 1, limit: int = 50
+) -> list[dict]:
     """Fetch recent papers from specific arXiv categories."""
     # arXiv API query: cat:cs.CL OR cat:cs.AI
     cat_query = " OR ".join(f"cat:{c}" for c in categories)
@@ -115,11 +95,15 @@ def fetch_by_categories(categories: list[str], days: int = 1, limit: int = 50) -
     }
 
     with httpx.Client() as client:
-        xml_text = _request_with_retry(client, ARXIV_API, params)
+        xml_text = request_with_retry(
+            client, ARXIV_API, params, arxiv_headers(), parse_json=False
+        )
     return _parse_entries(xml_text)
 
 
-def fetch_by_keywords(keywords: list[str], days: int = 7, limit: int = 50) -> list[dict]:
+def fetch_by_keywords(
+    keywords: list[str], days: int = 7, limit: int = 50
+) -> list[dict]:
     """Fetch recent papers matching keywords."""
     # Search in title and abstract
     kw_parts = []
@@ -145,7 +129,9 @@ def fetch_by_keywords(keywords: list[str], days: int = 7, limit: int = 50) -> li
     }
 
     with httpx.Client() as client:
-        xml_text = _request_with_retry(client, ARXIV_API, params)
+        xml_text = request_with_retry(
+            client, ARXIV_API, params, arxiv_headers(), parse_json=False
+        )
     return _parse_entries(xml_text)
 
 
@@ -163,18 +149,26 @@ def format_paper(p: dict, idx: int) -> str:
 
     comment = f"\n  📝 {p['comment']}" if p["comment"] else ""
 
-    return (f"{idx}. **{title}**\n"
-            f"  {authors} | {published} | [{cats}]\n"
-            f"  arXiv:`{arxiv_id}` | [PDF]({p['pdf_url']}){comment}\n"
-            f"  > {summary}\n")
+    return (
+        f"{idx}. **{title}**\n"
+        f"  {authors} | {published} | [{cats}]\n"
+        f"  arXiv:`{arxiv_id}` | [PDF]({p['pdf_url']}){comment}\n"
+        f"  > {summary}\n"
+    )
 
 
 def main():
     parser = argparse.ArgumentParser(description="Monitor arXiv for new papers")
-    parser.add_argument("--categories", "-c", help="Comma-separated arXiv categories (e.g. cs.CL,cs.AI)")
+    parser.add_argument(
+        "--categories", "-c", help="Comma-separated arXiv categories (e.g. cs.CL,cs.AI)"
+    )
     parser.add_argument("--keywords", "-k", help="Comma-separated keywords to search")
-    parser.add_argument("--days", "-d", type=int, default=3, help="Look back N days (default 3)")
-    parser.add_argument("--limit", "-l", type=int, default=30, help="Max results (default 30)")
+    parser.add_argument(
+        "--days", "-d", type=int, default=3, help="Look back N days (default 3)"
+    )
+    parser.add_argument(
+        "--limit", "-l", type=int, default=30, help="Max results (default 30)"
+    )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
 
@@ -198,7 +192,11 @@ def main():
         print(json.dumps(papers, indent=2))
         return
 
-    mode = f"categories: {args.categories}" if args.categories else f"keywords: {args.keywords}"
+    mode = (
+        f"categories: {args.categories}"
+        if args.categories
+        else f"keywords: {args.keywords}"
+    )
     print(f"# arXiv Monitor: {mode}\n")
     print(f"Last **{args.days}** days | Found **{len(papers)}** papers\n")
     for i, p in enumerate(papers, 1):

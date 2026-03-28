@@ -1,73 +1,60 @@
 #!/usr/bin/env python3
-"""Search for datasets via Papers With Code API."""
+"""Search for datasets via HuggingFace Datasets API."""
 
 import argparse
 import json
 import sys
-import time
 
 import httpx
 
-PWC_BASE = "https://paperswithcode.com/api/v1"
-
-MAX_RETRIES = 3
-RETRY_DELAYS = [2, 4, 8]
-
-
-_UA = {"User-Agent": "EvoScientist/1.0 (paper-navigator)"}
-
-
-def _request_with_retry(client: httpx.Client, url: str, params: dict | None = None) -> dict:
-    for attempt in range(MAX_RETRIES):
-        try:
-            resp = client.get(url, params=params, headers=_UA, timeout=30)
-            if resp.status_code == 429 or resp.status_code >= 500:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_DELAYS[attempt])
-                    continue
-            resp.raise_for_status()
-            return resp.json()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                return {}
-            raise
-        except httpx.HTTPError as e:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAYS[attempt])
-                continue
-            raise SystemExit(f"Error: {e}") from e
-    return {}
+from utils import HF_API, hf_headers, request_with_retry
 
 
 def search_datasets(query: str, limit: int = 10) -> list[dict]:
-    """Search PwC datasets."""
+    """Search HuggingFace datasets."""
+    params = {"search": query, "limit": min(limit, 100)}
     with httpx.Client() as client:
-        data = _request_with_retry(client, f"{PWC_BASE}/datasets/", {"q": query})
-    results = data.get("results", [])
-    return results[:limit]
+        data = request_with_retry(
+            client, f"{HF_API}/datasets", params, hf_headers(), follow_redirects=True
+        )
+    return data if isinstance(data, list) else []
 
 
 def format_dataset(d: dict, idx: int) -> str:
-    name = d.get("name", "Unknown")
-    did = d.get("id", "")
-    full_name = d.get("full_name", "")
-    num_papers = d.get("num_papers", "?")
-    homepage = d.get("homepage", "")
+    dataset_id = d.get("id", "Unknown")
+    # Short name: last part of id (e.g., "imagenet-1k" from "ILSVRC/imagenet-1k")
+    name = dataset_id.split("/")[-1] if "/" in dataset_id else dataset_id
+    downloads = d.get("downloads", 0)
+    likes = d.get("likes", 0)
+    author = d.get("author", "")
     desc = (d.get("description") or "")[:200]
     if len(d.get("description", "") or "") > 200:
         desc = desc.rsplit(" ", 1)[0] + "..."
 
-    modalities = d.get("modalities", [])
+    # Extract modalities from tags
+    tags = d.get("tags", [])
+    modalities = [t.replace("modality:", "") for t in tags if t.startswith("modality:")]
     modality_str = ", ".join(modalities[:3]) if modalities else ""
 
+    # Extract task categories from tags
+    tasks = [
+        t.replace("task_categories:", "")
+        for t in tags
+        if t.startswith("task_categories:")
+    ]
+    task_str = ", ".join(tasks[:3]) if tasks else ""
+
+    homepage = f"https://huggingface.co/datasets/{dataset_id}"
+
     lines = [f"{idx}. **{name}**"]
-    if full_name and full_name != name:
-        lines[0] += f" ({full_name})"
-    lines.append(f"   Papers: {num_papers} | ID: `{did}`")
+    if author:
+        lines[0] += f" ({author})"
+    lines.append(f"   Downloads: {downloads:,} | Likes: {likes} | ID: `{dataset_id}`")
     if modality_str:
         lines.append(f"   Modalities: {modality_str}")
-    if homepage:
-        lines.append(f"   Homepage: {homepage}")
+    if task_str:
+        lines.append(f"   Tasks: {task_str}")
+    lines.append(f"   {homepage}")
     if desc:
         lines.append(f"   > {desc}")
     lines.append("")
@@ -75,9 +62,11 @@ def format_dataset(d: dict, idx: int) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Search datasets via Papers With Code")
+    parser = argparse.ArgumentParser(description="Search datasets via HuggingFace")
     parser.add_argument("--query", "-q", required=True, help="Search query")
-    parser.add_argument("--limit", "-l", type=int, default=10, help="Max results (default 10)")
+    parser.add_argument(
+        "--limit", "-l", type=int, default=10, help="Max results (default 10)"
+    )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
 
@@ -87,11 +76,13 @@ def main():
         print(f"No datasets found for '{args.query}'", file=sys.stderr)
         sys.exit(0)
 
+    datasets = datasets[: args.limit]
+
     if args.json:
         print(json.dumps(datasets, indent=2))
         return
 
-    print(f"# Datasets: \"{args.query}\"\n")
+    print(f'# Datasets: "{args.query}"\n')
     print(f"Found **{len(datasets)}** datasets\n")
     for i, d in enumerate(datasets, 1):
         print(format_dataset(d, i))

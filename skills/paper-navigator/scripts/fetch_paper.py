@@ -6,73 +6,31 @@ convert the paper page to clean Markdown.
 """
 
 import argparse
-import os
+import json
 import sys
-import time
 
 import httpx
 
-S2_BASE = "https://api.semanticscholar.org/graph/v1"
-JINA_PREFIX = "https://r.jina.ai/"
-
-MAX_RETRIES = 3
-RETRY_DELAYS = [2, 4, 8]
-
-
-def _s2_headers() -> dict:
-    h = {"User-Agent": "EvoScientist/1.0 (paper-navigator)"}
-    key = os.environ.get("S2_API_KEY")
-    if key:
-        h["x-api-key"] = key
-    return h
-
-
-def _jina_headers() -> dict:
-    headers = {"Accept": "text/markdown"}
-    key = os.environ.get("JINA_API_KEY")
-    if key:
-        headers["Authorization"] = f"Bearer {key}"
-    return headers
-
-
-def _normalize_paper_id(raw: str) -> str:
-    raw = raw.strip()
-    for prefix in ["https://arxiv.org/abs/", "http://arxiv.org/abs/",
-                    "https://arxiv.org/pdf/", "http://arxiv.org/pdf/"]:
-        if raw.startswith(prefix):
-            raw = raw[len(prefix):].rstrip(".pdf")
-            return f"ArXiv:{raw}"
-    if raw.startswith("10."):
-        return f"DOI:{raw}"
-    return raw
+from utils import (
+    S2_BASE,
+    JINA_PREFIX,
+    s2_headers,
+    jina_headers,
+    request_with_retry,
+    normalize_paper_id,
+)
 
 
 def resolve_paper_url(paper_id: str) -> tuple[str, dict]:
     """Resolve paper ID to best available URL + metadata."""
-    pid = _normalize_paper_id(paper_id)
+    pid = normalize_paper_id(paper_id)
 
     fields = "paperId,externalIds,title,authors,year,citationCount,tldr,isOpenAccess,openAccessPdf,abstract"
 
     with httpx.Client() as client:
-        for attempt in range(MAX_RETRIES):
-            try:
-                resp = client.get(f"{S2_BASE}/paper/{pid}",
-                                  params={"fields": fields},
-                                  headers=_s2_headers(), timeout=30)
-                if resp.status_code == 429 or resp.status_code >= 500:
-                    if attempt < MAX_RETRIES - 1:
-                        time.sleep(RETRY_DELAYS[attempt])
-                        continue
-                resp.raise_for_status()
-                meta = resp.json()
-                break
-            except httpx.HTTPError as e:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_DELAYS[attempt])
-                    continue
-                raise SystemExit(f"Error resolving paper: {e}") from e
-        else:
-            meta = {}
+        meta = request_with_retry(
+            client, f"{S2_BASE}/paper/{pid}", {"fields": fields}, s2_headers()
+        )
 
     # Determine best URL
     url = ""
@@ -96,25 +54,20 @@ def fetch_via_jina(url: str, limit_chars: int = 50000) -> str:
     jina_url = f"{JINA_PREFIX}{url}"
 
     with httpx.Client() as client:
-        for attempt in range(MAX_RETRIES):
-            try:
-                resp = client.get(jina_url, headers=_jina_headers(), timeout=60,
-                                  follow_redirects=True)
-                if resp.status_code == 429 or resp.status_code >= 500:
-                    if attempt < MAX_RETRIES - 1:
-                        time.sleep(RETRY_DELAYS[attempt])
-                        continue
-                resp.raise_for_status()
-                text = resp.text
-                if len(text) > limit_chars:
-                    text = text[:limit_chars] + f"\n\n---\n*[Truncated at {limit_chars} characters]*"
-                return text
-            except httpx.HTTPError as e:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_DELAYS[attempt])
-                    continue
-                return f"Error fetching paper: {e}"
-    return ""
+        text = request_with_retry(
+            client,
+            jina_url,
+            headers=jina_headers(),
+            timeout=60,
+            parse_json=False,
+            follow_redirects=True,
+        )
+
+    if len(text) > limit_chars:
+        text = (
+            text[:limit_chars] + f"\n\n---\n*[Truncated at {limit_chars} characters]*"
+        )
+    return text
 
 
 def format_metadata(meta: dict) -> str:
@@ -139,20 +92,32 @@ def format_metadata(meta: dict) -> str:
         ids.append(f"DOI: `{ext['DOI']}`")
     ids.append(f"S2: `{meta.get('paperId', '')}`")
 
-    return (f"# {title}\n\n"
-            f"**{author_str}** ({year}) | Citations: {citations}\n"
-            f"{' | '.join(ids)}\n"
-            f"{tldr}\n---\n")
+    return (
+        f"# {title}\n\n"
+        f"**{author_str}** ({year}) | Citations: {citations}\n"
+        f"{' | '.join(ids)}\n"
+        f"{tldr}\n---\n"
+    )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Fetch paper full text via Jina Reader")
+    parser = argparse.ArgumentParser(
+        description="Fetch paper full text via Jina Reader"
+    )
     parser.add_argument("--paper-id", "-p", help="Paper ID (S2, ArXiv:, DOI:, or URL)")
     parser.add_argument("--url", "-u", help="Direct URL to fetch (skip S2 lookup)")
-    parser.add_argument("--limit-chars", type=int, default=50000,
-                        help="Max output characters (default 50000)")
-    parser.add_argument("--metadata-only", action="store_true",
-                        help="Only show metadata, skip full text")
+    parser.add_argument(
+        "--limit-chars",
+        type=int,
+        default=50000,
+        help="Max output characters (default 50000)",
+    )
+    parser.add_argument(
+        "--metadata-only",
+        action="store_true",
+        help="Only show metadata, skip full text",
+    )
+    parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
 
     if not args.paper_id and not args.url:
@@ -172,6 +137,14 @@ def main():
                 pass
     else:
         url, meta = resolve_paper_url(args.paper_id)
+
+    if args.json:
+        output = {"metadata": meta, "url": url}
+        if not args.metadata_only and url:
+            content = fetch_via_jina(url, args.limit_chars)
+            output["content"] = content
+        print(json.dumps(output, indent=2, default=str))
+        return
 
     if meta:
         print(format_metadata(meta))

@@ -7,65 +7,23 @@ Supports forward citations (who cited this), backward citations
 
 import argparse
 import json
-import os
 import sys
 import time
 
 import httpx
 
-S2_BASE = "https://api.semanticscholar.org/graph/v1"
+from utils import S2_BASE, s2_headers, request_with_retry, normalize_paper_id
+
 S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,isOpenAccess,openAccessPdf"
-
-MAX_RETRIES = 3
-RETRY_DELAYS = [2, 4, 8]
-
-
-def _headers() -> dict:
-    h = {"User-Agent": "EvoScientist/1.0 (paper-navigator)"}
-    key = os.environ.get("S2_API_KEY")
-    if key:
-        h["x-api-key"] = key
-    return h
-
-
-def _request_with_retry(client: httpx.Client, url: str, params: dict | None = None) -> dict:
-    for attempt in range(MAX_RETRIES):
-        try:
-            resp = client.get(url, params=params, headers=_headers(), timeout=30)
-            if resp.status_code == 429 or resp.status_code >= 500:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_DELAYS[attempt])
-                    continue
-            resp.raise_for_status()
-            return resp.json()
-        except httpx.HTTPStatusError:
-            raise
-        except httpx.HTTPError as e:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAYS[attempt])
-                continue
-            raise SystemExit(f"Error: {e}") from e
-    return {}
-
-
-def _normalize_paper_id(raw: str) -> str:
-    """Normalize paper ID: strip URL prefixes, add ArXiv: prefix if needed."""
-    raw = raw.strip()
-    for prefix in ["https://arxiv.org/abs/", "http://arxiv.org/abs/",
-                    "https://arxiv.org/pdf/", "http://arxiv.org/pdf/"]:
-        if raw.startswith(prefix):
-            raw = raw[len(prefix):].rstrip(".pdf")
-            return f"ArXiv:{raw}"
-    if raw.startswith("10."):
-        return f"DOI:{raw}"
-    return raw
 
 
 def get_citations(paper_id: str, limit: int = 20) -> list[dict]:
     """Forward citations: papers that cite this paper."""
     params = {"fields": S2_FIELDS, "limit": min(limit, 1000)}
     with httpx.Client() as client:
-        data = _request_with_retry(client, f"{S2_BASE}/paper/{paper_id}/citations", params)
+        data = request_with_retry(
+            client, f"{S2_BASE}/paper/{paper_id}/citations", params, s2_headers()
+        )
     return [c["citingPaper"] for c in data.get("data", []) if c.get("citingPaper")]
 
 
@@ -73,7 +31,9 @@ def get_references(paper_id: str, limit: int = 20) -> list[dict]:
     """Backward citations: papers this paper references."""
     params = {"fields": S2_FIELDS, "limit": min(limit, 1000)}
     with httpx.Client() as client:
-        data = _request_with_retry(client, f"{S2_BASE}/paper/{paper_id}/references", params)
+        data = request_with_retry(
+            client, f"{S2_BASE}/paper/{paper_id}/references", params, s2_headers()
+        )
     return [r["citedPaper"] for r in data.get("data", []) if r.get("citedPaper")]
 
 
@@ -99,7 +59,12 @@ def get_co_citations(paper_id: str, limit: int = 15) -> list[dict]:
                 continue
             try:
                 params = {"fields": S2_FIELDS, "limit": 100}
-                data = _request_with_retry(client, f"{S2_BASE}/paper/{citer_id}/references", params)
+                data = request_with_retry(
+                    client,
+                    f"{S2_BASE}/paper/{citer_id}/references",
+                    params,
+                    s2_headers(),
+                )
                 for r in data.get("data", []):
                     ref = r.get("citedPaper", {})
                     rid = ref.get("paperId")
@@ -136,22 +101,35 @@ def format_paper(p: dict, idx: int) -> str:
     if arxiv:
         id_str = f"arXiv:`{arxiv}`"
 
-    return f"{idx}. **{title}** — {author_str} ({year}) — ⭐{citations} — {id_str}{tldr}"
+    return (
+        f"{idx}. **{title}** — {author_str} ({year}) — ⭐{citations} — {id_str}{tldr}"
+    )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Traverse citation graphs via Semantic Scholar")
-    parser.add_argument("--paper-id", "-p", required=True, help="Paper ID (S2, ArXiv:, DOI:, or URL)")
-    parser.add_argument("--direction", "-d", required=True,
-                        choices=["forward", "backward", "co-citation"],
-                        help="Traversal direction")
-    parser.add_argument("--limit", "-l", type=int, default=20, help="Max results (default 20)")
-    parser.add_argument("--min-citations", type=int, default=0,
-                        help="Minimum citation count filter")
+    parser = argparse.ArgumentParser(
+        description="Traverse citation graphs via Semantic Scholar"
+    )
+    parser.add_argument(
+        "--paper-id", "-p", required=True, help="Paper ID (S2, ArXiv:, DOI:, or URL)"
+    )
+    parser.add_argument(
+        "--direction",
+        "-d",
+        required=True,
+        choices=["forward", "backward", "co-citation"],
+        help="Traversal direction",
+    )
+    parser.add_argument(
+        "--limit", "-l", type=int, default=20, help="Max results (default 20)"
+    )
+    parser.add_argument(
+        "--min-citations", type=int, default=0, help="Minimum citation count filter"
+    )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
 
-    paper_id = _normalize_paper_id(args.paper_id)
+    paper_id = normalize_paper_id(args.paper_id)
 
     direction_labels = {
         "forward": "Forward Citations (papers citing this paper)",
@@ -159,24 +137,28 @@ def main():
         "co-citation": "Co-cited Papers (frequently cited alongside this paper)",
     }
 
-    print(f"# {direction_labels[args.direction]}\n", file=sys.stderr)
-    print(f"Seed paper: `{paper_id}`\n", file=sys.stderr)
+    print(f"Fetching {args.direction} citations for {paper_id}...", file=sys.stderr)
 
     if args.direction == "forward":
         papers = get_citations(paper_id, args.limit)
     elif args.direction == "backward":
         papers = get_references(paper_id, args.limit)
     else:
-        print("⚠️  Co-citation requires multiple API calls (may be slow)…\n", file=sys.stderr)
+        print(
+            "⚠️  Co-citation requires multiple API calls (may be slow)…\n",
+            file=sys.stderr,
+        )
         papers = get_co_citations(paper_id, args.limit)
 
     # Filter by min citations
     if args.min_citations > 0:
-        papers = [p for p in papers if (p.get("citationCount") or 0) >= args.min_citations]
+        papers = [
+            p for p in papers if (p.get("citationCount") or 0) >= args.min_citations
+        ]
 
     # Sort by citations
     papers.sort(key=lambda p: p.get("citationCount", 0), reverse=True)
-    papers = papers[:args.limit]
+    papers = papers[: args.limit]
 
     if not papers:
         print("No papers found.", file=sys.stderr)

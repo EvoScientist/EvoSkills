@@ -1,164 +1,173 @@
 #!/usr/bin/env python3
-"""Query SOTA leaderboards via Papers With Code API."""
+"""Query top models by task via HuggingFace Models API.
+
+Note: The original Papers With Code SOTA leaderboard API has been shut down.
+This script now uses HuggingFace Models API to find top models by task,
+sorted by downloads or likes. For detailed benchmark scores, see:
+https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
+"""
 
 import argparse
 import json
 import sys
-import time
 
 import httpx
 
-PWC_BASE = "https://paperswithcode.com/api/v1"
+from utils import HF_API, hf_headers, request_with_retry
 
-MAX_RETRIES = 3
-RETRY_DELAYS = [2, 4, 8]
-
-
-_UA = {"User-Agent": "EvoScientist/1.0 (paper-navigator)"}
-
-
-def _request_with_retry(client: httpx.Client, url: str, params: dict | None = None) -> dict:
-    for attempt in range(MAX_RETRIES):
-        try:
-            resp = client.get(url, params=params, headers=_UA, timeout=30)
-            if resp.status_code == 429 or resp.status_code >= 500:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_DELAYS[attempt])
-                    continue
-            resp.raise_for_status()
-            return resp.json()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                return {}
-            raise
-        except httpx.HTTPError as e:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAYS[attempt])
-                continue
-            raise SystemExit(f"Error: {e}") from e
-    return {}
+# Common HuggingFace pipeline tags (task categories)
+PIPELINE_TAGS = [
+    "text-generation",
+    "text-classification",
+    "token-classification",
+    "question-answering",
+    "summarization",
+    "translation",
+    "fill-mask",
+    "text2text-generation",
+    "feature-extraction",
+    "image-classification",
+    "object-detection",
+    "image-segmentation",
+    "image-to-text",
+    "text-to-image",
+    "text-to-video",
+    "automatic-speech-recognition",
+    "text-to-speech",
+    "reinforcement-learning",
+    "sentence-similarity",
+    "zero-shot-classification",
+    "table-question-answering",
+]
 
 
-def _slugify(text: str) -> str:
-    """Convert text to PwC URL slug format."""
-    return text.lower().strip().replace(" ", "-").replace("_", "-")
+def search_models(
+    query: str,
+    limit: int = 10,
+    sort: str = "downloads",
+    pipeline_tag: str | None = None,
+) -> list[dict]:
+    """Search HuggingFace models by query and/or pipeline tag."""
+    params: dict = {"limit": min(limit, 100), "sort": sort}
+    if pipeline_tag:
+        params["pipeline_tag"] = pipeline_tag
+    if query:
+        params["search"] = query
 
-
-def search_tasks(query: str, limit: int = 5) -> list[dict]:
-    """Search for tasks/benchmarks."""
     with httpx.Client() as client:
-        data = _request_with_retry(client, f"{PWC_BASE}/tasks/", {"q": query})
-    results = data.get("results", [])
-    return results[:limit]
+        data = request_with_retry(
+            client, f"{HF_API}/models", params, hf_headers(), follow_redirects=True
+        )
+    return data if isinstance(data, list) else []
 
 
-def get_task_datasets(task_id: str) -> list[dict]:
-    """Get datasets for a task."""
-    with httpx.Client() as client:
-        data = _request_with_retry(client, f"{PWC_BASE}/tasks/{task_id}/datasets/")
-    return data.get("results", []) if isinstance(data, dict) else []
+def list_tasks(query: str | None = None) -> list[str]:
+    """List available pipeline tags (task categories), optionally filtered."""
+    if query:
+        q = query.lower()
+        return [t for t in PIPELINE_TAGS if q in t]
+    return PIPELINE_TAGS
 
 
-def get_sota(task_id: str, dataset_id: str | None = None, limit: int = 10) -> list[dict]:
-    """Get SOTA results for a task (optionally filtered by dataset)."""
-    with httpx.Client() as client:
-        if dataset_id:
-            url = f"{PWC_BASE}/evaluations/"
-            data = _request_with_retry(client, url,
-                                       {"task": task_id, "dataset": dataset_id})
-        else:
-            # Get first dataset for the task
-            datasets = get_task_datasets(task_id)
-            if not datasets:
-                return []
-            dataset_id = datasets[0].get("id", "")
-            url = f"{PWC_BASE}/evaluations/"
-            data = _request_with_retry(client, url,
-                                       {"task": task_id, "dataset": dataset_id})
+def format_model(m: dict, idx: int) -> str:
+    model_id = m.get("modelId", m.get("id", "Unknown"))
+    downloads = m.get("downloads", 0)
+    likes = m.get("likes", 0)
+    pipeline = m.get("pipeline_tag", "")
+    library = m.get("library_name", "")
+    last_modified = (m.get("lastModified") or "")[:10]
 
-    results = data.get("results", []) if isinstance(data, dict) else []
-    return results[:limit]
+    # Extract arXiv papers from tags
+    tags = m.get("tags", [])
+    papers = [t.replace("arxiv:", "") for t in tags if t.startswith("arxiv:")]
+    paper_str = (
+        f" | Papers: {', '.join(f'`{p}`' for p in papers[:3])}" if papers else ""
+    )
 
+    url = f"https://huggingface.co/{model_id}"
 
-def format_task(t: dict, idx: int) -> str:
-    name = t.get("name", "Unknown")
-    tid = t.get("id", "")
-    desc = (t.get("description") or "")[:150]
-    return f"{idx}. **{name}** (`{tid}`)\n   {desc}\n"
-
-
-def format_evaluation(e: dict, idx: int) -> str:
-    method = e.get("method", "Unknown")
-    metrics = e.get("metrics", {})
-    paper = e.get("paper", "")
-    code = e.get("code_links", [])
-
-    metrics_str = " | ".join(f"{k}: **{v}**" for k, v in metrics.items()) if isinstance(metrics, dict) else str(metrics)
-    code_str = " 💻" if code else ""
-
-    return f"{idx}. {method} — {metrics_str}{code_str}\n   Paper: {paper}\n"
+    return (
+        f"{idx}. **{model_id}**\n"
+        f"   📥 {downloads:,} downloads | ❤️ {likes} likes | "
+        f"{pipeline} | {library}\n"
+        f"   Updated: {last_modified}{paper_str}\n"
+        f"   {url}\n"
+    )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Query SOTA leaderboards via Papers With Code")
-    parser.add_argument("--task", "-t", required=True, help="Task name to search")
-    parser.add_argument("--dataset", "-d", help="Dataset name (optional)")
-    parser.add_argument("--limit", "-l", type=int, default=10, help="Max results (default 10)")
-    parser.add_argument("--list-tasks", action="store_true", help="List matching tasks only")
-    parser.add_argument("--list-datasets", action="store_true", help="List datasets for the task")
+    parser = argparse.ArgumentParser(
+        description="Query top models by task via HuggingFace",
+        epilog="For detailed SOTA benchmarks, visit: "
+        "https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard",
+    )
+    parser.add_argument(
+        "--task",
+        "-t",
+        required=True,
+        help="Task name or pipeline tag (e.g. 'text-generation', 'machine translation')",
+    )
+    parser.add_argument(
+        "--sort",
+        "-s",
+        choices=["downloads", "likes", "trending"],
+        default="downloads",
+        help="Sort order (default: downloads)",
+    )
+    parser.add_argument(
+        "--limit", "-l", type=int, default=10, help="Max results (default 10)"
+    )
+    parser.add_argument(
+        "--list-tasks",
+        action="store_true",
+        help="List available pipeline tags matching the query",
+    )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
 
-    # Search for tasks
-    tasks = search_tasks(args.task, limit=5)
-    if not tasks:
-        print(f"No tasks found for '{args.task}'", file=sys.stderr)
-        sys.exit(0)
-
     if args.list_tasks:
+        tasks = list_tasks(args.task)
         if args.json:
             print(json.dumps(tasks, indent=2))
             return
-        print(f"# Tasks matching: \"{args.task}\"\n")
+        print(f'# Pipeline Tags matching: "{args.task}"\n')
         for i, t in enumerate(tasks, 1):
-            print(format_task(t, i))
+            print(f"{i}. `{t}`")
+        if not tasks:
+            print("No matching pipeline tags. Try a broader search term.")
         return
 
-    task_id = tasks[0].get("id", "")
-    task_name = tasks[0].get("name", args.task)
+    # Check if task matches a pipeline tag exactly
+    pipeline_tag = args.task if args.task in PIPELINE_TAGS else None
+    search_query = args.task if not pipeline_tag else ""
 
-    if args.list_datasets:
-        datasets = get_task_datasets(task_id)
-        if args.json:
-            print(json.dumps(datasets, indent=2))
-            return
-        print(f"# Datasets for: {task_name}\n")
-        for i, d in enumerate(datasets[:20], 1):
-            print(f"{i}. **{d.get('name', '')}** (`{d.get('id', '')}`)")
-        return
+    models = search_models(search_query, args.limit, args.sort, pipeline_tag)
 
-    # Get SOTA
-    dataset_id = _slugify(args.dataset) if args.dataset else None
-    results = get_sota(task_id, dataset_id, args.limit)
-
-    if not results:
-        print(f"No SOTA results found for '{task_name}'", file=sys.stderr)
-        # Fallback: show available datasets
-        datasets = get_task_datasets(task_id)
-        if datasets:
-            print("\nAvailable datasets:", file=sys.stderr)
-            for d in datasets[:5]:
-                print(f"  - {d.get('name', '')} ({d.get('id', '')})", file=sys.stderr)
+    if not models:
+        print(f"No models found for '{args.task}'", file=sys.stderr)
+        # Suggest matching pipeline tags
+        suggestions = list_tasks(args.task)
+        if suggestions:
+            print("\nTry one of these pipeline tags:", file=sys.stderr)
+            for t in suggestions[:5]:
+                print(f"  --task {t}", file=sys.stderr)
         sys.exit(0)
 
+    models = models[: args.limit]
+
     if args.json:
-        print(json.dumps(results, indent=2))
+        print(json.dumps(models, indent=2))
         return
 
-    ds_label = f" on {args.dataset}" if args.dataset else ""
-    print(f"# SOTA: {task_name}{ds_label}\n")
-    for i, e in enumerate(results, 1):
-        print(format_evaluation(e, i))
+    tag_label = f" (pipeline: `{pipeline_tag}`)" if pipeline_tag else ""
+    print(f'# Top Models: "{args.task}"{tag_label}\n')
+    print(f"Sorted by: {args.sort} | Showing **{len(models)}** models\n")
+    for i, m in enumerate(models, 1):
+        print(format_model(m, i))
+
+    print("---")
+    print("*For detailed benchmark scores, visit:*")
+    print("*https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard*")
 
 
 if __name__ == "__main__":

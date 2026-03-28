@@ -7,68 +7,48 @@ returns semantically similar papers.
 
 import argparse
 import json
-import os
 import sys
 import time
 
 import httpx
 
-S2_BASE = "https://api.semanticscholar.org/recommendations/v1"
-S2_GRAPH = "https://api.semanticscholar.org/graph/v1"
+from utils import (
+    S2_BASE,
+    S2_RECOMMEND_BASE,
+    MAX_RETRIES,
+    RETRY_DELAYS,
+    s2_headers,
+    request_with_retry,
+    normalize_paper_id,
+)
+
 S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf"
-
-MAX_RETRIES = 3
-RETRY_DELAYS = [2, 4, 8]
-
-
-def _headers() -> dict:
-    h = {"User-Agent": "EvoScientist/1.0 (paper-navigator)"}
-    key = os.environ.get("S2_API_KEY")
-    if key:
-        h["x-api-key"] = key
-    return h
-
-
-def _normalize_paper_id(raw: str) -> str:
-    raw = raw.strip()
-    for prefix in ["https://arxiv.org/abs/", "http://arxiv.org/abs/",
-                    "https://arxiv.org/pdf/", "http://arxiv.org/pdf/"]:
-        if raw.startswith(prefix):
-            raw = raw[len(prefix):].rstrip(".pdf")
-            return f"ArXiv:{raw}"
-    if raw.startswith("10."):
-        return f"DOI:{raw}"
-    return raw
 
 
 def _resolve_to_s2_id(client: httpx.Client, paper_id: str) -> str:
     """Resolve any paper ID format to S2 paperId."""
-    for attempt in range(MAX_RETRIES):
-        try:
-            resp = client.get(f"{S2_GRAPH}/paper/{paper_id}",
-                              params={"fields": "paperId"},
-                              headers=_headers(), timeout=30)
-            if resp.status_code == 429 or resp.status_code >= 500:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_DELAYS[attempt])
-                    continue
-            resp.raise_for_status()
-            return resp.json().get("paperId", paper_id)
-        except Exception:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAYS[attempt])
-                continue
-            return paper_id
-    return paper_id
+    try:
+        data = request_with_retry(
+            client, f"{S2_BASE}/paper/{paper_id}", {"fields": "paperId"}, s2_headers()
+        )
+        return data.get("paperId", paper_id)
+    except Exception:
+        return paper_id
 
 
-def recommend(positive_ids: list[str], negative_ids: list[str] | None = None,
-              limit: int = 10) -> list[dict]:
+def recommend(
+    positive_ids: list[str], negative_ids: list[str] | None = None, limit: int = 10
+) -> list[dict]:
     """Get recommendations based on seed papers."""
     with httpx.Client() as client:
         # Resolve all IDs to S2 format
-        pos_s2 = [_resolve_to_s2_id(client, _normalize_paper_id(pid)) for pid in positive_ids]
-        neg_s2 = [_resolve_to_s2_id(client, _normalize_paper_id(pid)) for pid in (negative_ids or [])]
+        pos_s2 = [
+            _resolve_to_s2_id(client, normalize_paper_id(pid)) for pid in positive_ids
+        ]
+        neg_s2 = [
+            _resolve_to_s2_id(client, normalize_paper_id(pid))
+            for pid in (negative_ids or [])
+        ]
 
         body: dict = {
             "positivePaperIds": pos_s2,
@@ -76,13 +56,14 @@ def recommend(positive_ids: list[str], negative_ids: list[str] | None = None,
         if neg_s2:
             body["negativePaperIds"] = neg_s2
 
+        # POST request — keep inline retry (request_with_retry is GET-only)
         for attempt in range(MAX_RETRIES):
             try:
                 resp = client.post(
-                    f"{S2_BASE}/papers/",
+                    f"{S2_RECOMMEND_BASE}/papers/",
                     json=body,
                     params={"fields": S2_FIELDS, "limit": min(limit, 500)},
-                    headers=_headers(),
+                    headers=s2_headers(),
                     timeout=30,
                 )
                 if resp.status_code == 429 or resp.status_code >= 500:
@@ -121,23 +102,38 @@ def format_paper(p: dict, idx: int) -> str:
 
     pdf = ""
     if p.get("openAccessPdf") and p["openAccessPdf"].get("url"):
-        pdf = f" 📄"
+        pdf = " 📄"
 
     return f"{idx}. **{title}** — {author_str} ({year}) — ⭐{citations}{pdf} — {id_str}{tldr}"
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Get paper recommendations from Semantic Scholar")
-    parser.add_argument("--positive", "-p", required=True,
-                        help="Comma-separated seed paper IDs (positive examples)")
-    parser.add_argument("--negative", "-n",
-                        help="Comma-separated paper IDs to avoid (negative examples)")
-    parser.add_argument("--limit", "-l", type=int, default=10, help="Max results (default 10)")
+    parser = argparse.ArgumentParser(
+        description="Get paper recommendations from Semantic Scholar"
+    )
+    parser.add_argument(
+        "--positive",
+        "-p",
+        required=True,
+        help="Comma-separated seed paper IDs (positive examples)",
+    )
+    parser.add_argument(
+        "--negative",
+        "-n",
+        help="Comma-separated paper IDs to avoid (negative examples)",
+    )
+    parser.add_argument(
+        "--limit", "-l", type=int, default=10, help="Max results (default 10)"
+    )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
 
     positive = [p.strip() for p in args.positive.split(",") if p.strip()]
-    negative = [p.strip() for p in args.negative.split(",") if p.strip()] if args.negative else None
+    negative = (
+        [p.strip() for p in args.negative.split(",") if p.strip()]
+        if args.negative
+        else None
+    )
 
     if not positive:
         print("Error: at least one positive paper ID required", file=sys.stderr)

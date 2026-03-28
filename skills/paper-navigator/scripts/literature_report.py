@@ -7,53 +7,19 @@ intent-adapted reports: survey, quick_scan, deep_dive, or baseline_hunt.
 
 import argparse
 import json
-import os
 import sys
 import time
 from datetime import datetime, timezone
 
 import httpx
 
-S2_BASE = "https://api.semanticscholar.org/graph/v1"
+from utils import S2_BASE, s2_headers, request_with_retry
+
 S2_FIELDS = (
     "paperId,externalIds,title,authors,year,citationCount,"
-    "influentialCitationCount,tldr,abstract,externalIds,"
+    "influentialCitationCount,tldr,abstract,"
     "isOpenAccess,openAccessPdf,publicationVenue,publicationDate"
 )
-
-MAX_RETRIES = 3
-RETRY_DELAYS = [2, 4, 8]
-
-
-def _headers() -> dict:
-    h = {"User-Agent": "EvoScientist/1.0 (paper-navigator)"}
-    key = os.environ.get("S2_API_KEY")
-    if key:
-        h["x-api-key"] = key
-    return h
-
-
-def _request_with_retry(client: httpx.Client, url: str, params: dict | None = None) -> dict:
-    """GET with retry on 429/5xx."""
-    for attempt in range(MAX_RETRIES):
-        try:
-            resp = client.get(url, params=params, headers=_headers(), timeout=30)
-            if resp.status_code == 429 or resp.status_code >= 500:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_DELAYS[attempt])
-                    continue
-            resp.raise_for_status()
-            return resp.json()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                return {}
-            raise
-        except httpx.HTTPError as e:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAYS[attempt])
-                continue
-            raise SystemExit(f"Error: {e}") from e
-    return {}
 
 
 def fetch_papers(paper_ids: list[str]) -> list[tuple[str, dict | None]]:
@@ -62,11 +28,16 @@ def fetch_papers(paper_ids: list[str]) -> list[tuple[str, dict | None]]:
     with httpx.Client() as client:
         for pid in paper_ids:
             try:
-                data = _request_with_retry(
-                    client, f"{S2_BASE}/paper/{pid}", {"fields": S2_FIELDS}
+                data = request_with_retry(
+                    client,
+                    f"{S2_BASE}/paper/{pid}",
+                    {"fields": S2_FIELDS},
+                    s2_headers(),
                 )
                 if not data or "paperId" not in data:
-                    print(f"Warning: Paper '{pid}' not found, skipping", file=sys.stderr)
+                    print(
+                        f"Warning: Paper '{pid}' not found, skipping", file=sys.stderr
+                    )
                     results.append((pid, None))
                 else:
                     results.append((pid, data))
@@ -156,6 +127,7 @@ def _novelty_class(paper: dict) -> tuple[str, str]:
 
 
 # ── Report generators ──────────────────────────────────────────────
+
 
 def _report_quick_scan(papers: list[tuple[str, dict]]) -> str:
     """Brief table with title, citations, TLDR only."""
@@ -251,7 +223,9 @@ def _report_survey(papers: list[tuple[str, dict]]) -> str:
 
     # ── Challenge-Insight Tree ──
     lines.append("\n## Challenge-Insight Tree\n")
-    lines.append("*Note: This section is agent-driven. The following is auto-generated from paper metadata.*\n")
+    lines.append(
+        "*Note: This section is agent-driven. The following is auto-generated from paper metadata.*\n"
+    )
     for pid, paper in papers:
         if paper is None:
             continue
@@ -264,7 +238,9 @@ def _report_survey(papers: list[tuple[str, dict]]) -> str:
     lines.append("## Recommendations\n")
     if sorted_papers:
         top = sorted_papers[0][1]
-        lines.append(f"- **Must-read:** {top.get('title', 'Unknown')} (highest citations)")
+        lines.append(
+            f"- **Must-read:** {top.get('title', 'Unknown')} (highest citations)"
+        )
         if len(sorted_papers) > 1:
             recent = sorted_papers[-1][1]
             lines.append(f"- **Watch:** {recent.get('title', 'Unknown')} (most recent)")
@@ -300,22 +276,38 @@ def _report_deep_dive(papers: list[tuple[str, dict]]) -> str:
 
         # Reading recommendation rationale
         if citations >= 1000:
-            lines.append("\n**Why read this:** High-impact paper with broad influence. Essential for understanding the field.")
+            lines.append(
+                "\n**Why read this:** High-impact paper with broad influence. Essential for understanding the field."
+            )
         elif citations >= 100:
-            lines.append("\n**Why read this:** Well-cited paper. Good for understanding established techniques.")
+            lines.append(
+                "\n**Why read this:** Well-cited paper. Good for understanding established techniques."
+            )
         elif citations >= 10:
-            lines.append("\n**Why read this:** Moderate impact. Read if directly relevant to your work.")
+            lines.append(
+                "\n**Why read this:** Moderate impact. Read if directly relevant to your work."
+            )
         else:
-            lines.append("\n**Why read this:** Recent or niche paper. Scan for novel ideas applicable to your research.")
+            lines.append(
+                "\n**Why read this:** Recent or niche paper. Scan for novel ideas applicable to your research."
+            )
 
         lines.append(f"\n**TLDR:** {_get_tldr(paper)}\n")
 
         # Suggested related actions
         lines.append("**Suggested next steps:**")
         if arxiv_id:
-            lines.append(f"- `citation_traverse --paper-id ArXiv:{arxiv_id} --direction forward`")
-            lines.append(f"- `citation_traverse --paper-id ArXiv:{arxiv_id} --direction co-citation`")
-        lines.append(f"- `find_code --arxiv-id {arxiv_id}`" if arxiv_id else "- `find_code --title \"{title}\"\"")
+            lines.append(
+                f"- `citation_traverse --paper-id ArXiv:{arxiv_id} --direction forward`"
+            )
+            lines.append(
+                f"- `citation_traverse --paper-id ArXiv:{arxiv_id} --direction co-citation`"
+            )
+        lines.append(
+            f"- `find_code --arxiv-id {arxiv_id}`"
+            if arxiv_id
+            else f'- `find_code --title "{title}""'
+        )
         lines.append("")
 
     return "\n".join(lines)
@@ -355,8 +347,14 @@ def _report_baseline_hunt(papers: list[tuple[str, dict]]) -> str:
 
         # Code availability check
         lines.append("\n**Code Availability:**")
-        lines.append(f"- Run: `python scripts/find_code.py --arxiv-id {arxiv_id}`" if arxiv_id else f"- Run: `python scripts/find_code.py --title \"{title}\"\"")
-        lines.append(f"- GitHub search: `python scripts/github_search.py --query \"{title}\"\"")
+        lines.append(
+            f"- Run: `python scripts/find_code.py --arxiv-id {arxiv_id}`"
+            if arxiv_id
+            else f'- Run: `python scripts/find_code.py --title "{title}""'
+        )
+        lines.append(
+            f'- GitHub search: `python scripts/github_search.py --query "{title}""'
+        )
 
         # Open Access
         lines.append("\n**Open Access:**")
@@ -380,12 +378,12 @@ def _report_baseline_hunt(papers: list[tuple[str, dict]]) -> str:
             lines.append("- ✅ arXiv preprint available (version history)")
         else:
             lines.append("- ⚠️ No arXiv preprint found")
-        lines.append(f"- ⏳ Code check needed (run find_code above)")
+        lines.append("- ⏳ Code check needed (run find_code above)")
 
         # SOTA position
         lines.append("\n**SOTA Position:**")
-        lines.append(f"- Run: `python scripts/sota.py --task \"<relevant task>\"`")
-        lines.append(f"- Run: `python scripts/dataset_search.py --query \"{title}\"\"")
+        lines.append('- Run: `python scripts/sota.py --task "<relevant task>"`')
+        lines.append(f'- Run: `python scripts/dataset_search.py --query "{title}""')
 
         # Overall score
         lines.append(f"\n**Reproducibility Score: {score}/3**")
@@ -407,13 +405,26 @@ def generate_report(papers: list[tuple[str, dict]], intent: str) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate literature report from paper IDs")
-    parser.add_argument("--paper-ids", required=True,
-                        help="Comma-separated paper IDs (e.g., ArXiv:2601.07372,ArXiv:2501.12948)")
-    parser.add_argument("--intent", choices=["survey", "quick_scan", "deep_dive", "baseline_hunt"],
-                        default="survey", help="Report type (default: survey)")
-    parser.add_argument("--output", "-o", help="Output file path (also prints to stdout)")
-    parser.add_argument("--json", action="store_true", help="Output raw JSON of fetched papers")
+    parser = argparse.ArgumentParser(
+        description="Generate literature report from paper IDs"
+    )
+    parser.add_argument(
+        "--paper-ids",
+        required=True,
+        help="Comma-separated paper IDs (e.g., ArXiv:2601.07372,ArXiv:2501.12948)",
+    )
+    parser.add_argument(
+        "--intent",
+        choices=["survey", "quick_scan", "deep_dive", "baseline_hunt"],
+        default="survey",
+        help="Report type (default: survey)",
+    )
+    parser.add_argument(
+        "--output", "-o", help="Output file path (also prints to stdout)"
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Output raw JSON of fetched papers"
+    )
     args = parser.parse_args()
 
     paper_ids = [pid.strip() for pid in args.paper_ids.split(",") if pid.strip()]
@@ -422,7 +433,9 @@ def main():
         print("Error: No paper IDs provided", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Fetching {len(paper_ids)} paper(s) from Semantic Scholar...", file=sys.stderr)
+    print(
+        f"Fetching {len(paper_ids)} paper(s) from Semantic Scholar...", file=sys.stderr
+    )
     results = fetch_papers(paper_ids)
 
     if args.json:

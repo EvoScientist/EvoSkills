@@ -1,86 +1,112 @@
 #!/usr/bin/env python3
-"""Find code implementations for papers via Papers With Code API."""
+"""Find code implementations for papers via HuggingFace Papers API + GitHub search."""
 
 import argparse
 import json
 import sys
-import time
 
 import httpx
 
-PWC_BASE = "https://paperswithcode.com/api/v1"
-
-MAX_RETRIES = 3
-RETRY_DELAYS = [2, 4, 8]
+from utils import HF_API, GITHUB_API, hf_headers, github_headers, request_with_retry
 
 
-_UA = {"User-Agent": "EvoScientist/1.0 (paper-navigator)"}
+def _find_via_hf(
+    client: httpx.Client, arxiv_id: str | None = None, title: str | None = None
+) -> dict | None:
+    """Find paper's GitHub repo via HuggingFace Papers API."""
+    headers = hf_headers()
 
-
-def _request_with_retry(client: httpx.Client, url: str, params: dict | None = None) -> dict | list:
-    for attempt in range(MAX_RETRIES):
-        try:
-            resp = client.get(url, params=params, headers=_UA, timeout=30, follow_redirects=True)
-            if resp.status_code == 429 or resp.status_code >= 500:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_DELAYS[attempt])
-                    continue
-            resp.raise_for_status()
-            return resp.json()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                return {}
-            raise
-        except httpx.HTTPError as e:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAYS[attempt])
-                continue
-            raise SystemExit(f"Error: {e}") from e
-    return {}
-
-
-def _find_paper_id(client: httpx.Client, arxiv_id: str | None = None,
-                   title: str | None = None) -> str | None:
-    """Find PwC paper ID by arXiv ID or title search."""
     if arxiv_id:
         # Clean arXiv ID
         arxiv_id = arxiv_id.strip().replace("ArXiv:", "").replace("arxiv:", "")
         for prefix in ["https://arxiv.org/abs/", "http://arxiv.org/abs/"]:
             if arxiv_id.startswith(prefix):
-                arxiv_id = arxiv_id[len(prefix):]
+                arxiv_id = arxiv_id[len(prefix) :]
 
-        # Search by arXiv ID
-        data = _request_with_retry(client, f"{PWC_BASE}/papers/",
-                                   {"arxiv_id": arxiv_id})
-        if isinstance(data, dict) and data.get("results"):
-            return data["results"][0].get("id")
+        data = request_with_retry(
+            client,
+            f"{HF_API}/papers/{arxiv_id}",
+            headers=headers,
+            follow_redirects=True,
+        )
+        if data and data.get("githubRepo"):
+            return {
+                "url": data["githubRepo"],
+                "stars": data.get("githubStars", 0),
+                "framework": "",
+                "is_official": True,
+                "description": data.get("title", ""),
+            }
 
     if title:
-        data = _request_with_retry(client, f"{PWC_BASE}/papers/",
-                                   {"q": title})
-        if isinstance(data, dict) and data.get("results"):
-            return data["results"][0].get("id")
+        # Search by title
+        data = request_with_retry(
+            client,
+            f"{HF_API}/papers/search",
+            {"q": title, "limit": 3},
+            headers,
+            follow_redirects=True,
+        )
+        results = data if isinstance(data, list) else []
+        for item in results:
+            paper = item.get("paper", item)
+            if paper.get("githubRepo"):
+                return {
+                    "url": paper["githubRepo"],
+                    "stars": paper.get("githubStars", 0),
+                    "framework": "",
+                    "is_official": True,
+                    "description": paper.get("title", ""),
+                }
 
     return None
 
 
-def find_code(arxiv_id: str | None = None, title: str | None = None,
-              limit: int = 5) -> list[dict]:
-    """Find code repos for a paper."""
-    with httpx.Client() as client:
-        paper_id = _find_paper_id(client, arxiv_id, title)
-        if not paper_id:
-            return []
-
-        data = _request_with_retry(
-            client,
-            f"{PWC_BASE}/papers/{paper_id}/repositories/",
+def _find_via_github(client: httpx.Client, query: str, limit: int = 5) -> list[dict]:
+    """Search GitHub for paper implementations."""
+    params = {"q": query, "per_page": min(limit, 30), "sort": "stars", "order": "desc"}
+    data = request_with_retry(
+        client, GITHUB_API, params, github_headers(), follow_redirects=True
+    )
+    repos = []
+    for r in data.get("items", [])[:limit]:
+        repos.append(
+            {
+                "url": r.get("html_url", ""),
+                "stars": r.get("stargazers_count", 0),
+                "framework": r.get("language", "unknown"),
+                "is_official": False,
+                "description": (r.get("description") or "")[:150],
+            }
         )
+    return repos
 
-        repos = data.get("results", []) if isinstance(data, dict) else data if isinstance(data, list) else []
-        # Sort by stars
-        repos.sort(key=lambda r: r.get("stars", 0), reverse=True)
-        return repos[:limit]
+
+def find_code(
+    arxiv_id: str | None = None, title: str | None = None, limit: int = 5
+) -> list[dict]:
+    """Find code repos for a paper using HuggingFace + GitHub."""
+    repos = []
+    with httpx.Client() as client:
+        # Try HuggingFace first (official repo)
+        hf_repo = _find_via_hf(client, arxiv_id, title)
+        if hf_repo:
+            repos.append(hf_repo)
+
+        # Supplement with GitHub search
+        search_query = title or arxiv_id or ""
+        if search_query:
+            gh_repos = _find_via_github(client, f"{search_query} implementation", limit)
+            # Deduplicate by URL
+            seen_urls = {r["url"] for r in repos}
+            for r in gh_repos:
+                if r["url"] not in seen_urls:
+                    repos.append(r)
+                    seen_urls.add(r["url"])
+
+    # Sort by stars (official first via high-priority, then by stars)
+    repos.sort(key=lambda r: (r["is_official"], r["stars"]), reverse=True)
+    return repos[:limit]
 
 
 def format_repo(r: dict, idx: int) -> str:
@@ -91,17 +117,24 @@ def format_repo(r: dict, idx: int) -> str:
     desc = r.get("description", "")[:150]
 
     official_tag = " 🏷️ **Official**" if is_official else ""
+    framework_str = f" | Framework: {framework}" if framework else ""
 
-    return (f"{idx}. [{url}]({url}){official_tag}\n"
-            f"   ⭐ {stars} | Framework: {framework}\n"
-            f"   {desc}\n")
+    return (
+        f"{idx}. [{url}]({url}){official_tag}\n"
+        f"   ⭐ {stars:,}{framework_str}\n"
+        f"   {desc}\n"
+    )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Find code implementations via Papers With Code")
+    parser = argparse.ArgumentParser(
+        description="Find code implementations via HuggingFace + GitHub"
+    )
     parser.add_argument("--arxiv-id", "-a", help="arXiv ID (e.g. 1706.03762)")
     parser.add_argument("--title", "-t", help="Paper title to search")
-    parser.add_argument("--limit", "-l", type=int, default=5, help="Max repos (default 5)")
+    parser.add_argument(
+        "--limit", "-l", type=int, default=5, help="Max repos (default 5)"
+    )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
 
