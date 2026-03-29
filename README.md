@@ -53,6 +53,7 @@ Simply ask the agent in conversation:
 | [`academic-slides`](#-academic-slides--presentation--research-talk-creation) | 🎤 Academic presentation & research talk creation |
 | [`evo-memory`](#-evo-memory--persistent-research-memory--self-evolution) | 🧠 Persistent research memory & self-evolution |
 | [`paper-navigator`](#-paper-navigator--academic-paper-discovery--reading) | 📚 End-to-end academic paper discovery, reading & organization |
+| [`nano-banana`](#-nano-banana--ai-generated-slides--illustrations) | 🍌 AI-generated presentation slides & illustrations via Gemini |
 
 > **Paper Suite + Self-Evolution Suite**: Each skill is self-contained — use them individually or combine freely. The self-evolution skills (`idea-tournament`, `experiment-pipeline`, `evo-memory`) form a learning loop that improves across research cycles.
 
@@ -85,12 +86,14 @@ flowchart LR
     D <--> B
     E["📚 paper-navigator<br/>(standalone)"] -.-> A
     E -.-> B
+    F["🍌 nano-banana<br/>(standalone)"] -.-> C
 
     style A fill:#7C3AED,stroke:#5B21B6,stroke-width:2px,color:#fff
     style B fill:#D97706,stroke:#B45309,stroke-width:2px,color:#fff
     style C fill:#16A34A,stroke:#15803D,stroke-width:2px,color:#fff
     style D fill:#475569,stroke:#334155,stroke-width:2px,color:#fff
     style E fill:#0369A1,stroke:#075985,stroke-width:2px,color:#fff
+    style F fill:#D97706,stroke:#B45309,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -223,6 +226,16 @@ End-to-end paper workflow in five stages — from query to organized literature 
 
 Includes 12 Python scripts powered by Semantic Scholar, HuggingFace, GitHub, arXiv, and Jina Reader APIs.
 
+### 🍌 `nano-banana` — AI-Generated Slides & Illustrations
+
+Generate professional presentation slides and high-quality illustrations using Gemini's image generation API, with an interactive browser-based review loop:
+
+- **7-Phase Workflow** — Content planning conversation → slides_plan.json → style selection & batch generation → browser review → feedback editing → PPTX packaging → cleanup
+- **3 Visual Styles** — Lineal Color (flat icons, educational), Gradient Glass (glassmorphism, premium), Vector Illustration (retro, approachable)
+- **Interactive Review** — Local HTTP server with per-slide feedback; edits are applied without regenerating the entire deck
+- **Multi-Model Support** — `gemini-3-pro-image-preview` (best quality), `gemini-3.1-flash-image-preview` (fast iteration), `gemini-2.5-flash-image` (rapid prototyping)
+- **Counterintuitive Rules** — More planning = better slides; edit don't regenerate; never read generated images yourself (use the review server)
+
 <p align="right"><a href="#top">🔝Back to top</a></p>
 
 ## 🎯 ᯓ➤ Roadmap
@@ -231,10 +244,10 @@ Completed:
 - [x] 🧠 **Self-Evolution Suite** — `idea-tournament`, `experiment-pipeline`, `evo-memory`
 - [x] 📚 **Literature Survey** — Systematic literature search, filtering, and survey generation
 - [x] 🔄 **Iterative Coder** — Iterative code refinement with plan → code → evaluate → refine cycles
+- [x] 🎨 **Visual Generation** — AI-generated slides & illustrations (`nano-banana`)
 
 Coming soon:
 - [ ] 🏅 **Math Olympiad** — Advanced mathematical reasoning & problem solving
-- [ ] 🎨 **Visual Generation** — Diagrams, figures & graphic content creation
 - [ ] 🔬 **Paper Reproduction** — Read a paper, reproduce its core results, and verify claims
 - [ ] 💡 **Grant & Proposal Writing** — Research proposal drafting with funding agency conventions
 - [ ] 🤖 **Peer Debate** — Multi-agent adversarial discussion to stress-test research ideas
