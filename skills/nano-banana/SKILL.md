@@ -164,7 +164,7 @@ Bottom tagline: AI changes everything
 | Style | File | Visual Characteristics | Best For |
 |-------|------|----------------------|----------|
 | Lineal Color | `styles/lineal-color.md` | White background, teal accents, flat 2D icons, info cards | Technical talks, lectures, educational |
-| Gradient Glass | `styles/gradient-glass.md` | Dark background, 3D glass objects, aurora gradients, premium feel | Product launches, pitches, creative |
+| Gradient Glass | `styles/gradient-glass.md` | Light pastel background, frosted glass cards, Apple Keynote feel | Product launches, pitches, SaaS |
 | Vector Illustration | `styles/vector-illustration.md` | Cream background, black outlines, retro colors, toy-model charm | Educational, children's content, brand stories |
 
 Present the styles to the user and let them choose. If unsure, recommend Lineal Color as the default.
