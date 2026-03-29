@@ -13,6 +13,7 @@ Usage:
 
 import argparse
 import os
+import signal
 import sys
 
 
@@ -89,6 +90,9 @@ Example usage:
         "--dir", required=True, help="Directory containing slide-XX.png images"
     )
     parser.add_argument("--output", required=True, help="Output .pptx file path")
+    parser.add_argument(
+        "--kill-server", help="PID file of serve_viewer.py to stop after packaging"
+    )
 
     args = parser.parse_args()
 
@@ -97,6 +101,17 @@ Example usage:
         sys.exit(1)
 
     package_pptx(args.dir, args.output)
+
+    # Stop review server if PID file provided
+    if args.kill_server and os.path.exists(args.kill_server):
+        try:
+            with open(args.kill_server) as f:
+                pid = int(f.read().strip())
+            os.kill(pid, signal.SIGTERM)
+            os.remove(args.kill_server)
+            print(f"Review server stopped (PID: {pid})")
+        except (ValueError, ProcessLookupError):
+            pass
 
 
 if __name__ == "__main__":

@@ -196,6 +196,7 @@ python /skills/nano-banana/scripts/generate_ppt.py \
 - `--resolution`: `2K` (default) or `4K`
 - `--output`: Output directory (default: `ppt_output/TIMESTAMP`)
 - `--api-key`: Google API key (if not in environment)
+- `--workers`: Number of parallel workers (default: 1, recommended: 3-5 for large decks)
 
 Output structure:
 ```
@@ -218,7 +219,8 @@ Start the interactive review server so the user can review slides and write feed
 python /skills/nano-banana/scripts/serve_viewer.py \
   --dir ppt_output \
   --plan slides_plan.json \
-  --port 8080
+  --port 8080 \
+  --pid-file .viewer.pid
 ```
 
 Tell the user:
@@ -262,18 +264,20 @@ Once the user approves all slides, ask for the desired filename and package them
 ```bash
 python /skills/nano-banana/scripts/package_pptx.py \
   --dir ppt_output/images \
-  --output presentation.pptx
+  --output presentation.pptx \
+  --kill-server .viewer.pid
 ```
 
 **Arguments:**
 - `--dir` (required): Directory containing slide-XX.png images
 - `--output` (required): Output .pptx file path
+- `--kill-server`: PID file from serve_viewer.py — automatically stops the review server after packaging
 
 ---
 
 ## Phase 7: Cleanup
 
-- Stop the review server (Ctrl+C or kill the process)
+- The review server is automatically stopped by `package_pptx.py --kill-server`
 - Ask the user if they want to keep `ppt_output/` directory or clean it up
 - The `slides_plan.json` can be kept for future re-generation
 
@@ -303,10 +307,10 @@ python /skills/nano-banana/scripts/package_pptx.py \
 
 | Script | Purpose | Key Arguments |
 |--------|---------|---------------|
-| `scripts/generate_ppt.py` | Batch generate all slides from plan | `--plan`, `--style`, `--model`, `--output`, `--resolution`, `--api-key` |
+| `scripts/generate_ppt.py` | Batch generate all slides from plan | `--plan`, `--style`, `--model`, `--output`, `--resolution`, `--api-key`, `--workers` |
 | `scripts/edit_slide.py` | Edit a single slide based on instruction | `--input`, `--instruction`, `--output`, `--model`, `--api-key` |
-| `scripts/serve_viewer.py` | Local review server with feedback | `--dir`, `--plan`, `--port`, `--no-open` |
-| `scripts/package_pptx.py` | Package slide images into .pptx | `--dir`, `--output` |
+| `scripts/serve_viewer.py` | Local review server with feedback | `--dir`, `--plan`, `--port`, `--no-open`, `--pid-file` |
+| `scripts/package_pptx.py` | Package slide images into .pptx | `--dir`, `--output`, `--kill-server` |
 
 ---
 

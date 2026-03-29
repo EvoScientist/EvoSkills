@@ -115,6 +115,9 @@ def main():
     parser.add_argument(
         "--no-open", action="store_true", help="Don't auto-open browser"
     )
+    parser.add_argument(
+        "--pid-file", help="Write server PID to file (for later cleanup)"
+    )
     args = parser.parse_args()
 
     if not os.path.isdir(args.dir):
@@ -127,11 +130,14 @@ def main():
     handler = partial(ViewerHandler, plan_path=args.plan, output_dir=args.dir)
     server = HTTPServer(("localhost", args.port), handler)
 
+    # Write PID file so other scripts can stop this server
+    if args.pid_file:
+        with open(args.pid_file, "w") as f:
+            f.write(str(os.getpid()))
+
     url = f"http://localhost:{args.port}"
-    print(f"Serving at {url}")
+    print(f"Serving at {url} (PID: {os.getpid()})")
     print(f"Plan: {args.plan}")
-    print(f"Slides: {args.dir}/images/")
-    print("Press Ctrl+C to stop")
 
     if not args.no_open:
         webbrowser.open(url)
@@ -141,6 +147,9 @@ def main():
     except KeyboardInterrupt:
         print("\nServer stopped")
         server.server_close()
+    finally:
+        if args.pid_file and os.path.exists(args.pid_file):
+            os.remove(args.pid_file)
 
 
 if __name__ == "__main__":
