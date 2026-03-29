@@ -497,14 +497,20 @@ def main() -> None:
         page_type = slide_info.get("page_type", "content")
         content_text = slide_info["content"]
         prompt = generate_prompt(
-            style_template, page_type, content_text, slide_number, total_slides,
+            style_template,
+            page_type,
+            content_text,
+            slide_number,
+            total_slides,
         )
-        slide_tasks.append({
-            "slide_number": slide_number,
-            "page_type": page_type,
-            "content": content_text,
-            "prompt": prompt,
-        })
+        slide_tasks.append(
+            {
+                "slide_number": slide_number,
+                "page_type": page_type,
+                "content": content_text,
+                "prompt": prompt,
+            }
+        )
 
     # Generate slides (serial or parallel)
     workers = min(args.workers, len(slide_tasks))
@@ -512,12 +518,19 @@ def main() -> None:
 
     if workers > 1:
         from concurrent.futures import ThreadPoolExecutor, as_completed
+
         print(f"Using {workers} parallel workers")
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
                 executor.submit(
-                    generate_slide, task["prompt"], task["slide_number"],
-                    total_slides, output_dir, args.resolution, args.api_key, args.model,
+                    generate_slide,
+                    task["prompt"],
+                    task["slide_number"],
+                    total_slides,
+                    output_dir,
+                    args.resolution,
+                    args.api_key,
+                    args.model,
                 ): task["slide_number"]
                 for task in slide_tasks
             }
@@ -527,19 +540,26 @@ def main() -> None:
     else:
         for task in slide_tasks:
             results[task["slide_number"]] = generate_slide(
-                task["prompt"], task["slide_number"], total_slides,
-                output_dir, args.resolution, args.api_key, args.model,
+                task["prompt"],
+                task["slide_number"],
+                total_slides,
+                output_dir,
+                args.resolution,
+                args.api_key,
+                args.model,
             )
 
     # Record prompt data (in slide order)
     for task in slide_tasks:
-        prompts_data["slides"].append({
-            "slide_number": task["slide_number"],
-            "page_type": task["page_type"],
-            "content": task["content"],
-            "prompt": task["prompt"],
-            "image_path": results.get(task["slide_number"]),
-        })
+        prompts_data["slides"].append(
+            {
+                "slide_number": task["slide_number"],
+                "page_type": task["page_type"],
+                "content": task["content"],
+                "prompt": task["prompt"],
+                "image_path": results.get(task["slide_number"]),
+            }
+        )
 
     # Save prompts
     save_prompts(output_dir, prompts_data)
