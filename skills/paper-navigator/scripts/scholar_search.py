@@ -141,8 +141,9 @@ def main():
             print(format_paper(paper))
         return
 
+    fetch_limit = 100 if args.sort_by != "relevance" else args.limit
     papers = search(
-        args.query, args.limit, args.year_min, args.year_max, args.open_access_only
+        args.query, fetch_limit, args.year_min, args.year_max, args.open_access_only
     )
 
     if not papers:

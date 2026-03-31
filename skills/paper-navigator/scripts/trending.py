@@ -8,7 +8,7 @@ within a recent time period.
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
@@ -36,7 +36,8 @@ def find_trending(
 ) -> list[dict]:
     """Search for papers and rank by citation velocity."""
     now = datetime.now(timezone.utc)
-    year_min = now.year - max(period_days // 365, 1)
+    cutoff = now - timedelta(days=period_days)
+    year_min = cutoff.year
 
     params: dict = {
         "query": query,

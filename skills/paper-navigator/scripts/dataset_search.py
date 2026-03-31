@@ -10,9 +10,11 @@ import httpx
 from utils import HF_API, hf_headers, request_with_retry
 
 
-def search_datasets(query: str, limit: int = 10) -> list[dict]:
+def search_datasets(
+    query: str, limit: int = 10, sort: str = "downloads"
+) -> list[dict]:
     """Search HuggingFace datasets."""
-    params = {"search": query, "limit": min(limit, 100)}
+    params: dict = {"search": query, "limit": min(limit, 100), "sort": sort}
     with httpx.Client() as client:
         data = request_with_retry(
             client, f"{HF_API}/datasets", params, hf_headers(), follow_redirects=True
@@ -67,10 +69,16 @@ def main():
     parser.add_argument(
         "--limit", "-l", type=int, default=10, help="Max results (default 10)"
     )
+    parser.add_argument(
+        "--sort",
+        choices=["downloads", "likes", "trending"],
+        default="downloads",
+        help="Sort order (default: downloads)",
+    )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
 
-    datasets = search_datasets(args.query, args.limit)
+    datasets = search_datasets(args.query, args.limit, args.sort)
 
     if not datasets:
         print(f"No datasets found for '{args.query}'", file=sys.stderr)

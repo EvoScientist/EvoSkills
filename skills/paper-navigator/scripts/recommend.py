@@ -8,21 +8,18 @@ returns semantically similar papers.
 import argparse
 import json
 import sys
-import time
 
 import httpx
 
 from utils import (
     S2_BASE,
     S2_RECOMMEND_BASE,
-    MAX_RETRIES,
-    RETRY_DELAYS,
     s2_headers,
     request_with_retry,
     normalize_paper_id,
 )
 
-S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,isOpenAccess,openAccessPdf"
+S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf"
 
 
 def _resolve_to_s2_id(client: httpx.Client, paper_id: str) -> str:
@@ -56,30 +53,15 @@ def recommend(
         if neg_s2:
             body["negativePaperIds"] = neg_s2
 
-        # POST request — keep inline retry (request_with_retry is GET-only)
-        for attempt in range(MAX_RETRIES):
-            try:
-                resp = client.post(
-                    f"{S2_RECOMMEND_BASE}/papers/",
-                    json=body,
-                    params={"fields": S2_FIELDS, "limit": min(limit, 500)},
-                    headers=s2_headers(),
-                    timeout=30,
-                )
-                if resp.status_code == 429 or resp.status_code >= 500:
-                    if attempt < MAX_RETRIES - 1:
-                        time.sleep(RETRY_DELAYS[attempt])
-                        continue
-                resp.raise_for_status()
-                return resp.json().get("recommendedPapers", [])
-            except httpx.HTTPStatusError:
-                raise
-            except httpx.HTTPError as e:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_DELAYS[attempt])
-                    continue
-                raise SystemExit(f"Error: {e}") from e
-    return []
+        data = request_with_retry(
+            client,
+            f"{S2_RECOMMEND_BASE}/papers/",
+            params={"fields": S2_FIELDS, "limit": min(limit, 500)},
+            headers=s2_headers(),
+            method="POST",
+            json_body=body,
+        )
+    return data.get("recommendedPapers", [])
 
 
 def format_paper(p: dict, idx: int) -> str:

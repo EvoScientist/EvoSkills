@@ -14,27 +14,43 @@ import httpx
 
 from utils import S2_BASE, s2_headers, request_with_retry, normalize_paper_id
 
-S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,isOpenAccess,openAccessPdf"
+S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf"
 
 
-def get_citations(paper_id: str, limit: int = 20) -> list[dict]:
+def get_citations(
+    paper_id: str, limit: int = 20, client: httpx.Client | None = None
+) -> list[dict]:
     """Forward citations: papers that cite this paper."""
     params = {"fields": S2_FIELDS, "limit": min(limit, 1000)}
-    with httpx.Client() as client:
+
+    def _fetch(c: httpx.Client) -> list[dict]:
         data = request_with_retry(
-            client, f"{S2_BASE}/paper/{paper_id}/citations", params, s2_headers()
+            c, f"{S2_BASE}/paper/{paper_id}/citations", params, s2_headers()
         )
-    return [c["citingPaper"] for c in data.get("data", []) if c.get("citingPaper")]
+        return [c2["citingPaper"] for c2 in data.get("data", []) if c2.get("citingPaper")]
+
+    if client:
+        return _fetch(client)
+    with httpx.Client() as c:
+        return _fetch(c)
 
 
-def get_references(paper_id: str, limit: int = 20) -> list[dict]:
+def get_references(
+    paper_id: str, limit: int = 20, client: httpx.Client | None = None
+) -> list[dict]:
     """Backward citations: papers this paper references."""
     params = {"fields": S2_FIELDS, "limit": min(limit, 1000)}
-    with httpx.Client() as client:
+
+    def _fetch(c: httpx.Client) -> list[dict]:
         data = request_with_retry(
-            client, f"{S2_BASE}/paper/{paper_id}/references", params, s2_headers()
+            c, f"{S2_BASE}/paper/{paper_id}/references", params, s2_headers()
         )
-    return [r["citedPaper"] for r in data.get("data", []) if r.get("citedPaper")]
+        return [r["citedPaper"] for r in data.get("data", []) if r.get("citedPaper")]
+
+    if client:
+        return _fetch(client)
+    with httpx.Client() as c:
+        return _fetch(c)
 
 
 def get_co_citations(paper_id: str, limit: int = 15) -> list[dict]:
@@ -43,30 +59,23 @@ def get_co_citations(paper_id: str, limit: int = 15) -> list[dict]:
     Strategy: get forward citations, collect their references,
     find most common papers (excluding the seed).
     """
-    # Get papers that cite the seed
-    citers = get_citations(paper_id, limit=50)
-    if not citers:
-        return []
-
-    # Sample up to 10 citers to stay within rate limits
-    sample = citers[:10]
-    ref_counts: dict[str, dict] = {}
-
     with httpx.Client() as client:
+        # Get papers that cite the seed
+        citers = get_citations(paper_id, limit=50, client=client)
+        if not citers:
+            return []
+
+        # Sample up to 10 citers to stay within rate limits
+        sample = citers[:10]
+        ref_counts: dict[str, dict] = {}
+
         for citer in sample:
             citer_id = citer.get("paperId")
             if not citer_id:
                 continue
             try:
-                params = {"fields": S2_FIELDS, "limit": 100}
-                data = request_with_retry(
-                    client,
-                    f"{S2_BASE}/paper/{citer_id}/references",
-                    params,
-                    s2_headers(),
-                )
-                for r in data.get("data", []):
-                    ref = r.get("citedPaper", {})
+                refs = get_references(citer_id, limit=100, client=client)
+                for ref in refs:
                     rid = ref.get("paperId")
                     if rid and rid != paper_id:
                         if rid not in ref_counts:
