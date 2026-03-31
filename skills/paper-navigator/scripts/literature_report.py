@@ -306,7 +306,7 @@ def _report_deep_dive(papers: list[tuple[str, dict]]) -> str:
         lines.append(
             f"- `find_code --arxiv-id {arxiv_id}`"
             if arxiv_id
-            else f'- `find_code --title "{title}""'
+            else f'- `find_code --title "{title}"`'
         )
         lines.append("")
 
@@ -350,10 +350,10 @@ def _report_baseline_hunt(papers: list[tuple[str, dict]]) -> str:
         lines.append(
             f"- Run: `python scripts/find_code.py --arxiv-id {arxiv_id}`"
             if arxiv_id
-            else f'- Run: `python scripts/find_code.py --title "{title}""'
+            else f'- Run: `python scripts/find_code.py --title "{title}"`'
         )
         lines.append(
-            f'- GitHub search: `python scripts/github_search.py --query "{title}""'
+            f'- GitHub search: `python scripts/github_search.py --query "{title}"`'
         )
 
         # Open Access
@@ -383,7 +383,7 @@ def _report_baseline_hunt(papers: list[tuple[str, dict]]) -> str:
         # SOTA position
         lines.append("\n**SOTA Position:**")
         lines.append('- Run: `python scripts/sota.py --task "<relevant task>"`')
-        lines.append(f'- Run: `python scripts/dataset_search.py --query "{title}""')
+        lines.append(f'- Run: `python scripts/dataset_search.py --query "{title}"`')
 
         # Overall score
         lines.append(f"\n**Reproducibility Score: {score}/3**")

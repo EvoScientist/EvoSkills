@@ -8,26 +8,10 @@ with sorting by stars, recency, or relevance.
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
 
 import httpx
 
 from utils import GITHUB_API, github_headers, request_with_retry
-
-
-def _print_rate_limit_info(resp_headers: dict) -> None:
-    """Print GitHub rate limit info to stderr."""
-    remaining = resp_headers.get("x-ratelimit-remaining", "?")
-    limit = resp_headers.get("x-ratelimit-limit", "?")
-    reset = resp_headers.get("x-ratelimit-reset", "?")
-    print(f"GitHub API rate limit: {remaining}/{limit} remaining", file=sys.stderr)
-    if reset != "?":
-        reset_ts = int(reset)
-        reset_dt = datetime.fromtimestamp(reset_ts, tz=timezone.utc)
-        print(
-            f"  Resets at: {reset_dt.strftime('%Y-%m-%d %H:%M:%S UTC')}",
-            file=sys.stderr,
-        )
 
 
 def search_repos(query: str, limit: int = 10, sort: str = "stars") -> list[dict]:

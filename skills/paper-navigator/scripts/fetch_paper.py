@@ -7,6 +7,7 @@ convert the paper page to clean Markdown.
 
 import argparse
 import json
+import re
 import sys
 
 import httpx
@@ -131,6 +132,7 @@ def main():
         # Try to get metadata from S2 if it looks like an arXiv URL
         if "arxiv.org" in url:
             arxiv_id = url.split("/abs/")[-1].split("/pdf/")[-1].rstrip(".pdf")
+            arxiv_id = re.sub(r"v\d+$", "", arxiv_id)
             try:
                 _, meta = resolve_paper_url(f"ArXiv:{arxiv_id}")
             except Exception:

@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import re
 import sys
 
 import httpx
@@ -22,6 +23,7 @@ def _find_via_hf(
         for prefix in ["https://arxiv.org/abs/", "http://arxiv.org/abs/"]:
             if arxiv_id.startswith(prefix):
                 arxiv_id = arxiv_id[len(prefix) :]
+        arxiv_id = re.sub(r"v\d+$", "", arxiv_id)
 
         data = request_with_retry(
             client,

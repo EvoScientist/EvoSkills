@@ -6,6 +6,7 @@ and paper-ID normalization used across all scripts.
 """
 
 import os
+import re
 import sys
 import time
 from typing import Any
@@ -83,18 +84,22 @@ def request_with_retry(
     timeout: int = 30,
     parse_json: bool = True,
     follow_redirects: bool = False,
+    method: str = "GET",
+    json_body: dict | None = None,
 ) -> Any:
-    """GET with retry on 429/5xx.
+    """HTTP request with retry on 429/5xx.
 
     Returns parsed JSON (dict/list) by default.
     If parse_json=False, returns response text.
     """
     for attempt in range(MAX_RETRIES):
         try:
-            resp = client.get(
+            resp = client.request(
+                method,
                 url,
                 params=params,
                 headers=headers,
+                json=json_body,
                 timeout=timeout,
                 follow_redirects=follow_redirects,
             )
@@ -125,6 +130,11 @@ def request_with_retry(
 # ── Paper ID normalization ────────────────────────────────────────
 
 
+def _strip_arxiv_version(arxiv_id: str) -> str:
+    """Strip version suffix (e.g. v5) from arXiv ID."""
+    return re.sub(r"v\d+$", "", arxiv_id)
+
+
 def normalize_paper_id(raw: str) -> str:
     """Normalize paper ID: strip URL prefixes, add ArXiv:/DOI: prefix."""
     raw = raw.strip()
@@ -135,8 +145,11 @@ def normalize_paper_id(raw: str) -> str:
         "http://arxiv.org/pdf/",
     ]:
         if raw.startswith(prefix):
-            raw = raw[len(prefix) :].rstrip(".pdf")
+            raw = _strip_arxiv_version(raw[len(prefix) :].rstrip(".pdf"))
             return f"ArXiv:{raw}"
+    if raw.startswith("ArXiv:") or raw.startswith("arxiv:"):
+        id_part = _strip_arxiv_version(raw[6:])
+        return f"ArXiv:{id_part}"
     if raw.startswith("10."):
         return f"DOI:{raw}"
     return raw
