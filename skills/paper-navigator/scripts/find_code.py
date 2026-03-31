@@ -3,12 +3,18 @@
 
 import argparse
 import json
-import re
 import sys
 
 import httpx
 
-from utils import HF_API, GITHUB_API, hf_headers, github_headers, request_with_retry
+from utils import (
+    HF_API,
+    GITHUB_API,
+    hf_headers,
+    github_headers,
+    request_with_retry,
+    _strip_arxiv_version,
+)
 
 
 def _find_via_hf(
@@ -20,10 +26,15 @@ def _find_via_hf(
     if arxiv_id:
         # Clean arXiv ID
         arxiv_id = arxiv_id.strip().replace("ArXiv:", "").replace("arxiv:", "")
-        for prefix in ["https://arxiv.org/abs/", "http://arxiv.org/abs/"]:
+        for prefix in [
+            "https://arxiv.org/abs/",
+            "http://arxiv.org/abs/",
+            "https://arxiv.org/pdf/",
+            "http://arxiv.org/pdf/",
+        ]:
             if arxiv_id.startswith(prefix):
-                arxiv_id = arxiv_id[len(prefix) :]
-        arxiv_id = re.sub(r"v\d+$", "", arxiv_id)
+                arxiv_id = arxiv_id[len(prefix) :].removesuffix(".pdf")
+        arxiv_id = _strip_arxiv_version(arxiv_id)
 
         data = request_with_retry(
             client,

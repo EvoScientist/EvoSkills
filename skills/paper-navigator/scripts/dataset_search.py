@@ -10,9 +10,7 @@ import httpx
 from utils import HF_API, hf_headers, request_with_retry
 
 
-def search_datasets(
-    query: str, limit: int = 10, sort: str = "downloads"
-) -> list[dict]:
+def search_datasets(query: str, limit: int = 10, sort: str = "downloads") -> list[dict]:
     """Search HuggingFace datasets."""
     params: dict = {"search": query, "limit": min(limit, 100), "sort": sort}
     with httpx.Client() as client:

@@ -155,6 +155,8 @@ def main():
     elif args.sort_by == "year":
         papers.sort(key=lambda p: p.get("year", 0), reverse=True)
 
+    papers = papers[: args.limit]
+
     if args.json:
         print(json.dumps(papers, indent=2))
         return

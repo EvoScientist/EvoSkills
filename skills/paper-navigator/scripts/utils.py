@@ -145,7 +145,7 @@ def normalize_paper_id(raw: str) -> str:
         "http://arxiv.org/pdf/",
     ]:
         if raw.startswith(prefix):
-            raw = _strip_arxiv_version(raw[len(prefix) :].rstrip(".pdf"))
+            raw = _strip_arxiv_version(raw[len(prefix) :].removesuffix(".pdf"))
             return f"ArXiv:{raw}"
     if raw.startswith("ArXiv:") or raw.startswith("arxiv:"):
         id_part = _strip_arxiv_version(raw[6:])
