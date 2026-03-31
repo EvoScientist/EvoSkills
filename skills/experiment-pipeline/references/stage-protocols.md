@@ -7,7 +7,7 @@ Detailed checklists and common patterns for each of the 4 experiment pipeline st
 ### Before You Start
 
 - [ ] Identify the baseline paper and its reported metrics
-- [ ] Find the official implementation (check paper, GitHub, Papers With Code)
+- [ ] Find the official implementation (check paper, GitHub, HuggingFace Papers)
 - [ ] If no official code, find the most-starred re-implementation
 - [ ] Get the code running in your environment — resolve dependencies, fix compatibility issues
 - [ ] Read the paper's experimental setup section thoroughly — note dataset, splits, preprocessing, hyperparameters

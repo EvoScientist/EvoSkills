@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Query top models by task via HuggingFace Models API.
 
-Note: The original Papers With Code SOTA leaderboard API has been shut down.
-This script now uses HuggingFace Models API to find top models by task,
-sorted by downloads or likes. For detailed benchmark scores, see:
+Finds top models by task, sorted by downloads or likes.
+For detailed benchmark scores, see:
 https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
 """
 
@@ -88,7 +87,7 @@ def format_model(m: dict, idx: int) -> str:
 
     return (
         f"{idx}. **{model_id}**\n"
-        f"   📥 {downloads:,} downloads | ❤️ {likes} likes | "
+        f"   \U0001f4e5 {downloads:,} downloads | \u2764\ufe0f {likes} likes | "
         f"{pipeline} | {library}\n"
         f"   Updated: {last_modified}{paper_str}\n"
         f"   {url}\n"
