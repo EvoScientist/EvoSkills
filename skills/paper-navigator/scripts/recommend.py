@@ -19,7 +19,7 @@ from utils import (
     normalize_paper_id,
 )
 
-S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf"
+S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,isOpenAccess,openAccessPdf"
 
 
 def _resolve_to_s2_id(client: httpx.Client, paper_id: str) -> str:

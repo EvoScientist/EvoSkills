@@ -32,7 +32,7 @@ End-to-end paper workflow in five stages:
 - `GITHUB_TOKEN` — GitHub personal access token (for higher rate limits on `github_search`, `find_code`)
 - `HF_TOKEN` — HuggingFace token (optional, for higher rate limits on `find_code`, `dataset_search`, `sota`)
 
-Scripts are in `EvoScientist/skills/paper-navigator/scripts/`. Run via `python EvoScientist/skills/paper-navigator/scripts/<name>.py`.
+Scripts are in `skills/paper-navigator/scripts/`. Run via `python skills/paper-navigator/scripts/<name>.py`.
 
 ---
 

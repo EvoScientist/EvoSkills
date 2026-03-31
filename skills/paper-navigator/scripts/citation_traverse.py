@@ -14,7 +14,7 @@ import httpx
 
 from utils import S2_BASE, s2_headers, request_with_retry, normalize_paper_id
 
-S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf"
+S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,isOpenAccess,openAccessPdf"
 
 
 def get_citations(
