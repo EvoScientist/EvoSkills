@@ -1,0 +1,7 @@
+name: ssh
+label: "SSH  (remote command execution and file transfer over SSH)"
+description: "Execute commands and transfer files on remote servers via SSH. Uses native ~/.ssh/config for host discovery and authentication. Provides tools for running commands, checking connectivity, and transferring files via SCP."
+tags: [remote-execution]
+transport: stdio
+command: npx
+args: ["-y", "@aiondadotcom/mcp-ssh"]

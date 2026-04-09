@@ -29,6 +29,7 @@ Once installed, the server is available to all agents in future EvoScientist ses
 | [`exa`](exa.yaml) | Neural web search and content retrieval | http |
 | [`perplexity`](perplexity.yaml) | AI-powered web search via Perplexity | stdio |
 | [`sequential-thinking`](sequential-thinking.yaml) | Chain-of-thought reasoning with sequential thinking steps | stdio |
+| [`ssh`](ssh.yaml) | Remote command execution and file transfer over SSH | stdio |
 
 ## Contributing an MCP Server
 
@@ -119,6 +120,7 @@ Tag your server with at least one category so agents and users can filter the ma
 - `web-search` — general web search
 - `documentation` — docs and reference lookup
 - `reasoning` — thinking and reasoning tools
+- `remote-execution` — remote / SSH execution
 
 Create a new tag only if none of the existing ones fit.
 
