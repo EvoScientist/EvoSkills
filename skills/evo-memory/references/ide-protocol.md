@@ -1,10 +1,10 @@
 # IDE Protocol — Idea Direction Evolution
 
-Step-by-step process for extracting and storing promising research directions after completing an `idea-tournament`. IDE is the primary mechanism for building Ideation Memory (M_I) over time.
+Step-by-step process for extracting and storing promising research directions after completing an `research-ideation`. IDE is the primary mechanism for building Ideation Memory (M_I) over time.
 
 ## When to Trigger
 
-IDE runs after `idea-tournament` Phase 3 (Direction Summarization) is complete. The input is the direction summary from `/direction-summary.md` containing the top-3 ranked ideas.
+IDE runs after `research-ideation` Phase 3 (Direction Summarization) is complete. The input is the direction summary from `/direction-summary.md` containing the top-3 ranked ideas.
 
 ## Step-by-Step Process
 
@@ -81,7 +81,7 @@ For each new or updated direction, write an M_I entry. The paper's IDE prompt (s
 Generate a report at `/memory/evolution-reports/cycle_N_ide.md`:
 - What directions were added or updated
 - Why each change was made (evidence from tournament)
-- Expected impact on future `idea-tournament` cycles
+- Expected impact on future `research-ideation` cycles
 
 ## Abstraction Examples
 

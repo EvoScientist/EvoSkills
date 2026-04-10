@@ -5,6 +5,8 @@ Given seed papers (positive examples, optionally negative examples),
 returns semantically similar papers.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import sys

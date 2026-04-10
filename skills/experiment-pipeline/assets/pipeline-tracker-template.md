@@ -5,7 +5,7 @@
 - **Project**: [Research project name]
 - **Research Question**: [One-sentence description]
 - **Start Date**: [YYYY-MM-DD]
-- **Source**: [Link to research proposal from idea-tournament, if applicable]
+- **Source**: [Link to research proposal from research-ideation, if applicable]
 
 ## Pipeline Status
 

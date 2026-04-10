@@ -6,6 +6,8 @@ For detailed benchmark scores, see:
 https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import sys
