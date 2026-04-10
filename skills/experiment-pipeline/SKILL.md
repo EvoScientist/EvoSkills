@@ -28,7 +28,7 @@ The 4-stage pipeline solves both problems. It enforces a strict order (each stag
 
 ## Before Starting: Load Prior Knowledge
 
-If coming from `idea-tournament`, your research proposal (Phase 4) provides the experiment plan — datasets, baselines, metrics, and ablation design — that maps directly to Stages 1-4 below.
+If coming from `research-ideation`, your research proposal (Step 6) provides the experiment plan — datasets, baselines, metrics, and ablation design — that maps directly to Stages 1-4 below.
 
 Before entering the pipeline, load Experimentation Memory (M_E) from prior cycles:
 

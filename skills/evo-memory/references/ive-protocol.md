@@ -180,5 +180,5 @@ Add an entry to the M_I unsuccessful directions section:
 
 After updating M_I:
 1. Write an evolution report at `/memory/evolution-reports/cycle_N_ive.md`
-2. If classified as implementation failure: The direction stays in the feasible list. The next `idea-tournament` cycle may regenerate ideas in this direction, informed by the retry guidance.
-3. If classified as fundamental failure: The direction is added to the unsuccessful list. Future `idea-tournament` cycles will prune tree branches that match this direction.
+2. If classified as implementation failure: The direction stays in the feasible list. The next `research-ideation` cycle may regenerate ideas in this direction, informed by the retry guidance.
+3. If classified as fundamental failure: The direction is added to the unsuccessful list. Future `research-ideation` cycles will prune tree branches that match this direction.

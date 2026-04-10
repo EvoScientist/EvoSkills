@@ -1,77 +1,155 @@
 ---
 name: paper-navigator
-description: "End-to-end academic paper workflow: disambiguate queries, discover papers (search, citation traversal, recommendations, arXiv monitoring, trending, GitHub search), evaluate (TLDR, citations, code, SOTA), read with structured analysis (3-level strategy), and organize into literature maps or reports. Use when: finding papers, reading a paper, related work, literature survey, citation analysis, research trends, SOTA results, datasets, or literature reports. Do NOT use for writing a literature review section (use paper-writing), comparing research ideas (use idea-tournament), or planning paper structure (use paper-planning)."
+description: "Find and read academic papers: disambiguate queries, discover papers (search, citation traversal, recommendations, arXiv monitoring, trending, GitHub search), evaluate (TLDR, citations, code, SOTA), and read with structured analysis (3-level strategy). Use when: finding papers, reading a paper, related work, citation analysis, research trends, SOTA results, datasets. Do NOT use for generating literature survey reports (use research-survey), generating research ideas (use research-ideation), writing a paper's Related Work section (use paper-writing), comparing/ranking research ideas (use research-ideation), or planning paper structure (use paper-planning)."
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '1.0.0'
+  version: '1.1.0'
   tags: [core, research, literature, papers, search, citation]
 ---
 
 # Paper Navigator
 
-End-to-end paper workflow in five stages:
+Find and read academic papers in four stages:
 
 ```
-┌──────────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
-│ Disambiguate │ →  │ Discover │ →  │ Evaluate │ →  │   Read   │ →  │ Organize │
-└──────────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘
+┌──────────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│ Disambiguate │ →  │ Discover │ →  │ Evaluate │ →  │   Read   │
+└──────────────┘    └──────────┘    └──────────┘    └──────────┘
+                                                         ↓
+                                              ┌──────────────────┐
+                                              │ research-survey  │ (for survey reports)
+                                              │ research-ideation│ (for idea generation)
+                                              └──────────────────┘
 ```
 
-| Stage | Input | Scripts | Output |
-|-------|-------|---------|--------|
-| Disambiguate | user query | (agent-driven: web search + intent analysis) | search plan + resolved identifiers |
-| Discover | keywords / author / field | `scholar_search`, `citation_traverse`, `recommend`, `author_search`, `arxiv_monitor`, `trending`, `github_search` | candidate list |
-| Evaluate | candidate list | `scholar_search` (TLDR/citations), `find_code`, `sota`, `dataset_search` | reading list |
-| Read | paper ID / URL | `fetch_paper` + `references/reading-strategy.md` | structured notes |
-| Organize | multiple notes | `literature_report`, (agent applies framework) | literature map / report |
-
-**Setup:** All scripts use `httpx` (already in project). Optional env vars for higher rate limits:
-- `S2_API_KEY` — Semantic Scholar ([request here](https://www.semanticscholar.org/product/api#api-key))
-- `JINA_API_KEY` — Jina Reader (free tier works without key)
-- `GITHUB_TOKEN` — GitHub personal access token (for higher rate limits on `github_search`, `find_code`)
-- `HF_TOKEN` — HuggingFace token (optional, for higher rate limits on `find_code`, `dataset_search`, `sota`)
-
-Scripts are in `skills/paper-navigator/scripts/`. Run via `python skills/paper-navigator/scripts/<name>.py`.
+**Setup:** Scripts are in `skills/paper-navigator/scripts/`. Run via `python skills/paper-navigator/scripts/<name>.py`. Optional env vars for higher rate limits: `S2_API_KEY` (Semantic Scholar), `JINA_API_KEY` (Jina Reader), `GITHUB_TOKEN`, `HF_TOKEN`.
 
 ---
 
-## Stage 0: Disambiguate (Intent Analysis + Background Research)
+## Step 0: Search Strategy Principles (MANDATORY)
 
-Before searching, analyze the user's query to understand intent and resolve ambiguous terms. This stage prevents the common failure mode where academic APIs return zero results because the user's term doesn't match any paper title (e.g., "DeepSeek Engram" is a project/module name, not the paper title).
+Every discovery task MUST follow these principles before executing any workflow.
 
-### Step 1: Classify User Intent
+### Query Reformulation
 
-Determine what the user wants:
+Before searching, decompose the user's topic and generate **4-6 variant queries** covering distinct research angles. This is critical because different papers use different terminology for the same concept, and a single research topic often spans multiple sub-communities.
 
-| Intent | Signal | Strategy |
-|--------|--------|----------|
-| **Find a specific paper** | User gives a title, author, or URL | Direct search (skip to Stage 1 Path A) |
-| **Explore a topic/field** | User asks "what's new in X" or "survey X" | Broad search + trending (Stage 1 Paths A + F) |
-| **Track recent advances** | User asks "latest" or "recent" about X | arXiv monitor + trending (Stage 1 Paths E + F) |
-| **Find a baseline** | User asks for code, SOTA, or implementation | Search + code check (Stage 1 + 2) |
-| **Ambiguous/colloquial term** | User uses a project name, module name, or nickname | **This needs special handling** (see below) |
-| **Related work / literature map** | User wants connections between papers | Citation traversal + recommend (Stage 1 Paths B + C) |
+**Step 1: Sub-topic decomposition.** Identify 3-5 distinct research angles within the user's query. Most research topics span multiple perspectives:
+- **Empirical vs. theoretical** — papers that observe/measure the phenomenon vs. papers that prove/explain it formally
+- **Mechanism vs. condition** — papers about *how* something works vs. *when/why* it emerges
+- **Method keywords** — different communities use different terms for the same concept (e.g., "gradient descent" vs. "meta-optimization" vs. "implicit learning")
+- **Adjacent formulations** — the same idea framed differently (e.g., "in-context learning" vs. "few-shot learning" vs. "learning from demonstrations")
 
-### Step 2: Resolve Ambiguous Terms
+**Step 2: Generate queries.** Create at least one query per identified angle, using synonym substitution, specificity adjustment, and structural variants:
+- **Synonym substitution**: "data pruning" → "data selection", "data filtering", "data curation"
+- **Specificity adjustment**: broaden ("pretraining data quality") or narrow ("perplexity-based data pruning LLM")
+- **Structural variants**: swap word order, add/remove qualifiers, use abbreviations
 
-When the user's query might be a colloquial name, project name, or module name (rather than a paper title), take these steps:
+Example: User asks "how LLMs gain in-context learning during pretraining"
+- Angles: (a) mechanistic/circuit, (b) training dynamics, (c) ICL-as-optimization theory, (d) data/task conditions, (e) formal theory
+- Query 1: `"in-context learning emergence pretraining language model"` (general)
+- Query 2: `"induction heads formation training transformer"` (mechanistic)
+- Query 3: `"transformers learn in-context gradient descent meta-learning"` (optimization view)
+- Query 4: `"pretraining task diversity data structure in-context learning"` (data conditions)
+- Query 5: `"in-context learning theory linear attention generalization"` (formal theory)
+
+Example: User asks "papers about data pruning for LLM pretraining"
+- Angles: (a) selection methods, (b) quality metrics, (c) scaling effects
+- Query 1: `"data pruning pretraining language model"`
+- Query 2: `"data selection pretraining LLM"`
+- Query 3: `"training data curation large language model quality"`
+- Query 4: `"data quality scoring pretraining scaling"`
+
+### Multi-Source Parallel Search
+
+**Never rely on a single search source.** For every discovery task, run at least 2 sources:
+- **Primary**: `scholar_search` (S2 with automatic arXiv fallback on rate limit)
+- **Secondary**: `arxiv_monitor --keywords "<variants>" --match-mode flexible` for broader keyword coverage
+- **Tertiary** (when S2 is rate limited): web search for recent blog posts/surveys that reference papers
+
+**CRITICAL — S2 parallelization rule:**
+- **With `S2_API_KEY` set** (100 req/min): You MAY run multiple `scholar_search` calls in parallel.
+- **Without `S2_API_KEY`** (100 req/5min, ~1 req/3s): You MUST run `scholar_search` calls **sequentially, one at a time**. Parallel S2 calls without a key will exhaust the rate limit immediately, causing all calls to fail with 429 and fall back to the lower-quality arXiv search. This applies to ALL S2-dependent scripts: `scholar_search`, `citation_traverse`, `recommend`, `author_search`, `trending`.
+- **How to check:** Before starting discovery, run `echo $S2_API_KEY` or check if the env var is set. If empty, switch to sequential mode.
+- **arXiv-only scripts** (`arxiv_monitor`) are NOT affected by this rule and can always run in parallel with other calls.
+
+### Rate-Limit-Aware Fallback Chain
+
+When Semantic Scholar returns 429 or empty results:
+1. `scholar_search` automatically falls back to arXiv (built-in since v1.2)
+2. Use `arxiv_monitor --keywords` with `--match-mode flexible` for broader coverage
+3. Switch to web search for blog posts, surveys, GitHub repos that reference papers
+4. Space S2-dependent calls (`citation_traverse`, `recommend`) at least 5s apart and reduce `--limit`
+
+**Prevention is better than fallback:** The arXiv fallback produces lower-quality results (no citation counts, less precise relevance ranking). To avoid triggering it, always follow the S2 parallelization rule above — run S2 calls sequentially when no API key is set.
+
+### Mandatory Citation Expansion (for multi-paper discovery tasks)
+
+After finding **≥3 relevant seed papers**, you **MUST** expand coverage using the citation graph. The goal is to discover papers that keyword search cannot reach.
+
+**Seed selection:** Rank all found relevant papers by citation count. Pick the top 3 as primary seeds.
+
+**Expansion steps (all mandatory):**
+1. **Co-citation** on the single highest-cited seed: `citation_traverse --direction co-citation --limit 15` — this is the strongest signal for finding closely related work that uses different terminology
+2. **Forward citations** on the top 2 seeds: `citation_traverse --direction forward --limit 20` — finds follow-up work
+3. **Backward citations** on 1-2 seeds whose topic coverage differs: `citation_traverse --direction backward --limit 20` — finds foundational and adjacent work that seeds build on. Pick seeds from different sub-topics to maximize coverage breadth
+4. **Recommendations** with diverse seeds: `recommend --positive <seed1>,<seed2>,<seed3>` — serendipitous discovery of semantically related work not connected by citations
+
+**Seed diversity principle:** When selecting seeds for backward traversal or recommendations, prefer seeds from *different sub-topics* identified in query reformulation. This prevents the citation graph from staying within a single research community.
+
+**Applies to**: WF1 (Survey), WF3 (Quick Search with >10 results), WF5 (Track Developments), WF9 (Ideation), WF10 (User-specified count).
+**Does NOT apply to**: WF2 (Find specific paper), WF7 (Read paper by URL).
+
+### Coverage Gap Check (for multi-paper discovery tasks)
+
+After initial search + citation expansion, review the collected papers against the sub-topics identified during query reformulation.
+
+**For each sub-topic angle:**
+1. Count how many collected papers address it
+2. If a sub-topic has **0-1 papers**, run a targeted `scholar_search` with a query specific to that angle
+3. If targeted search finds new relevant papers, optionally run one more `citation_traverse` or `recommend` round on the new finds
+
+This step catches systematic blind spots where an entire research perspective was missed by all prior queries. It is lightweight — typically 1-2 additional searches for gaps, not a full re-search.
+
+**Applies to**: Same workflows as Mandatory Citation Expansion.
+
+---
+
+## Step 1: Classify Intent and Select Workflow
+
+**Start here.** Determine what the user wants and route to the right workflow. Match complexity to intent — simple queries get simple answers.
+
+| Intent | Signal | Workflow | Complexity |
+|--------|--------|----------|------------|
+| **Find a specific paper** | Title, author name, or URL | [WF 2](#workflow-2-navigational-search) | Single search call |
+| **Quick paper search** | "give me papers about X", "find papers on X" | [WF 3](#workflow-3-quick-paper-search) | Single search call |
+| **Metadata search** | Author + year, venue filter | [WF 4](#workflow-4-metadata-search) | Single search + filter |
+| **Track recent advances** | "latest", "recent", "what's new" | [WF 5](#workflow-5-track-field-developments) | 1-2 calls |
+| **Find a baseline** | Code, SOTA, implementation | [WF 6](#workflow-6-find-a-baseline-with-code) | Search + code check |
+| **Read a paper** | URL or "read this paper" | [WF 7](#workflow-7-read-a-paper-by-url) | Fetch + read |
+| **Ambiguous term** | Project name, module name, nickname | [WF 8](#workflow-8-ambiguous-query-resolution) | Web search + resolve |
+| **Literature survey** | "survey X", comprehensive coverage | [WF 1](#workflow-1-collect-papers-for-survey) → then hand off to `research-survey` | Iterative collection |
+| **Related work map** | Connections between papers | [WF 1](#workflow-1-collect-papers-for-survey) | Citation traversal |
+| **Ideation support** | Called from research-ideation | [WF 9](#workflow-9-ideation-support) | Iterative + strict filter |
+| **User-specified count** | "find me exactly N papers about X" | [WF 10](#workflow-10-user-specified-paper-count) | Adaptive |
+
+**Key principle:** Simple "find me papers about X" queries should return results from a single search call, not trigger the full iterative collection workflow. Only use iterative expansion for comprehensive surveys or ideation support.
+
+---
+
+## Step 2: Resolve Ambiguous Terms (if needed)
+
+When the user's query might be a colloquial name, project name, or module name (rather than a paper title):
 
 1. **Quick academic search** — Try `scholar_search` with the exact query
-2. **If zero results** — The term is likely a project/colloquial name. Broaden the search:
-   - **Web search** (via research-agent or web tools): Search for the exact phrase to find GitHub repos, blog posts, or social media mentions that reveal the actual paper title or arXiv ID
-   - **GitHub search**: Run `github_search.py --query "USER_QUERY"` to find relevant repositories, which often link to papers
-3. **Extract identifiers** — From web/GitHub results, extract:
-   - Actual paper title (for academic search)
-   - arXiv ID (for direct paper lookup)
-   - GitHub repo URL (for code + paper discovery)
-   - Author names (for author_search)
-4. **Re-enter Discover** — Use the resolved identifiers to run the appropriate Stage 1 paths
+2. **If zero results** — Broaden the search:
+   - **Web search**: Find GitHub repos, blog posts, or social media that reveal the actual paper title or arXiv ID
+   - **GitHub search**: `github_search.py --query "USER_QUERY"` — repos often link to papers
+3. **Extract identifiers** — Actual paper title, arXiv ID, GitHub repo URL, author names
+4. **Re-enter** the appropriate workflow with resolved identifiers
 
-### Step 3: Generate Search Plan
-
-Based on intent + resolved terms, output a search plan:
-
+Example disambiguation report:
 ```
 🔍 Disambiguation Report for "deepseek engram"
 ├── Intent: Track recent advances (ambiguous term)
@@ -81,17 +159,187 @@ Based on intent + resolved terms, output a search plan:
 └── Search Plan:
     ├── scholar_search --query "Conditional Memory Scalable Lookup" --sort-by year
     ├── citation_traverse --paper-id ArXiv:2601.07372 --direction forward
-    ├── github_search --query "deepseek engram"
-    └── trending --query "conditional memory engram" --period 90
+    └── github_search --query "deepseek engram"
 ```
-
-This step is **agent-driven** (no script) — the orchestrating agent performs the web search and intent analysis, then selects the appropriate scripts.
 
 ---
 
-## Stage 1: Discover
+## Standard Output Formats
 
-Seven discovery paths, ordered by frequency of use.
+Use these formats when presenting results to the user. Match the format to the intent.
+
+### Format A: Single Paper Card (for navigational search, WF 2)
+
+```
+📄 **Highly accurate protein structure prediction with AlphaFold**
+Authors: Jumper et al.
+Year: 2021 | Venue: Nature
+Citations: 25,000+
+DOI: 10.1038/s41586-021-03819-2 | S2 ID: 235959867
+Link: https://doi.org/10.1038/s41586-021-03819-2
+TLDR: End-to-end neural network for protein structure prediction achieving atomic accuracy...
+```
+
+### Format B: Paper List Table (for quick search, metadata search, trending — WF 3/4/5)
+
+```
+| # | Title | Authors | Year | Venue | Citations | ID |
+|---|-------|---------|------|-------|-----------|-----|
+| 1 | Paper Title | First Author et al. | 2024 | NeurIPS | 150 | arXiv:2401.xxxxx |
+| 2 | ... | ... | ... | ... | ... | ... |
+```
+
+After the table, briefly note how many results were found and whether the list was filtered.
+
+### Format C: Baseline Recommendation (for baseline hunt, WF 6)
+
+```
+📦 **Recommended Baseline: [Model Name]**
+Paper: [Title] ([Year], [Venue]) — [arXiv ID]
+Code: [GitHub URL] ⭐ [stars] | Framework: [PyTorch/TF]
+Performance: [key metric = value] on [dataset]
+HuggingFace: [model page URL] | Downloads: [N]
+```
+
+### Format D: Reading Notes (for read a paper, WF 7)
+
+Use the template at `assets/paper-summary-template.md`. Save to `/artifacts/paper-notes/{paper-id}.md`.
+
+### Format E: Disambiguation Report (for ambiguous queries, WF 8)
+
+```
+🔍 Disambiguation Report for "[query]"
+├── Intent: [classified intent]
+├── Resolution: [what the term actually refers to]
+│   ├── Paper: [resolved title] ([arXiv ID])
+│   └── Code: [GitHub URL]
+└── Search Plan:
+    ├── [script call 1]
+    └── [script call 2]
+```
+
+---
+
+## Common Workflows
+
+### Workflow 1: Collect Papers for Survey
+
+> "Help me survey CRISPR-based gene therapy for sickle cell disease"
+
+**Use iterative collection** (target 30-80 papers). See [Appendix A](#appendix-a-iterative-collection-workflow) for the full iterative methodology.
+
+1. **Discover:** Initial `scholar_search --query "CRISPR gene therapy sickle cell" --limit 20 --sort-by citations` → iterative expansion with EXPLORE/EXPLOIT strategy → `citation_traverse --direction forward` on seminal papers
+2. **Evaluate:** Review each paper's title + abstract for relevance → filter by abstract quality → prefer top-tier venues → shortlist
+3. **Read:** `fetch_paper` for key papers → L2 reading → notes using `assets/paper-summary-template.md`
+4. **Hand off to `research-survey`** to synthesize the collected papers into a structured survey report
+
+### Workflow 2: Navigational Search
+
+> "Find me the attention is all you need paper"
+> "Find me the original GPT 3 paper"
+
+1. **Discover:** `scholar_search --query "Attention Is All You Need"` — single call, return top result
+2. **Output:** Use **Format A** (Single Paper Card)
+
+**Do NOT** proceed to Read unless the user explicitly asks.
+
+### Workflow 3: Quick Paper Search
+
+> "Give me papers about perovskite solar cell stability under humidity"
+> "Find papers on gut microbiome modulation for autoimmune diseases"
+
+1. **Sub-topic decomposition + query reformulation:** Identify 3-5 research angles within the topic, generate 4-6 variant queries covering distinct angles (see Step 0)
+2. **Discover:** Run `scholar_search --query "<variant>" --limit 20 --sort-by relevance` on each variant. **If `S2_API_KEY` is set**, parallelize these calls; **if not**, run them sequentially one at a time to avoid rate-limit exhaustion (see "S2 parallelization rule" in Step 0). Also run `arxiv_monitor --keywords "<variants>" --match-mode flexible` for additional coverage (arXiv calls can always run in parallel with other non-S2 calls)
+3. **Citation expansion (if initial results ≥ 3 relevant papers):** Follow Mandatory Citation Expansion (Step 0) — co-citation on highest-cited seed, forward on top 2, backward on 1-2 diverse seeds, recommend with 3 seeds
+4. **Coverage gap check:** Review collected papers against identified sub-topics. Run targeted searches for any uncovered angles (see Step 0)
+5. **Filter:** Review all results, deduplicate, keep relevant papers based on title + abstract
+6. **Output:** Use **Format B** (Paper List Table)
+
+Only escalate to full iterative workflow (WF1) if results are clearly insufficient or the user explicitly asks for more.
+
+### Workflow 4: Metadata Search
+
+> "2012 papers by David Harel"
+> "Papers by David Harel from 2020 to 2022"
+> "Journal articles by David Harel from 2020 to 2022"
+
+1. **Parse query:** Extract author name, year range, venue type (journal/conference)
+2. **Discover:** `author_search --name "David Harel" --papers --limit 50 --sort-by year`
+3. **Filter:** Year range, venue type (check `venue` field), other attributes
+4. **Output:** Use **Format B** (Paper List Table)
+
+For keyword + year filter (no author): `scholar_search --query "<keywords>" --year-min YYYY --year-max YYYY`
+
+### Workflow 5: Track Field Developments
+
+> "What's new in condensed matter physics this week?"
+
+1. **Discover:** `arxiv_monitor --categories cond-mat --days 7` (see `references/arxiv-categories.md` for codes) + `trending --query "topological insulator" --period 30`
+2. **Output:** Use **Format B** (Paper List Table), highlight high-potential papers with TLDRs
+
+### Workflow 6: Find a Baseline with Code
+
+> "I need a baseline for protein structure prediction with code"
+
+1. **Discover:** `scholar_search --query "protein structure prediction" --sort-by citations`
+2. **Evaluate:** `find_code` on top results + `sota --task "protein-structure-prediction"` → pick one with official code + high downloads
+3. **Output:** Use **Format C** (Baseline Recommendation)
+
+### Workflow 7: Read a Paper by URL
+
+> "Read this paper: arxiv.org/abs/2301.12345"
+
+**Output:** Use **Format D** (Reading Notes)
+
+1. **Fetch:** `fetch_paper --url "https://arxiv.org/abs/2301.12345"`
+2. **Choose reading depth** (see `references/reading-strategy.md`):
+
+| Level | Goal | When to use | Effort |
+|-------|------|-------------|--------|
+| **L1 Technical** | Can reimplement | Building directly on this paper | High |
+| **L2 Analytical** | Understand motivation + design choices | Most papers in a survey | Medium |
+| **L3 Contextual** | Know what it is and where it fits | Quick scanning | Low |
+
+3. **Take notes** using `assets/paper-summary-template.md`. Save to `/artifacts/paper-notes/{paper-id}.md`.
+
+### Workflow 8: Ambiguous Query Resolution
+
+> "Find the latest about deepseek engram"
+
+1. **Disambiguate:** Follow [Step 2](#step-2-resolve-ambiguous-terms-if-needed) above
+2. **Discover:** `scholar_search` with resolved title + `github_search` with original term + `citation_traverse` on arXiv ID
+3. **Evaluate:** Review results, check code via `find_code` or GitHub
+4. **Read:** `fetch_paper` for top papers
+5. **If user wants a survey:** hand off to `research-survey`
+
+### Workflow 9: Ideation Support (called from research-ideation)
+
+> research-ideation Step 2 needs papers to build a literature tree
+
+**Iterative collection with strict filter** (target 30-50 papers, recent 2020+). See [Appendix A](#appendix-a-iterative-collection-workflow) and [Appendix B](#appendix-b-ideation-vs-survey-collection).
+
+1. **Disambiguate:** Parse the research goal → extract domain + method type
+2. **Discover:** Initial broad search (60 candidates) → iterative expansion up to 15 rounds:
+   - EXPLORE: new keyword queries for diverse sub-areas
+   - EXPLOIT: `citation_traverse` or `recommend` on strongly relevant papers
+3. **Evaluate:** Only keep strongly relevant papers. Prefer top-tier venues + 2020+ papers.
+4. **Deduplicate:** Track seen titles and abstracts.
+5. **Output:** 30-50 high-quality papers → feed into novelty tree + challenge-insight tree.
+
+### Workflow 10: User-Specified Paper Count
+
+> "Find me exactly 15 papers about reinforcement learning from human feedback"
+
+1. Use the user's number as the target
+2. Apply the closest profile's quality settings
+3. Run iterative collection until target met or max iterations exhausted
+4. If not enough, progressively relax relevance standard and inform the user
+
+---
+
+## Discovery Paths (Stage 1 Detail)
+
+Seven paths, used by workflows above.
 
 ### Path A: Keyword Search (most common)
 
@@ -101,9 +349,7 @@ python scripts/scholar_search.py --query "transformer attention mechanism" --lim
 
 Options: `--year-min/--year-max`, `--open-access-only`, `--sort-by relevance|citations|year`.
 
-Returns: title, authors, year, citations, TLDR, OA PDF link.
-
-### Path B: Citation Traversal (from a seed paper)
+### Path B: Citation Traversal
 
 ```bash
 # Forward — who cited this paper
@@ -112,17 +358,14 @@ python scripts/citation_traverse.py --paper-id ArXiv:1706.03762 --direction forw
 # Backward — what this paper cites
 python scripts/citation_traverse.py --paper-id ArXiv:1706.03762 --direction backward --limit 20
 
-# Co-citation — papers frequently cited alongside this one (sister works)
+# Co-citation — papers frequently cited alongside this one (most powerful for finding related work)
 python scripts/citation_traverse.py --paper-id ArXiv:1706.03762 --direction co-citation --limit 15
 ```
 
-Co-citation is the most powerful discovery method — it finds closely related work that keyword search misses.
-
-### Path C: "More Like This" Recommendations
+### Path C: Recommendations
 
 ```bash
 python scripts/recommend.py --positive ArXiv:1706.03762,ArXiv:2005.14165 --limit 15
-# Optionally exclude certain directions:
 python scripts/recommend.py --positive ArXiv:1706.03762 --negative ArXiv:2301.00001 --limit 10
 ```
 
@@ -132,15 +375,15 @@ python scripts/recommend.py --positive ArXiv:1706.03762 --negative ArXiv:2301.00
 python scripts/author_search.py --name "Geoffrey Hinton" --papers --limit 20 --sort-by citations
 ```
 
-### Path E: New Paper Monitoring
+### Path E: arXiv Monitoring
 
 ```bash
-# By category (see references/arxiv-categories.md for codes)
 python scripts/arxiv_monitor.py --categories cs.CL,cs.AI --days 3 --limit 30
-
-# By keywords
 python scripts/arxiv_monitor.py --keywords "chain of thought,reasoning" --days 7
+python scripts/arxiv_monitor.py --keywords "data pruning pretraining" --match-mode flexible --days 365
 ```
+
+Options: `--match-mode flexible` (default, AND-of-words for better recall) or `--match-mode exact` (phrase matching for precision). See `references/arxiv-categories.md` for category codes.
 
 ### Path F: Trending Detection
 
@@ -148,23 +391,16 @@ python scripts/arxiv_monitor.py --keywords "chain of thought,reasoning" --days 7
 python scripts/trending.py --query "large language models" --period 90 --limit 15
 ```
 
-Ranks by citation velocity (citations/month). Useful for finding rapidly rising papers.
+Ranks by citation velocity (citations/month).
 
-### Path G: GitHub Search (for unreleased or industry papers)
+### Path G: GitHub Search
 
 ```bash
 python scripts/github_search.py --query "deepseek engram" --limit 10
 python scripts/github_search.py --query "mamba state space model" --sort stars
 ```
 
-Options: `--sort stars|updated|relevance`, `--json`.
-
-Useful when:
-- Papers haven't been published on arXiv yet
-- Industry labs release code before papers
-- Looking for implementations, forks, or community extensions
-
-Returns: repo name, description, stars, language, dates, URL, topics.
+Useful when papers haven't been published on arXiv yet or industry labs release code before papers.
 
 ### Citation Graph Visualization
 
@@ -180,9 +416,7 @@ graph TD
 
 ---
 
-## Stage 2: Evaluate
-
-Goal: filter candidates into a reading list. Use data already returned by Discover scripts plus targeted checks.
+## Evaluation Tools (Stage 2 Detail)
 
 ### Quick Assessment (from scholar_search output)
 
@@ -194,22 +428,17 @@ Goal: filter candidates into a reading list. Use data already returned by Discov
 | Year + venue | Recency and authority |
 | Open Access PDF | Whether you can read full text |
 
-### Code Availability Check
+### Code Availability
 
 ```bash
 python scripts/find_code.py --arxiv-id 1706.03762
 ```
 
-Returns: GitHub URLs, stars, framework, whether official implementation.
-
 ### Top Models by Task
 
 ```bash
 python scripts/sota.py --task "text-generation" --limit 10
-# List available pipeline tags:
 python scripts/sota.py --task "translation" --list-tasks
-# Sort by likes instead of downloads:
-python scripts/sota.py --task "text-generation" --sort likes
 ```
 
 ### Dataset Discovery
@@ -220,222 +449,105 @@ python scripts/dataset_search.py --query "sentiment analysis" --limit 10
 
 ### Reproducibility Assessment
 
-After gathering the above, assess each paper:
-
-| Dimension | Check | Score |
-|-----------|-------|-------|
-| Code | Open-source? Official? Stars? Last update? | |
-| Results | Reproduced on SOTA leaderboard? | |
-| Data | Dataset publicly available? | |
-| **Overall** | | High / Medium / Low / None |
+| Dimension | Check |
+|-----------|-------|
+| Code | Open-source? Official? Stars? Last update? |
+| Results | Reproduced on SOTA leaderboard? |
+| Data | Dataset publicly available? |
+| **Overall** | High / Medium / Low / None |
 
 ---
 
-## Stage 3: Read
+## After Collecting Papers: Next Steps
 
-### Fetch Full Text
+| Goal | Hand off to |
+|------|------------|
+| Generate a literature survey report | `research-survey` — synthesizes papers into a structured 8-section report |
+| Generate research ideas | `research-ideation` — builds novelty tree + challenge-insight tree from papers |
+| Write a Related Work section | `paper-writing` — uses paper notes as input |
 
-```bash
-# By paper ID (auto-resolves to best URL via S2 metadata)
-python scripts/fetch_paper.py --paper-id ArXiv:1706.03762
+### Quick Report (optional, stays in paper-navigator)
 
-# By direct URL
-python scripts/fetch_paper.py --url "https://arxiv.org/abs/1706.03762"
-
-# Metadata only (no full text fetch)
-python scripts/fetch_paper.py --paper-id ArXiv:1706.03762 --metadata-only
-```
-
-Uses Jina Reader (`r.jina.ai`) to convert any paper URL to clean Markdown. Works with arXiv HTML, PDF links, and publisher pages.
-
-### Choose Reading Depth
-
-| Level | Goal | When to use | Effort |
-|-------|------|-------------|--------|
-| **L1 Technical** | Can reimplement the method | Building directly on this paper | High |
-| **L2 Analytical** | Understand motivation, design choices, tradeoffs | Most papers in your survey | Medium |
-| **L3 Contextual** | Know what it is and where it fits | Quick scanning, staying current | Low |
-
-Most papers need only L2-L3. Reserve L1 for papers you will build upon.
-
-Detailed reading methodology: `references/reading-strategy.md`
-
-### Take Notes
-
-Use the template at `assets/paper-summary-template.md`. Save notes to `/artifacts/paper-notes/{paper-id}.md`.
-
-Key questions to answer:
-1. What problem does this paper address?
-2. What is the key contribution (one sentence)?
-3. What is the key technical insight?
-4. What are the limitations (stated and unstated)?
-5. How does this relate to my research?
-
----
-
-## Stage 4: Organize
-
-After reading multiple papers, build two structures to map the literature.
-
-### Novelty Tree
-
-Classify each paper:
-
-| Type | Meaning | Novelty |
-|------|---------|---------|
-| 1 | Milestone — defines a new task or paradigm | Highest |
-| 2 | New pipeline or data representation | High |
-| 3 | New module or component | Medium |
-| 4 | Incremental improvement on existing approach | Low |
-
-### Challenge-Insight Tree
-
-Build a many-to-many mapping:
-
-1. **Extract challenges:** From each paper, what technical problem does it solve?
-2. **Extract insights:** What technique or key idea does it use?
-3. **Build the map:**
-
-```
-Challenge: Long-range dependencies in sequences
-├── Insight: Self-attention (Transformer)
-├── Insight: State-space models (Mamba)
-└── Insight: Linear attention approximation
-
-Challenge: Quadratic attention cost
-├── Insight: Sparse attention patterns
-├── Insight: Linear attention
-└── Insight: IO-aware computation (Flash Attention)
-```
-
-4. **Analyze the map:**
-   - Challenges with many solutions → well-studied area
-   - Challenges with few solutions → **research opportunity**
-   - Insights that solve many challenges → powerful, versatile technique
-   - Insights not yet applied to a challenge → **potential for transfer**
-
-Save to `/artifacts/literature-tree.md` and update incrementally.
-
-### Generate Literature Report
-
-Use the `literature_report.py` script to generate a structured, intent-adapted report:
+For a brief summary table without a full survey report, use `literature_report.py`:
 
 ```bash
-# Full survey report (default)
-python scripts/literature_report.py --paper-ids ArXiv:2601.07372,ArXiv:2501.12948
-
-# Quick scan — brief table only
-python scripts/literature_report.py --paper-ids ArXiv:2601.07372 --intent quick_scan
-
-# Deep dive — full analysis + reading recommendations
-python scripts/literature_report.py --paper-ids ArXiv:2601.07372 --intent deep_dive
-
-# Baseline hunt — focus on code + reproducibility
-python scripts/literature_report.py --paper-ids ArXiv:2601.07372 --intent baseline_hunt
-
-# Save to file
-python scripts/literature_report.py --paper-ids ArXiv:2601.07372 --output /artifacts/report.md
+python scripts/literature_report.py --paper-ids ArXiv:2601.07372,ArXiv:2501.12948 --intent quick_scan
 ```
 
-| Intent | Output includes |
-|--------|----------------|
-| `survey` (default) | Summary, paper table, citation analysis, novelty tree, challenge-insight tree, recommendations |
+| Intent | Output |
+|--------|--------|
 | `quick_scan` | Brief table: title, authors, year, citations, TLDR |
-| `deep_dive` | Everything in survey + per-paper reading level recommendations + detailed notes |
-| `baseline_hunt` | Code availability, SOTA position, dataset access, reproducibility scores |
+| `baseline_hunt` | Code availability, SOTA position, dataset access, reproducibility |
+
+For full survey reports (`survey`, `deep_dive` intents), use `research-survey` instead.
 
 ---
 
-## Common Workflows
+## Appendix A: Iterative Collection Workflow
 
-### Workflow 1: Comprehensive Literature Survey (full pipeline)
+For workflows requiring many papers (survey, ideation support), use iterative expand-and-filter:
 
-> "Help me survey transformers in medical imaging"
+```
+1. Parse query → extract goal, search terms, key term definitions
+2. Define task attributes → identify domain + method type
+3. Initial search → scholar_search with broad query
+4. Review each paper's title + abstract → judge relevance (keep/reject)
+5. LOOP until target met or max iterations reached:
+   a. From kept papers, pick the most relevant as "grounding set"
+   b. Generate next search query:
+      - EXPLORE: new keyword query to broaden coverage
+      - EXPLOIT: citation_traverse or recommend on a high-relevance paper
+   c. Fetch new papers → review → deduplicate → add to collection
+6. Final filter: apply quality checks, take top N
+```
 
-1. **Discover:** `scholar_search --query "transformer medical imaging" --limit 20 --sort-by citations` → pick top results → `citation_traverse --direction forward` on seminal papers
-2. **Evaluate:** Review TLDR + citations → shortlist top 10 → `find_code` to check reproducibility
-3. **Read:** `fetch_paper` for top 5 → L2 reading → notes using template
-4. **Organize:** Classify by novelty type → build challenge-insight tree → output survey report
+**Relevance judging**: You (Claude) evaluate each paper directly from title + abstract against the user's goal. No separate API call needed.
 
-### Workflow 2: Find and Read a Specific Paper
+**Deduplication**: Track seen titles (normalized) and abstract prefixes. Skip already-evaluated papers.
 
-> "Find Attention Is All You Need and analyze it"
+**Quality filtering**:
+1. Skip papers with very short abstracts (< 20 words)
+2. For ideation/survey: prefer top-tier venues and journals in the user's field (e.g., Nature, Science, Cell, Lancet, PNAS for broad science; field-specific top venues like NeurIPS/ICML for ML, Physical Review Letters for physics, JACS for chemistry, etc.)
+3. For ideation: prefer 2020+ papers; include older only if foundational
 
-1. **Discover:** `scholar_search --query "Attention Is All You Need"`
-2. **Evaluate:** Check TLDR + citations
-3. **Read:** `fetch_paper` → L1 or L2 reading → notes
+## Appendix B: Ideation vs Survey Collection
 
-### Workflow 3: Track Field Developments
+| Aspect | Ideation Support | Literature Survey |
+|--------|-----------------|-------------------|
+| **Goal** | Find gaps and transferable techniques | Comprehensive field coverage |
+| **Relevance standard** | Strict — only strongly relevant | Moderate — include tangentially relevant |
+| **Recency** | Strong bias toward 2020+ | Include foundational older work |
+| **Initial search size** | 60 candidates | 20 candidates |
+| **Coverage strategy** | Deep on core topic + cross-domain | Balanced across sub-topics |
+| **Output use** | Novelty tree + challenge-insight tree | Comprehensive report |
 
-> "What's new in NLP this week?"
+## Appendix C: Script & API Reference
 
-1. **Discover:** `arxiv_monitor --categories cs.CL --days 7` + `trending --query "NLP" --period 30`
-2. **Evaluate:** Scan TLDRs, highlight high-potential papers
-
-### Workflow 4: Find a Baseline with Code
-
-> "I need a baseline for text classification with code"
-
-1. **Discover:** `scholar_search --query "text classification" --sort-by citations`
-2. **Evaluate:** `find_code` on top results + `sota --task "text-classification"` → pick one with official code + high downloads
-3. Output: recommended baseline + GitHub link + model page
-
-### Workflow 5: Read a Paper by URL
-
-> "Read this paper: arxiv.org/abs/2301.12345"
-
-1. **Read:** `fetch_paper --url "https://arxiv.org/abs/2301.12345"` → choose reading level → notes
-
-### Workflow 6: Ambiguous Query Resolution
-
-> "Find the latest about deepseek engram"
-
-1. **Disambiguate:**
-   - Intent: ambiguous term (project/module name)
-   - `scholar_search` returns 0 results → broaden search
-   - Web search reveals: GitHub repo `deepseek-ai/Engram`, actual paper title "Conditional Memory via Scalable Lookup"
-   - Extract arXiv ID: `2601.07372`
-2. **Discover:** `scholar_search` with resolved title + `github_search` with original term + `citation_traverse` on arXiv ID
-3. **Evaluate:** Review results, check code via `find_code` or GitHub
-4. **Read:** `fetch_paper` for top papers
-5. **Organize:** `literature_report.py --intent survey` to generate structured report
-
----
-
-## Script Reference
-
-All scripts output Markdown to stdout, errors to stderr. Common flags:
-
-| Flag | Description |
-|------|-------------|
-| `--limit N` | Max results (prevents oversized output) |
-| `--json` | Raw JSON output (for programmatic use) |
+All scripts output Markdown to stdout, errors to stderr. Common flags: `--limit N`, `--json`.
 
 ### Paper ID Formats
 
-Scripts accept multiple ID formats and normalize automatically:
-- S2 ID: `649def34f8be52c8b66281af98ae884c09aef38b`
-- arXiv: `ArXiv:1706.03762` or `1706.03762` or `https://arxiv.org/abs/1706.03762`
-- DOI: `DOI:10.18653/v1/N18-3011` or `10.18653/v1/N18-3011`
+Scripts accept and normalize automatically: S2 ID, arXiv (`ArXiv:1706.03762` or `1706.03762` or URL), DOI (`DOI:10.18653/v1/N18-3011`).
 
 ### Rate Limits
 
-| API | Without key | With key |
-|-----|-------------|----------|
-| Semantic Scholar | ~100 req / 5 min | ~1 req/s sustained |
-| arXiv | 1 req / 3s (courtesy) | N/A |
-| Jina Reader | Free tier | Higher with key |
-| HuggingFace | 500 req / 300s | Higher with `HF_TOKEN` |
-| GitHub | 10 req/min (unauthenticated) | 5,000 req/hr (set `GITHUB_TOKEN`) |
+| API | Without key | With key | When rate limited |
+|-----|-------------|----------|-------------------|
+| Semantic Scholar | 100 req/5min (~1 req/3s); **NO parallel calls** | 100 req/min; parallel OK | Auto-fallback to arXiv in `scholar_search`; global pacer enforces 3s interval |
+| arXiv | 1 req/3s (courtesy) | N/A | Primary fallback when S2 is limited; no auth needed |
+| Jina Reader | Free tier | Higher with key | — |
+| HuggingFace | 500 req / 300s | Higher with `HF_TOKEN` | — |
+| GitHub | 10 req/min | 5,000 req/hr (set `GITHUB_TOKEN`) | — |
 
-### Error Handling
+All scripts retry on 429 and 5xx errors with exponential backoff (3s, 6s, 12s, 24s, 48s — 5 retries). A global S2 request pacer enforces minimum interval between Semantic Scholar API calls to prevent budget exhaustion.
 
-All scripts retry on 429 (rate limit) and 5xx errors with exponential backoff (2s, 4s, 8s). Non-retryable errors print to stderr and exit.
+For detailed API endpoints, query parameters, and field specifications, see `references/api-reference.md`.
 
 ---
 
 ## Integration
 
-- **research-ideation:** After organizing papers with the novelty tree and challenge-insight tree, feed gaps into research-ideation for idea generation.
-- **experiment-pipeline:** After finding a baseline via Workflow 4, hand off to experiment-pipeline.
-- **literature-review:** The paper notes and literature tree from Stage 3-4 serve as input for literature-review skill's formal write-up.
+- **research-survey:** After collecting papers, hand off to research-survey for structured survey report generation (8-section goal-centric synthesis).
+- **research-ideation:** After collecting papers, hand off to research-ideation for idea generation (novelty tree + challenge-insight tree + problem selection + solution design).
+- **experiment-pipeline:** After finding a baseline via Workflow 6, hand off to experiment-pipeline.
+- **paper-writing:** Paper notes serve as input for paper-writing's Related Work section.

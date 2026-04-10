@@ -102,14 +102,31 @@ def fetch_by_categories(
 
 
 def fetch_by_keywords(
-    keywords: list[str], days: int = 7, limit: int = 50
+    keywords: list[str],
+    days: int = 7,
+    limit: int = 50,
+    match_mode: str = "flexible",
 ) -> list[dict]:
-    """Fetch recent papers matching keywords."""
+    """Fetch recent papers matching keywords.
+
+    Args:
+        match_mode: "exact" for phrase matching (old behavior),
+                    "flexible" for AND-of-words matching (better recall).
+    """
     # Search in title and abstract
     kw_parts = []
     for kw in keywords:
         kw = kw.strip()
-        if " " in kw:
+        if match_mode == "flexible" and " " in kw:
+            # Split into individual words, AND them together
+            # "data pruning pretraining" →
+            #   (ti:data AND ti:pruning AND ti:pretraining)
+            #   OR (abs:data AND abs:pruning AND abs:pretraining)
+            words = kw.split()
+            ti_clause = " AND ".join(f"ti:{w}" for w in words)
+            abs_clause = " AND ".join(f"abs:{w}" for w in words)
+            kw_parts.append(f"({ti_clause}) OR ({abs_clause})")
+        elif " " in kw:
             kw_parts.append(f'ti:"{kw}" OR abs:"{kw}"')
         else:
             kw_parts.append(f"ti:{kw} OR abs:{kw}")
@@ -121,11 +138,12 @@ def fetch_by_keywords(
     date_range = f"[{start.strftime('%Y%m%d')}0000 TO {end.strftime('%Y%m%d')}2359]"
 
     query = f"({kw_query}) AND submittedDate:{date_range}"
+    max_results = 500 if match_mode == "flexible" else 200
     params = {
         "search_query": query,
         "sortBy": "submittedDate",
         "sortOrder": "descending",
-        "max_results": min(limit, 200),
+        "max_results": min(limit, max_results),
     }
 
     with httpx.Client() as client:
@@ -169,6 +187,12 @@ def main():
     parser.add_argument(
         "--limit", "-l", type=int, default=30, help="Max results (default 30)"
     )
+    parser.add_argument(
+        "--match-mode",
+        choices=["exact", "flexible"],
+        default="flexible",
+        help="Keyword matching: 'exact' (phrase match) or 'flexible' (AND of words, default)",
+    )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
 
@@ -182,7 +206,7 @@ def main():
         papers = fetch_by_categories(cats, args.days, args.limit)
     else:
         kws = [k.strip() for k in args.keywords.split(",")]
-        papers = fetch_by_keywords(kws, args.days, args.limit)
+        papers = fetch_by_keywords(kws, args.days, args.limit, args.match_mode)
 
     if not papers:
         print("No new papers found.", file=sys.stderr)
