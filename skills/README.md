@@ -18,8 +18,7 @@ EvoScientist discovers skills by scanning `skills/*/SKILL.md`. Each skill is loa
 
 | Skill | Description |
 | ----- | ----------- |
-| [`research-ideation`](research-ideation/) | Research ideation, literature tree & problem finding |
-| [`idea-tournament`](idea-tournament/) | Competitive idea ranking & proposal generation |
+| [`research-ideation`](research-ideation/) | Literature grounding, idea generation, tournament ranking & proposal generation |
 | [`paper-planning`](paper-planning/) | Research paper planning & outline generation |
 | [`experiment-pipeline`](experiment-pipeline/) | Structured 4-stage experiment execution |
 | [`experiment-craft`](experiment-craft/) | Experiment debugging, logging & iteration |
@@ -29,7 +28,8 @@ EvoScientist discovers skills by scanning `skills/*/SKILL.md`. Each skill is loa
 | [`academic-slides`](academic-slides/) | Academic presentation & research talk creation |
 | [`experiment-iterative-coder`](experiment-iterative-coder/) | Iterative code refinement (plan → code → evaluate → refine cycles) |
 | [`evo-memory`](evo-memory/) | Persistent research memory & self-evolution |
-| [`paper-navigator`](paper-navigator/) | End-to-end academic paper discovery, reading & organization |
+| [`paper-navigator`](paper-navigator/) | Academic paper discovery, evaluation & reading |
+| [`research-survey`](research-survey/) | Structured literature survey synthesis |
 | [`nano-banana`](nano-banana/) | AI-generated presentation slides & illustrations via Gemini image generation |
 
 ## Contributing a Skill

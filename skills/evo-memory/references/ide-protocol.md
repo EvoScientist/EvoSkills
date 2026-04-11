@@ -4,7 +4,7 @@ Step-by-step process for extracting and storing promising research directions af
 
 ## When to Trigger
 
-IDE runs after `research-ideation` Phase 3 (Direction Summarization) is complete. The input is the direction summary from `/direction-summary.md` containing the top-3 ranked ideas.
+IDE runs after `research-ideation` Step 5 (ELO Tournament) is complete and Step 6 has prepared `/direction-summary.md`. The input is the direction summary containing the top-3 ranked ideas.
 
 ## Step-by-Step Process
 
@@ -21,7 +21,7 @@ The paper's IDE prompt (in [paper-prompts.md](paper-prompts.md)) is the primary 
 
 1. Read the IDE prompt from `paper-prompts.md`
 2. Fill in the variables:
-   - `{user_goal}` ← the original research direction from the user (the seed direction used in Phase 1 tree generation). Note: do NOT use `/research-proposal.md` here — that file is created in Phase 4, which runs AFTER IDE is triggered in Phase 3.
+   - `{user_goal}` ← the original research direction from the user (the seed direction used before Step 3 ideation and Step 4 refinement). Note: do NOT use `/research-proposal.md` here — that file is created in Step 7, which runs AFTER IDE is triggered in Step 6.
    - `{top_ranked_ideas}` ← the content of `/direction-summary.md` (top-3 ideas with ratings and feedback from the tournament)
 3. Reason through the filled prompt step by step
 4. The output (DIRECTION SUMMARY with Title, Core idea, Why promising, Requirements, Validation plan) becomes the input to Step 3 below

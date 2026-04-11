@@ -12,6 +12,7 @@ import json
 import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from xml.parsers.expat import ExpatError
 
 import httpx
 
@@ -74,7 +75,14 @@ def _fallback_arxiv_search(
         return []
 
     # Parse arXiv XML and convert to S2-compatible format
-    root = ET.fromstring(xml_text)
+    # Reject XML with DTD/entity declarations before parsing to avoid XXE-style inputs.
+    if "<!DOCTYPE" in xml_text or "<!ENTITY" in xml_text:
+        raise ValueError("Unsafe XML payload from arXiv API")
+
+    try:
+        root = ET.fromstring(xml_text)
+    except (ET.ParseError, ExpatError) as exc:
+        raise ValueError("Invalid XML payload from arXiv API") from exc
     entries = root.findall("atom:entry", ARXIV_NS)
     papers = []
     for entry in entries:

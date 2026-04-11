@@ -165,7 +165,7 @@ Rank all track champions through pairwise comparison, then **present the top-3 t
 
 ### Tournament
 
-- **Starting Elo**: 1200 | **K-factor**: 32
+- **Starting Elo**: 1500 | **K-factor**: 32
 - Compare ideas pairwise → update Elo → sort by final score
 - See `references/elo-ranking-guide.md` for rubric and formula
 

@@ -43,7 +43,7 @@ Records what you've learned about research DIRECTIONS — which areas are promis
 
 **Each entry records**: Direction name, one-sentence summary, evidence (which cycle, what results), classification (feasible / implementation failure / fundamental failure), date.
 
-**How it's used**: `research-ideation` reads M_I at the start of Phase 1. The paper uses embedding-based retrieval with cosine similarity, selecting the top-k_I most similar items (k_I=2 in experiments). Feasible directions from prior cycles can seed new tree branches. Unsuccessful directions are used during pruning — fundamental failures are pruned; implementation failures may be retried.
+**How it's used**: `research-ideation` reads M_I at the start of Step 0. The paper uses embedding-based retrieval with cosine similarity, selecting the top-k_I most similar items (k_I=2 in experiments). Feasible directions from prior cycles can seed new tree branches. Unsuccessful directions are used during pruning — fundamental failures are pruned; implementation failures may be retried.
 
 See [assets/ideation-memory-template.md](assets/ideation-memory-template.md) for the template.
 
@@ -74,7 +74,7 @@ See [assets/experiment-memory-template.md](assets/experiment-memory-template.md)
 
 ### IDE — Idea Direction Evolution
 
-**Trigger**: After `research-ideation` completes (Phase 3 direction summary is available).
+**Trigger**: After `research-ideation` completes Step 5 and saves `/direction-summary.md` for Step 6.
 
 **Purpose**: Extract promising research directions from the tournament results and store them in M_I for future cycles.
 

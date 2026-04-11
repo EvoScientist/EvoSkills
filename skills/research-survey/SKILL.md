@@ -4,7 +4,7 @@ description: "Generates structured literature survey reports from collected pape
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '2.0.0'
+  version: '1.0.0'
   tags: [core, research, literature, survey, synthesis]
 ---
 
@@ -21,9 +21,11 @@ Stage 2: Draft Survey (outline + top-30 papers)
     ↓
 Stage 3: Expand Sections (draft + all papers, section-by-section)
     ↓
-Stage 4: Refine Summary Sections (Abstract/Intro/Conclusion)
+Stage 4: Generate Section Summaries
     ↓
-Stage 5: Assemble + References
+Stage 5: Refine Summary Sections (Abstract/Intro/Conclusion)
+    ↓
+Stage 6: Assemble + References
 ```
 
 ## When to Use
@@ -122,13 +124,24 @@ Expand each non-summary section using **all collected papers** (30-120). This is
 
 ---
 
-## Stage 4: Refine Summary Sections
+## Stage 4: Generate Section Summaries
+
+After all content sections are expanded, generate a condensed summary for each major section:
+
+1. Summarize each expanded section in 150-300 words
+2. Preserve the key taxonomy, representative methods, and main trade-offs
+3. Keep citation anchors so later summary sections remain grounded
+
+These section summaries become the shared context for the final abstract, introduction, and conclusion.
+
+---
+
+## Stage 5: Refine Summary Sections
 
 After all content sections are expanded, refine the **summary sections** (Abstract, Introduction, Conclusion):
 
-1. Generate a condensed summary of each expanded section
-2. Use all section summaries as context to rewrite Abstract, Introduction, Conclusion
-3. This ensures summary sections accurately reflect the full survey content
+1. Use all section summaries as context to rewrite Abstract, Introduction, Conclusion
+2. This ensures summary sections accurately reflect the full survey content
 
 ### Summary Section Standards
 
@@ -147,7 +160,7 @@ After all content sections are expanded, refine the **summary sections** (Abstra
 
 ---
 
-## Stage 5: Assemble Final Survey
+## Stage 6: Assemble Final Survey
 
 Assemble sections in outline order, then append formatted references:
 
