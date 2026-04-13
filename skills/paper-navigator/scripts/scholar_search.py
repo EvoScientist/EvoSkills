@@ -11,17 +11,26 @@ import argparse
 import json
 import sys
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from xml.parsers.expat import ExpatError
 
 import httpx
 
-from utils import S2_BASE, s2_headers, request_with_retry, RateLimitExhausted, arxiv_headers
+from utils import (
+    S2_BASE,
+    s2_headers,
+    request_with_retry,
+    RateLimitExhausted,
+    arxiv_headers,
+)
 
 S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf,publicationVenue,abstract"
 
 ARXIV_API = "https://export.arxiv.org/api/query"
-ARXIV_NS = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+ARXIV_NS = {
+    "atom": "http://www.w3.org/2005/Atom",
+    "arxiv": "http://arxiv.org/schemas/atom",
+}
 
 
 def _fallback_arxiv_search(

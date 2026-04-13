@@ -53,6 +53,7 @@ def pace_s2_request() -> None:
         time.sleep(interval - elapsed)
     _last_s2_request_time = time.time()
 
+
 DEFAULT_USER_AGENT = "EvoScientist/1.0 (paper-navigator)"
 
 

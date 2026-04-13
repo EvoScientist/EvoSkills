@@ -1,6 +1,6 @@
 # Elo Ranking Guide
 
-Detailed guide for running the pairwise Elo tournament in Phase 2 of the Idea Tournament. Covers the formula, the 4-dimension rubric, Swiss-system pairing, and convergence criteria.
+Detailed guide for running the pairwise Elo tournament in Step 5 of the `research-ideation` pipeline. Covers the formula, the 4-dimension rubric, Swiss-system pairing, and convergence criteria.
 
 ## The Elo Rating System
 
