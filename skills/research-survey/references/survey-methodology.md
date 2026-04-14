@@ -116,6 +116,14 @@ Each challenge must have:
 3. **Cite comprehensively**: Use as many relevant papers as possible from the full collection
 4. **Survey-grade quality**: Rigorous, objective, information-dense academic style
 
+## Stage 4: Section Summaries
+
+Generate condensed summaries of each expanded content section (Methodology, Evaluation, Challenges, etc.). These summaries serve as compact context for refining the summary sections in Stage 5.
+
+1. For each expanded section, produce a 150-300 word condensed summary capturing the key findings, methods, and insights
+2. Store summaries as intermediate context (not part of the final output)
+3. All content sections must be summarized before proceeding to Stage 5
+
 ## Stage 5: Summary Section Refinement
 
 Summary sections (Abstract, Introduction, Conclusion) are refined AFTER all content sections are expanded:

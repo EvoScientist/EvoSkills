@@ -1,6 +1,6 @@
 ---
 name: research-ideation
-description: "End-to-end research ideation pipeline: literature grounding → multi-track idea generation (3 personas: innovator/pragmatist/critic) → iterative refinement → ELO tournament ranking → present top-3 to user → expand user's choice into a manuscript-quality proposal. Use when: user wants to find a research direction, brainstorm ideas, evaluate idea novelty, design a novel solution, rank/compare research ideas, or generate a research proposal. Do NOT use for finding/searching/reading papers (use paper-navigator), literature survey reports (use research-survey), or planning a paper (use paper-planning)."
+description: "End-to-end research ideation pipeline: literature grounding → multi-track idea generation (3 personas: innovator/pragmatist/critic) → iterative refinement → ELO tournament ranking → update evo-memory (IDE) → user selects direction → expand into manuscript-quality proposal. Use when: user wants to find a research direction, brainstorm ideas, evaluate idea novelty, design a novel solution, rank/compare research ideas, or generate a research proposal. Do NOT use for finding/searching/reading papers (use paper-navigator), literature survey reports (use research-survey), or planning a paper (use paper-planning)."
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
@@ -24,8 +24,10 @@ Step 3: Generate Ideas (3 directions × 3 personas)
 Step 4: Refine Ideas (3 tracks × N iterations)
     ↓
 Step 5: ELO Tournament → Present Top-3 to User
-    ↓                          ↓
-Step 6: User Selects →    Update evo-memory (IDE)
+    ↓
+Step 6: Update evo-memory (IDE)
+    ↓
+User Selects
     ↓
 Step 7: Expand into Proposal
     ↓
@@ -216,7 +218,7 @@ key ablations identified during refinement]
 Which idea would you like to develop into a full proposal? (1/2/3, or combine elements)
 ```
 
-**Wait for user selection before proceeding to Step 6.** The user may:
+**After presenting top-3, trigger Step 6 (evo-memory IDE) before finalizing user selection.** The user may:
 - Pick one of the top-3
 - Ask to combine elements from multiple ideas
 - Request modifications before expanding
@@ -295,11 +297,11 @@ All paper discovery goes through `paper-navigator`. This skill does not search f
 
 ## Handoff
 
-| To | When |
-|----|------|
-| `paper-planning` | Proposal complete (Step 7) → plan paper structure |
-| `experiment-pipeline` | Proposal complete (Step 7) → start experiments |
-| `evo-memory` | After tournament (Step 6) → update Ideation Memory via IDE protocol |
+| To | When | Key Artifacts |
+|----|------|---------------|
+| `paper-planning` | Proposal complete (Step 7) → plan paper structure | `/research-proposal.md`, `/direction-summary.md` |
+| `experiment-pipeline` | Proposal complete (Step 7) → start experiments | `/research-proposal.md`, `/direction-summary.md` |
+| `evo-memory` | After tournament (Step 6) → update Ideation Memory via IDE protocol | `/direction-summary.md` |
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: research-survey
 description: "Generates structured literature survey reports from collected papers using a multi-stage pipeline: outline generation (query-type adaptive) → draft survey → section-by-section expansion → summary section refinement → final assembly. Produces survey-grade output with taxonomy-based method analysis, LaTeX formalizations, comparative tables, and dense citations. Use when: user wants a literature review, research survey, field overview, or systematic synthesis of multiple papers. Do NOT use for finding/searching papers (use paper-navigator), generating research ideas (use research-ideation), or writing a paper's Related Work section (use paper-writing)."
-allowed-tools: "write_file edit_file read_file think_tool execute"
+allowed-tools: "write_file edit_file read_file think_tool"
 metadata:
   author: EvoScientist
   version: '1.0.0'
