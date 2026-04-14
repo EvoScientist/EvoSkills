@@ -26,7 +26,7 @@
 
 ## Impact on Future Cycles
 
-- **For idea-tournament**: [How will M_I changes affect future ideation?]
+- **For research-ideation**: [How will M_I changes affect future ideation?]
 - **For experiment-pipeline**: [How will M_E changes affect future experiments?]
 - **Confidence level**: [How confident are you in these updates? Single observation vs confirmed pattern?]
 

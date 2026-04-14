@@ -5,6 +5,8 @@ Uses the GitHub REST API to search for relevant repositories by keyword,
 with sorting by stars, recency, or relevance.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import sys

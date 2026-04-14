@@ -1,6 +1,6 @@
 # Proposal Extension
 
-Guidance for extending the tournament winner into a full research proposal in Phase 4. The paper defines proposal P as containing 5 sections: **background, related work, method, experimental plan, and expected results**. We add a 6th practical section (risks and mitigations). The proposal should have enough detail to begin implementation — it's a blueprint, not a sketch.
+Guidance for extending the selected tournament winner into a full research proposal in Step 7. The paper defines proposal P as containing 5 sections: **background, related work, method, experimental plan, and expected results**. We add a 6th practical section (risks and mitigations). The proposal should have enough detail to begin implementation — it's a blueprint, not a sketch.
 
 ## Section 1: Background
 
@@ -35,7 +35,7 @@ Start from the tournament winner's description and expand. The idea candidate fo
 
 ### How to Write It
 
-Draw on the literature L that was retrieved during Phase 1 tree generation. The related work section should set up the problem statement and make the case for why your approach is needed.
+Draw on the literature collected during Step 2 and revisited during Step 4 refinement. The related work section should set up the problem statement and make the case for why your approach is needed.
 
 **Test**: After writing, ask "Does the related work section make the reader expect and want the method I'm about to propose?"
 

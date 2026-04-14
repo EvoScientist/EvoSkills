@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Find code implementations for papers via HuggingFace Papers API + GitHub search."""
 
+from __future__ import annotations
+
 import argparse
 import json
 import sys

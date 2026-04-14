@@ -5,6 +5,8 @@ Provides common constants, HTTP retry logic, header builders,
 and paper-ID normalization used across all scripts.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import sys
@@ -20,8 +22,37 @@ HF_API = "https://huggingface.co/api"
 GITHUB_API = "https://api.github.com/search/repositories"
 JINA_PREFIX = "https://r.jina.ai/"
 
-MAX_RETRIES = 3
-RETRY_DELAYS = [2, 4, 8]
+MAX_RETRIES = 5
+RETRY_DELAYS = [3, 6, 12, 24, 48]
+
+# ── S2 Global Rate Pacer ────────────────────────────────────────
+# Free tier: ~100 req/5min (~1 req/3s). With API key: ~100 req/min.
+S2_MIN_INTERVAL = 3.0  # seconds between S2 requests (no key)
+S2_MIN_INTERVAL_WITH_KEY = 0.5  # seconds between S2 requests (with key)
+_last_s2_request_time: float = 0.0
+
+
+class RateLimitExhausted(Exception):
+    """All retries exhausted due to rate limiting (429)."""
+
+    pass
+
+
+def _is_s2_url(url: str) -> bool:
+    """Check if URL targets Semantic Scholar API."""
+    return url.startswith(S2_BASE) or url.startswith(S2_RECOMMEND_BASE)
+
+
+def pace_s2_request() -> None:
+    """Enforce minimum interval between Semantic Scholar API calls."""
+    global _last_s2_request_time
+    has_key = bool(os.environ.get("S2_API_KEY"))
+    interval = S2_MIN_INTERVAL_WITH_KEY if has_key else S2_MIN_INTERVAL
+    elapsed = time.time() - _last_s2_request_time
+    if elapsed < interval:
+        time.sleep(interval - elapsed)
+    _last_s2_request_time = time.time()
+
 
 DEFAULT_USER_AGENT = "EvoScientist/1.0 (paper-navigator)"
 
@@ -91,7 +122,13 @@ def request_with_retry(
 
     Returns parsed JSON (dict/list) by default.
     If parse_json=False, returns response text.
+    Raises RateLimitExhausted if all retries fail on 429.
     """
+    # Apply global rate pacer for Semantic Scholar API
+    if _is_s2_url(url):
+        pace_s2_request()
+
+    last_was_rate_limited = False
     for attempt in range(MAX_RETRIES):
         try:
             resp = client.request(
@@ -104,6 +141,7 @@ def request_with_retry(
                 follow_redirects=follow_redirects,
             )
             if resp.status_code == 429 or resp.status_code >= 500:
+                last_was_rate_limited = resp.status_code == 429
                 if attempt < MAX_RETRIES - 1:
                     retry_after = resp.headers.get("Retry-After")
                     wait = int(retry_after) if retry_after else RETRY_DELAYS[attempt]
@@ -118,12 +156,21 @@ def request_with_retry(
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 return {} if parse_json else ""
+            if e.response.status_code == 429 and attempt == MAX_RETRIES - 1:
+                raise RateLimitExhausted(
+                    f"Rate limit exhausted after {MAX_RETRIES} retries: {url}"
+                ) from e
             raise
         except httpx.HTTPError as e:
             if attempt < MAX_RETRIES - 1:
                 time.sleep(RETRY_DELAYS[attempt])
                 continue
             raise SystemExit(f"Error: {e}") from e
+
+    if last_was_rate_limited:
+        raise RateLimitExhausted(
+            f"Rate limit exhausted after {MAX_RETRIES} retries: {url}"
+        )
     return {} if parse_json else ""
 
 

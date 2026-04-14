@@ -41,8 +41,7 @@ Simply ask the agent in conversation:
 
 | Skill | Description |
 | ----- | ----------- |
-| [`research-ideation`](#-research-ideation--literature-tree--problem-finding) | 💡 Research ideation, literature tree & problem finding |
-| [`idea-tournament`](#-idea-tournament--competitive-idea-ranking--proposal-generation) | 🏆 Competitive idea ranking & proposal generation |
+| [`research-ideation`](#-research-ideation--literature-grounding--tournament--proposal) | 💡 Literature grounding, tournament ranking & proposal generation |
 | [`paper-planning`](#-paper-planning--research-paper-planning--outline-generation) | 📐 Research paper planning & outline generation |
 | [`experiment-pipeline`](#-experiment-pipeline--4-stage-experiment-execution) | 🧪 Structured 4-stage experiment execution |
 | [`experiment-craft`](#-experiment-craft--experiment-debugging--iteration) | 🔧 Experiment debugging, logging & iteration |
@@ -52,10 +51,11 @@ Simply ask the agent in conversation:
 | [`paper-rebuttal`](#-paper-rebuttal--rebuttal-writing-after-peer-review) | 💬 Rebuttal writing after peer review |
 | [`academic-slides`](#-academic-slides--presentation--research-talk-creation) | 🎤 Academic presentation & research talk creation |
 | [`evo-memory`](#-evo-memory--persistent-research-memory--self-evolution) | 🧠 Persistent research memory & self-evolution |
-| [`paper-navigator`](#-paper-navigator--academic-paper-discovery--reading) | 📚 End-to-end academic paper discovery, reading & organization |
+| [`paper-navigator`](#-paper-navigator--academic-paper-discovery--reading) | 📚 Academic paper discovery, evaluation & reading |
+| [`research-survey`](#-research-survey--literature-survey--synthesis) | 📝 Structured literature survey synthesis |
 | [`nano-banana`](#-nano-banana--ai-generated-slides--illustrations) | 🍌 AI-generated presentation slides & illustrations via Gemini |
 
-> **Paper Suite + Self-Evolution Suite**: Each skill is self-contained — use them individually or combine freely. The self-evolution skills (`idea-tournament`, `experiment-pipeline`, `evo-memory`) form a learning loop that improves across research cycles.
+> **Paper Suite + Self-Evolution Suite**: Each skill is self-contained — use them individually or combine freely. The self-evolution loop now runs through `research-ideation`, `experiment-pipeline`, and `evo-memory`.
 
 ## 🔌 MCP Server Marketplace
 
@@ -78,7 +78,7 @@ The diagram above shows the full EvoScientist pipeline. The **Researcher Agent**
 
 ```mermaid
 flowchart LR
-    A["<b>🔬 Research Phase</b><br/>💡 research-ideation<br/>🏆 idea-tournament"]
+    A["<b>🔬 Research Phase</b><br/>💡 research-ideation"]
     --> B["<b>⚙️ Experiment Phase</b><br/>📐 paper-planning<br/>🧪 experiment-pipeline<br/>🔧 experiment-craft<br/>🔄 experiment-iterative-coder"]
     --> C["<b>📝 Writing Phase</b><br/>✍️ paper-writing<br/>🔍 paper-review<br/>💬 paper-rebuttal<br/>🎤 academic-slides"]
 
@@ -98,25 +98,24 @@ flowchart LR
 
 ---
 
-### 💡 `research-ideation` — Literature Tree & Problem Finding
+### 💡 `research-ideation` — Literature Grounding, Tournament & Proposal
 
-The starting point of the research pipeline. Guides ideation from literature analysis to solution design:
+The starting point of the research pipeline. It now covers the full path from literature grounding to ranked ideas to a concrete proposal:
 
-- **Literature Tree** — Build a novelty tree and challenge-insight tree to map the research landscape
-- **Problem Selection** — 4-level well-established solution check to identify open problems worth pursuing
-- **Solution Design** — Cross-domain transfer and problem decomposition strategies
-- **Paper Reading** — 3-level structured Q&A methodology for deep comprehension
-- **Counterintuitive Rules** — Problem selection matters more than solution design; pursue new failure cases rather than incremental improvements
+- **Load Prior Knowledge** — Read `evo-memory` first to reuse feasible directions and avoid known dead ends
+- **Literature Grounding** — Use `paper-navigator` to collect and analyze papers before generating ideas
+- **Multi-Track Ideation + Refinement** — Generate candidates across multiple personas, then iteratively strengthen them
+- **Elo Tournament** — Rank refined ideas on novelty, feasibility, relevance, and clarity; present the top-3
+- **Proposal Extension** — Expand the selected winner into a manuscript-quality research proposal
 
-### 🏆 `idea-tournament` — Competitive Idea Ranking & Proposal Generation
+### 📝 `research-survey` — Literature Survey & Synthesis
 
-Bridges the gap between having a research direction and having a concrete, validated proposal:
+Dedicated skill for turning a large paper collection into a structured survey report:
 
-- **Tree-Structured Generation** — Expand a seed idea into up to N_I=21 candidates by varying technique, domain, and formulation axes
-- **Elo Tournament** — Pairwise comparisons on 4 dimensions (novelty, feasibility, relevance, clarity) with Swiss-system pairing
-- **Direction Summarization** — Synthesize top-3 ideas into promising directions for evo-memory
-- **Proposal Extension** — Extend the winning idea into a full research proposal (5 sections from paper + 1 practical extension)
-- **Counterintuitive Rules** — Quantity before quality; the tournament finds surprises; top-3 not top-1
+- **Adaptive Outline** — Generate a field-specific outline based on the query type and literature set
+- **Draft + Expansion Pipeline** — Draft from top papers, then deepen each section with the full collection
+- **Summary Refinement** — Build section summaries before rewriting the abstract, introduction, and conclusion
+- **Survey-Grade Output** — Comparative tables, taxonomy-based method organization, dense citations, and references
 
 ### 📐 `paper-planning` — Research Paper Planning & Outline Generation
 
@@ -206,25 +205,23 @@ A structured approach to creating academic presentations and preparing research 
 
 The learning layer that accumulates knowledge across research cycles. Maintains two memory stores and implements three evolution mechanisms:
 
-- **Ideation Memory (M_I)** — Tracks feasible and unsuccessful research directions across idea tournaments
+- **Ideation Memory (M_I)** — Tracks feasible and unsuccessful research directions across ideation cycles
 - **Experimentation Memory (M_E)** — Stores reusable data processing and model training strategies (paper core), plus architecture and debugging (extensions)
-- **IDE (Idea Direction Evolution)** — Extracts promising directions after idea tournaments
+- **IDE (Idea Direction Evolution)** — Extracts promising directions after `research-ideation`
 - **IVE (Idea Validation Evolution)** — Classifies experiment failures as implementation vs fundamental direction failures
 - **ESE (Experiment Strategy Evolution)** — Distills reusable patterns from successful experiment pipelines
 
-Read by `idea-tournament` and `experiment-pipeline` at cycle start; updated after each cycle completes.
+Read by `research-ideation` and `experiment-pipeline` at cycle start; updated after each cycle completes.
 
 ### 📚 `paper-navigator` — Academic Paper Discovery & Reading
 
-End-to-end paper workflow in five stages — from query to organized literature map:
+Focused paper workflow in four stages — from query to evaluated reading list:
 
 - **Disambiguate** — Analyze user intent, resolve ambiguous terms (project names, module names) to actual paper titles
 - **Discover** — 7 discovery paths: keyword search, citation traversal, recommendations, author tracking, arXiv monitoring, trending detection, GitHub search
 - **Evaluate** — Quick assessment via TLDR, citations, code availability (HuggingFace + GitHub), and top models by task
 - **Read** — Full-text retrieval via Jina Reader with 3-level reading strategy (Technical, Analytical, Contextual)
-- **Organize** — Build novelty trees, challenge-insight trees, and generate structured literature reports (survey, quick scan, deep dive, baseline hunt)
-
-Includes 12 Python scripts powered by Semantic Scholar, HuggingFace, GitHub, arXiv, and Jina Reader APIs.
+Includes Python scripts powered by Semantic Scholar, HuggingFace, GitHub, arXiv, and Jina Reader APIs.
 
 ### 🍌 `nano-banana` — AI-Generated Slides & Illustrations
 
@@ -241,7 +238,7 @@ Generate professional presentation slides and high-quality illustrations using G
 ## 🎯 ᯓ➤ Roadmap
 
 Completed:
-- [x] 🧠 **Self-Evolution Suite** — `idea-tournament`, `experiment-pipeline`, `evo-memory`
+- [x] 🧠 **Self-Evolution Suite** — `research-ideation`, `experiment-pipeline`, `evo-memory`
 - [x] 📚 **Literature Survey** — Systematic literature search, filtering, and survey generation
 - [x] 🔄 **Iterative Coder** — Iterative code refinement with plan → code → evaluate → refine cycles
 - [x] 🎨 **Visual Generation** — AI-generated slides & illustrations (`nano-banana`)

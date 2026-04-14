@@ -417,7 +417,7 @@ def main():
         "--intent",
         choices=["survey", "quick_scan", "deep_dive", "baseline_hunt"],
         default="survey",
-        help="Report type (default: survey)",
+        help="Report type (default: survey). Note: 'survey' and 'deep_dive' intents are deprecated — use the research-survey skill for full survey reports.",
     )
     parser.add_argument(
         "--output", "-o", help="Output file path (also prints to stdout)"

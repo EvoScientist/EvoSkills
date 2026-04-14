@@ -1,6 +1,6 @@
 ---
 name: evo-memory
-description: "Manages persistent research memory across ideation and experimentation cycles. Maintains two stores: Ideation Memory M_I (feasible/unsuccessful directions) and Experimentation Memory M_E (reusable strategies for data processing, model training, architecture, debugging). Three evolution mechanisms: IDE (after idea-tournament), IVE (after experiment failure — classifies failures as implementation vs fundamental), ESE (after experiment success — extracts reusable strategies). Use when: updating memory after completing idea tournaments or experiment pipelines, classifying why a method failed (implementation vs fundamental failure), starting a new research cycle needing prior knowledge, user mentions 'update memory', 'classify failure', 'what worked before', 'research history', 'evolution'. Do NOT use for running experiments (use experiment-pipeline), debugging experiment code (use experiment-craft), or generating ideas (use idea-tournament)."
+description: "Manages persistent research memory across ideation and experimentation cycles. Maintains two stores: Ideation Memory M_I (feasible/unsuccessful directions) and Experimentation Memory M_E (reusable strategies for data processing, model training, architecture, debugging). Three evolution mechanisms: IDE (after research-ideation), IVE (after experiment failure — classifies failures as implementation vs fundamental), ESE (after experiment success — extracts reusable strategies). Use when: updating memory after completing research-ideation cycles or experiment pipelines, classifying why a method failed (implementation vs fundamental failure), starting a new research cycle needing prior knowledge, user mentions 'update memory', 'classify failure', 'what worked before', 'research history', 'evolution'. Do NOT use for running experiments (use experiment-pipeline), debugging experiment code (use experiment-craft), or generating ideas (use research-ideation)."
 allowed-tools: "write_file edit_file read_file think_tool"
 metadata:
   author: EvoScientist
@@ -14,7 +14,7 @@ A persistent learning layer that accumulates research knowledge across ideation 
 
 ## When to Use This Skill
 
-- User has completed an `idea-tournament` and needs to update Ideation Memory
+- User has completed an `research-ideation` and needs to update Ideation Memory
 - User has completed (or failed) an `experiment-pipeline` and needs to update memory
 - User is starting a new research cycle and wants to load prior knowledge
 - User asks about research memory, learned patterns, or cross-cycle knowledge
@@ -43,7 +43,7 @@ Records what you've learned about research DIRECTIONS — which areas are promis
 
 **Each entry records**: Direction name, one-sentence summary, evidence (which cycle, what results), classification (feasible / implementation failure / fundamental failure), date.
 
-**How it's used**: `idea-tournament` reads M_I at the start of Phase 1. The paper uses embedding-based retrieval with cosine similarity, selecting the top-k_I most similar items (k_I=2 in experiments). Feasible directions from prior cycles can seed new tree branches. Unsuccessful directions are used during pruning — fundamental failures are pruned; implementation failures may be retried.
+**How it's used**: `research-ideation` reads M_I at the start of Step 0. The paper uses embedding-based retrieval with cosine similarity, selecting the top-k_I most similar items (k_I=2 in experiments). Feasible directions from prior cycles can seed new tree branches. Unsuccessful directions are used during pruning — fundamental failures are pruned; implementation failures may be retried.
 
 See [assets/ideation-memory-template.md](assets/ideation-memory-template.md) for the template.
 
@@ -74,7 +74,7 @@ See [assets/experiment-memory-template.md](assets/experiment-memory-template.md)
 
 ### IDE — Idea Direction Evolution
 
-**Trigger**: After `idea-tournament` completes (Phase 3 direction summary is available).
+**Trigger**: After `research-ideation` completes Step 5 and saves `/direction-summary.md` for Step 6.
 
 **Purpose**: Extract promising research directions from the tournament results and store them in M_I for future cycles.
 
@@ -147,18 +147,18 @@ See [references/ese-protocol.md](references/ese-protocol.md) for the full proces
 
 ## Reading Memory at Cycle Start
 
-When starting a new research cycle (loading `idea-tournament` or `experiment-pipeline`):
+When starting a new research cycle (loading `research-ideation` or `experiment-pipeline`):
 
 1. Read `/memory/ideation-memory.md` and `/memory/experiment-memory.md`
 2. Summarize relevant entries to inject into the current context
-3. For `idea-tournament`: Use M_I feasible directions to seed tree branches. Use M_I unsuccessful directions (fundamental failures only) during pruning.
+3. For `research-ideation`: Use M_I feasible directions to seed tree branches. Use M_I unsuccessful directions (fundamental failures only) during pruning.
 4. For `experiment-pipeline`: Use M_E strategies to inform hyperparameter ranges, training schedules, and debugging approaches.
 
 **Don't blindly apply old strategies.** Context matters. A strategy that worked for image classification may not work for text generation. Always check the recorded context against the current problem.
 
 **Retrieval method**: The paper uses embedding-based cosine similarity for retrieval. In practice, perform this semantic comparison by reading each entry's Summary/Context and Retrieval Tags, then judging relevance to the current goal. If automated embedding tools are available in your environment, use those instead for larger memory stores.
 
-### For idea-tournament (inject M_I)
+### For research-ideation (inject M_I)
 
 1. Read `/memory/ideation-memory.md`
 2. Select the top-k_I=2 entries most relevant to the user's current goal. Compare the user's goal statement against each entry's Summary and Retrieval Tags for semantic similarity.
@@ -217,17 +217,17 @@ How evo-memory connects to other skills in the pipeline:
 
 | Trigger | Source Skill | Mechanism | Memory Updated |
 |---------|-------------|-----------|----------------|
-| Tournament completed | `idea-tournament` | IDE | M_I (feasible directions) |
+| Tournament completed | `research-ideation` | IDE | M_I (feasible directions) |
 | No executable code within budget, or method underperforms baseline | `experiment-pipeline` | IVE | M_I (unsuccessful directions) |
 | Pipeline succeeded | `experiment-pipeline` | ESE | M_E (data processing + model training; optionally architecture + debugging) |
-| New cycle starts | `idea-tournament` | Read (top-k_I=2) | M_I read for seeding/pruning |
+| New cycle starts | `research-ideation` | Read (top-k_I=2) | M_I read for seeding/pruning |
 | New cycle starts | `experiment-pipeline` | Read (top-k_E=1) | M_E read for strategy guidance |
 
 ## Reference Navigation
 
 | Topic | Reference File | When to Use |
 |-------|---------------|-------------|
-| IDE process details | [ide-protocol.md](references/ide-protocol.md) | After completing idea-tournament |
+| IDE process details | [ide-protocol.md](references/ide-protocol.md) | After completing research-ideation |
 | IVE process details | [ive-protocol.md](references/ive-protocol.md) | After experiment-pipeline failure (no executable code or method underperforms) |
 | ESE process details | [ese-protocol.md](references/ese-protocol.md) | After experiment-pipeline succeeds |
 | Paper's actual prompts | [paper-prompts.md](references/paper-prompts.md) | Reference for exact IDE/IVE/ESE prompt design |
