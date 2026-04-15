@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from utils import S2_BASE, s2_headers, request_with_retry
+from utils import MissingSemanticScholarKey, S2_BASE, request_with_retry, s2_headers
 
 S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf,publicationDate"
 
@@ -37,6 +37,7 @@ def find_trending(
     """Search for papers and rank by citation velocity."""
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=period_days)
+    cutoff_date = cutoff.date()
     year_min = cutoff.year
 
     params: dict = {
@@ -52,6 +53,18 @@ def find_trending(
         )
 
     papers = data.get("data", [])
+
+    # Filter by actual publication date (year filter is a floor, not exact)
+    def _within_period(p: dict) -> bool:
+        pub = p.get("publicationDate")
+        if not pub:
+            return True  # keep papers without date (can't determine)
+        try:
+            return datetime.strptime(pub, "%Y-%m-%d").date() >= cutoff_date
+        except ValueError:
+            return True
+
+    papers = [p for p in papers if _within_period(p)]
 
     # Filter by min citations
     papers = [p for p in papers if (p.get("citationCount") or 0) >= min_citations]
@@ -115,7 +128,16 @@ def main():
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
 
-    papers = find_trending(args.query, args.period, args.min_citations, args.limit)
+    try:
+        papers = find_trending(args.query, args.period, args.min_citations, args.limit)
+    except MissingSemanticScholarKey:
+        print(
+            "Semantic Scholar is disabled because S2_API_KEY is not set. "
+            "Ask the user to provide a Semantic Scholar key before running "
+            "trending-paper search.",
+            file=sys.stderr,
+        )
+        sys.exit(0)
 
     if not papers:
         print(f"No trending papers found for '{args.query}'", file=sys.stderr)

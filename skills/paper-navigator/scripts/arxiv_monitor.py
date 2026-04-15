@@ -101,6 +101,16 @@ def fetch_by_categories(
     return _parse_entries(xml_text)
 
 
+def _matches_keywords(paper: dict, keywords: list[str]) -> bool:
+    """Client-side relevance check: all words of at least one keyword must
+    appear in the combined title + summary text."""
+    text = (paper.get("title", "") + " " + paper.get("summary", "")).lower()
+    for kw in keywords:
+        if all(w in text for w in kw.lower().split()):
+            return True
+    return False
+
+
 def fetch_by_keywords(
     keywords: list[str],
     days: int = 7,
@@ -111,7 +121,8 @@ def fetch_by_keywords(
 
     Args:
         match_mode: "exact" for phrase matching (old behavior),
-                    "flexible" for AND-of-words matching (better recall).
+                    "flexible" for AND-of-words matching with client-side
+                    relevance filter to reduce cross-field noise.
     """
     # Search in title and abstract
     kw_parts = []
@@ -150,7 +161,10 @@ def fetch_by_keywords(
         xml_text = request_with_retry(
             client, ARXIV_API, params, arxiv_headers(), parse_json=False
         )
-    return _parse_entries(xml_text)
+    papers = _parse_entries(xml_text)
+    if match_mode == "flexible":
+        papers = [p for p in papers if _matches_keywords(p, keywords)]
+    return papers
 
 
 def format_paper(p: dict, idx: int) -> str:

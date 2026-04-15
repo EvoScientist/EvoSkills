@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from utils import S2_BASE, s2_headers, request_with_retry
+from utils import MissingSemanticScholarKey, S2_BASE, request_with_retry, s2_headers
 
 S2_FIELDS = (
     "paperId,externalIds,title,authors,year,citationCount,"
@@ -241,9 +241,17 @@ def _report_survey(papers: list[tuple[str, dict]]) -> str:
         lines.append(
             f"- **Must-read:** {top.get('title', 'Unknown')} (highest citations)"
         )
-        if len(sorted_papers) > 1:
-            recent = sorted_papers[-1][1]
-            lines.append(f"- **Watch:** {recent.get('title', 'Unknown')} (most recent)")
+        by_year = sorted(
+            [(pid, p) for pid, p in papers if p is not None],
+            key=lambda x: (x[1].get("year") or 0, x[1].get("publicationDate") or ""),
+            reverse=True,
+        )
+        if len(by_year) > 1:
+            recent = by_year[0][1]
+            lines.append(
+                f"- **Watch:** {recent.get('title', 'Unknown')} "
+                f"(most recent, {recent.get('year', '?')})"
+            )
     lines.append("- Use `citation_traverse` on key papers to discover related work")
     lines.append("- Use `find_code` to check reproducibility of promising papers")
 
@@ -436,7 +444,16 @@ def main():
     print(
         f"Fetching {len(paper_ids)} paper(s) from Semantic Scholar...", file=sys.stderr
     )
-    results = fetch_papers(paper_ids)
+    try:
+        results = fetch_papers(paper_ids)
+    except MissingSemanticScholarKey:
+        print(
+            "Semantic Scholar is disabled because S2_API_KEY is not set. "
+            "Ask the user to provide a Semantic Scholar key before "
+            "generating metadata-based literature reports.",
+            file=sys.stderr,
+        )
+        sys.exit(0)
 
     if args.json:
         output = {}

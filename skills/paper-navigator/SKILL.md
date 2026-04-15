@@ -25,6 +25,14 @@ Find and read academic papers in four stages:
 
 **Setup:** Scripts are in `skills/paper-navigator/scripts/`. Run via `python skills/paper-navigator/scripts/<name>.py`. Optional env vars for higher rate limits: `S2_API_KEY` (Semantic Scholar), `JINA_API_KEY` (Jina Reader), `GITHUB_TOKEN`, `HF_TOKEN`.
 
+### Semantic Scholar Key Gate (MANDATORY)
+
+Before using any Semantic Scholar-dependent script, check whether `S2_API_KEY` is set.
+
+- If `S2_API_KEY` **is set**: you may use `scholar_search`, `citation_traverse`, `recommend`, `author_search`, `trending`, and other S2-backed tools normally.
+- If `S2_API_KEY` is **missing**: do **not** use Semantic Scholar. Tell the user that Semantic Scholar is unavailable without a key and ask whether they want to provide one. If they do not provide a key, continue with **non-S2 sources only**: `arxiv_monitor`, web search, GitHub search, Hugging Face search, or direct paper URLs/DOIs/arXiv IDs.
+- Without `S2_API_KEY`, skip citation-graph expansion (`citation_traverse`, `recommend`) entirely instead of retrying or waiting.
+
 ---
 
 ## Step 0: Search Strategy Principles (MANDATORY)
@@ -64,15 +72,16 @@ Example: User asks "papers about data pruning for LLM pretraining"
 ### Multi-Source Parallel Search
 
 **Never rely on a single search source.** For every discovery task, run at least 2 sources:
-- **Primary**: `scholar_search` (S2 with automatic arXiv fallback on rate limit)
-- **Secondary**: `arxiv_monitor --keywords "<variants>" --match-mode flexible` for broader keyword coverage
-- **Tertiary** (when S2 is rate limited): web search for recent blog posts/surveys that reference papers
+- **Primary (with `S2_API_KEY`)**: `scholar_search` (S2 with automatic arXiv fallback on rate limit)
+- **Primary (without `S2_API_KEY`)**: `arxiv_monitor --keywords "<variants>" --match-mode flexible`
+- **Secondary**: web search or GitHub search for recent blog posts, surveys, repos, and paper links
+- **Tertiary**: additional non-S2 sources such as direct arXiv/DOI URLs or Hugging Face dataset/model search when relevant
 
-**CRITICAL — S2 parallelization rule:**
-- **With `S2_API_KEY` set** (100 req/min): You MAY run multiple `scholar_search` calls in parallel.
-- **Without `S2_API_KEY`** (100 req/5min, ~1 req/3s): You MUST run `scholar_search` calls **sequentially, one at a time**. Parallel S2 calls without a key will exhaust the rate limit immediately, causing all calls to fail with 429 and fall back to the lower-quality arXiv search. This applies to ALL S2-dependent scripts: `scholar_search`, `citation_traverse`, `recommend`, `author_search`, `trending`.
-- **How to check:** Before starting discovery, run `echo $S2_API_KEY` or check if the env var is set. If empty, switch to sequential mode.
-- **arXiv-only scripts** (`arxiv_monitor`) are NOT affected by this rule and can always run in parallel with other calls.
+**CRITICAL — S2 usage rule:**
+- **With `S2_API_KEY` set**: You MAY use S2-backed scripts. Prefer moderate fan-out and keep citation expansion scoped to the user's actual need.
+- **Without `S2_API_KEY`**: Do **not** invoke S2-backed scripts at all. Do not “try once anyway”, do not queue retries, and do not run `citation_traverse` / `recommend`.
+- **How to check:** Before starting discovery, run `echo $S2_API_KEY` or check if the env var is set. If empty, tell the user Semantic Scholar is unavailable without a key and continue with non-S2 sources.
+- **arXiv-only scripts** (`arxiv_monitor`) are NOT affected by this rule and can always run in parallel with other non-S2 calls.
 
 ### Rate-Limit-Aware Fallback Chain
 
@@ -82,11 +91,11 @@ When Semantic Scholar returns 429 or empty results:
 3. Switch to web search for blog posts, surveys, GitHub repos that reference papers
 4. Space S2-dependent calls (`citation_traverse`, `recommend`) at least 5s apart and reduce `--limit`
 
-**Prevention is better than fallback:** The arXiv fallback produces lower-quality results (no citation counts, less precise relevance ranking). To avoid triggering it, always follow the S2 parallelization rule above — run S2 calls sequentially when no API key is set.
+**Prevention is better than fallback:** The arXiv fallback produces lower-quality results (no citation counts, less precise relevance ranking). If `S2_API_KEY` is missing, skip S2 entirely and use the non-S2 chain from the start.
 
 ### Mandatory Citation Expansion (for multi-paper discovery tasks)
 
-After finding **≥3 relevant seed papers**, you **MUST** expand coverage using the citation graph. The goal is to discover papers that keyword search cannot reach.
+After finding **≥3 relevant seed papers**, you **MUST** expand coverage using the citation graph **only when `S2_API_KEY` is available**. The goal is to discover papers that keyword search cannot reach.
 
 **Seed selection:** Rank all found relevant papers by citation count. Pick the top 3 as primary seeds.
 
@@ -98,7 +107,7 @@ After finding **≥3 relevant seed papers**, you **MUST** expand coverage using 
 
 **Seed diversity principle:** When selecting seeds for backward traversal or recommendations, prefer seeds from *different sub-topics* identified in query reformulation. This prevents the citation graph from staying within a single research community.
 
-**Applies to**: WF1 (Survey), WF3 (Quick Search with >10 results), WF5 (Track Developments), WF9 (Ideation), WF10 (User-specified count).
+**Applies to**: WF1 (Survey), WF3 (Quick Search with >10 results), WF5 (Track Developments), WF9 (Ideation), WF10 (User-specified count), and only when `S2_API_KEY` is configured.
 **Does NOT apply to**: WF2 (Find specific paper), WF7 (Read paper by URL).
 
 ### Coverage Gap Check (for multi-paper discovery tasks)
@@ -107,8 +116,8 @@ After initial search + citation expansion, review the collected papers against t
 
 **For each sub-topic angle:**
 1. Count how many collected papers address it
-2. If a sub-topic has **0-1 papers**, run a targeted `scholar_search` with a query specific to that angle
-3. If targeted search finds new relevant papers, optionally run one more `citation_traverse` or `recommend` round on the new finds
+2. If a sub-topic has **0-1 papers**, run a targeted `scholar_search` with a query specific to that angle **only when `S2_API_KEY` is available**. Otherwise use `arxiv_monitor`, web search, or GitHub search for that angle.
+3. If targeted search finds new relevant papers and `S2_API_KEY` is available, optionally run one more `citation_traverse` or `recommend` round on the new finds
 
 This step catches systematic blind spots where an entire research perspective was missed by all prior queries. It is lightweight — typically 1-2 additional searches for gaps, not a full re-search.
 
@@ -228,7 +237,7 @@ Use the template at `assets/paper-summary-template.md`. Save to `/artifacts/pape
 
 **Use iterative collection** (target 30-80 papers). See [Appendix A](#appendix-a-iterative-collection-workflow) for the full iterative methodology.
 
-1. **Discover:** Initial `scholar_search --query "CRISPR gene therapy sickle cell" --limit 20 --sort-by citations` → iterative expansion with EXPLORE/EXPLOIT strategy → `citation_traverse --direction forward` on seminal papers
+1. **Discover:** If `S2_API_KEY` is available, start with `scholar_search --query "CRISPR gene therapy sickle cell" --limit 20 --sort-by citations` → iterative expansion with EXPLORE/EXPLOIT strategy → `citation_traverse --direction forward` on seminal papers. If the key is missing, tell the user Semantic Scholar is unavailable without a key, then use `arxiv_monitor` + web/GitHub search instead and skip citation-graph expansion.
 2. **Evaluate:** Review each paper's title + abstract for relevance → filter by abstract quality → prefer top-tier venues → shortlist
 3. **Read:** `fetch_paper` for key papers → L2 reading → notes using `assets/paper-summary-template.md`
 4. **Hand off to `research-survey`** to synthesize the collected papers into a structured survey report
@@ -238,7 +247,7 @@ Use the template at `assets/paper-summary-template.md`. Save to `/artifacts/pape
 > "Find me the attention is all you need paper"
 > "Find me the original GPT 3 paper"
 
-1. **Discover:** `scholar_search --query "Attention Is All You Need"` — single call, return top result
+1. **Discover:** If `S2_API_KEY` is available, use `scholar_search --query "Attention Is All You Need"` — single call, return top result. If the key is missing, ask whether the user wants to provide one; otherwise resolve via arXiv/DOI/web search and continue without S2.
 2. **Output:** Use **Format A** (Single Paper Card)
 
 **Do NOT** proceed to Read unless the user explicitly asks.
@@ -249,9 +258,9 @@ Use the template at `assets/paper-summary-template.md`. Save to `/artifacts/pape
 > "Find papers on gut microbiome modulation for autoimmune diseases"
 
 1. **Sub-topic decomposition + query reformulation:** Identify 3-5 research angles within the topic, generate 4-6 variant queries covering distinct angles (see Step 0)
-2. **Discover:** Run `scholar_search --query "<variant>" --limit 20 --sort-by relevance` on each variant. **If `S2_API_KEY` is set**, parallelize these calls; **if not**, run them sequentially one at a time to avoid rate-limit exhaustion (see "S2 parallelization rule" in Step 0). Also run `arxiv_monitor --keywords "<variants>" --match-mode flexible` for additional coverage (arXiv calls can always run in parallel with other non-S2 calls)
-3. **Citation expansion (if initial results ≥ 3 relevant papers):** Follow Mandatory Citation Expansion (Step 0) — co-citation on highest-cited seed, forward on top 2, backward on 1-2 diverse seeds, recommend with 3 seeds
-4. **Coverage gap check:** Review collected papers against identified sub-topics. Run targeted searches for any uncovered angles (see Step 0)
+2. **Discover:** If `S2_API_KEY` is set, run `scholar_search --query "<variant>" --limit 20 --sort-by relevance` on each variant. If the key is missing, tell the user Semantic Scholar is unavailable without a key, skip `scholar_search`, and use `arxiv_monitor --keywords "<variants>" --match-mode flexible` plus web/GitHub search instead.
+3. **Citation expansion (if initial results ≥ 3 relevant papers and `S2_API_KEY` is available):** Follow Mandatory Citation Expansion (Step 0) — co-citation on highest-cited seed, forward on top 2, backward on 1-2 diverse seeds, recommend with 3 seeds
+4. **Coverage gap check:** Review collected papers against identified sub-topics. Run targeted searches for uncovered angles using S2 only when the key is available; otherwise use non-S2 sources
 5. **Filter:** Review all results, deduplicate, keep relevant papers based on title + abstract
 6. **Output:** Use **Format B** (Paper List Table)
 
@@ -533,7 +542,7 @@ Scripts accept and normalize automatically: S2 ID, arXiv (`ArXiv:1706.03762` or 
 
 | API | Without key | With key | When rate limited |
 |-----|-------------|----------|-------------------|
-| Semantic Scholar | 100 req/5min (~1 req/3s); **NO parallel calls** | 100 req/min; parallel OK | Auto-fallback to arXiv in `scholar_search`; global pacer enforces 3s interval |
+| Semantic Scholar | **Disabled** — set `S2_API_KEY` to enable | 100 req/min; parallel OK | `scholar_search` auto-falls back to arXiv; `citation_traverse`/`recommend` require the key |
 | arXiv | 1 req/3s (courtesy) | N/A | Primary fallback when S2 is limited; no auth needed |
 | Jina Reader | Free tier | Higher with key | — |
 | HuggingFace | 500 req / 300s | Higher with `HF_TOKEN` | — |
