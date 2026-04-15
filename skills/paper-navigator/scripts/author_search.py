@@ -7,7 +7,7 @@ import sys
 
 import httpx
 
-from utils import S2_BASE, s2_headers, request_with_retry
+from utils import MissingSemanticScholarKey, S2_BASE, request_with_retry, s2_headers
 
 AUTHOR_FIELDS = "authorId,name,affiliations,paperCount,citationCount,hIndex"
 PAPER_FIELDS = "paperId,externalIds,title,year,citationCount,isOpenAccess,openAccessPdf"
@@ -81,7 +81,16 @@ def main():
     # Resolve author ID
     author_id = args.author_id
     if not author_id:
-        authors = search_author(args.name)
+        try:
+            authors = search_author(args.name)
+        except MissingSemanticScholarKey:
+            print(
+                "Semantic Scholar is disabled because S2_API_KEY is not set. "
+                "Ask the user to provide a Semantic Scholar key before running "
+                "author search.",
+                file=sys.stderr,
+            )
+            sys.exit(0)
         if not authors:
             print(f"No author found for '{args.name}'", file=sys.stderr)
             sys.exit(0)
@@ -102,7 +111,16 @@ def main():
 
     # Get papers
     if args.papers or args.author_id:
-        papers = get_author_papers(author_id, args.limit)
+        try:
+            papers = get_author_papers(author_id, args.limit)
+        except MissingSemanticScholarKey:
+            print(
+                "Semantic Scholar is disabled because S2_API_KEY is not set. "
+                "Ask the user to provide a Semantic Scholar key before listing "
+                "author papers.",
+                file=sys.stderr,
+            )
+            sys.exit(0)
 
         if args.sort_by == "citations":
             papers.sort(key=lambda p: p.get("citationCount", 0), reverse=True)

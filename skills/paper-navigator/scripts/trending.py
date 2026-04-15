@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from utils import S2_BASE, s2_headers, request_with_retry
+from utils import MissingSemanticScholarKey, S2_BASE, request_with_retry, s2_headers
 
 S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf,publicationDate"
 
@@ -115,7 +115,16 @@ def main():
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
 
-    papers = find_trending(args.query, args.period, args.min_citations, args.limit)
+    try:
+        papers = find_trending(args.query, args.period, args.min_citations, args.limit)
+    except MissingSemanticScholarKey:
+        print(
+            "Semantic Scholar is disabled because S2_API_KEY is not set. "
+            "Ask the user to provide a Semantic Scholar key before running "
+            "trending-paper search.",
+            file=sys.stderr,
+        )
+        sys.exit(0)
 
     if not papers:
         print(f"No trending papers found for '{args.query}'", file=sys.stderr)

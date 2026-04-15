@@ -14,11 +14,12 @@ import sys
 import httpx
 
 from utils import (
+    MissingSemanticScholarKey,
     S2_BASE,
     S2_RECOMMEND_BASE,
-    s2_headers,
-    request_with_retry,
     normalize_paper_id,
+    request_with_retry,
+    s2_headers,
 )
 
 S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,isOpenAccess,openAccessPdf"
@@ -123,7 +124,16 @@ def main():
         print("Error: at least one positive paper ID required", file=sys.stderr)
         sys.exit(1)
 
-    papers = recommend(positive, negative, args.limit)
+    try:
+        papers = recommend(positive, negative, args.limit)
+    except MissingSemanticScholarKey:
+        print(
+            "Semantic Scholar is disabled because S2_API_KEY is not set. "
+            "Ask the user to provide a Semantic Scholar key before running "
+            "paper recommendations.",
+            file=sys.stderr,
+        )
+        sys.exit(0)
 
     if not papers:
         print("No recommendations found.", file=sys.stderr)

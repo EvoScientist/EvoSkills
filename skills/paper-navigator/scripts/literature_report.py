@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from utils import S2_BASE, s2_headers, request_with_retry
+from utils import MissingSemanticScholarKey, S2_BASE, request_with_retry, s2_headers
 
 S2_FIELDS = (
     "paperId,externalIds,title,authors,year,citationCount,"
@@ -43,6 +43,15 @@ def fetch_papers(paper_ids: list[str]) -> list[tuple[str, dict | None]]:
                     results.append((pid, data))
                 # Rate limit: ~100 req/5min without key
                 time.sleep(0.3)
+            except MissingSemanticScholarKey:
+                print(
+                    "Semantic Scholar is disabled because S2_API_KEY is not set. "
+                    "Ask the user to provide a Semantic Scholar key before "
+                    "generating metadata-based literature reports.",
+                    file=sys.stderr,
+                )
+                results.extend((missing_pid, None) for missing_pid in paper_ids[len(results) :])
+                break
             except SystemExit:
                 results.append((pid, None))
     return results
@@ -417,7 +426,7 @@ def main():
         "--intent",
         choices=["survey", "quick_scan", "deep_dive", "baseline_hunt"],
         default="survey",
-        help="Report type (default: survey)",
+        help="Report type (default: survey). Note: 'survey' and 'deep_dive' intents are deprecated — use the research-survey skill for full survey reports.",
     )
     parser.add_argument(
         "--output", "-o", help="Output file path (also prints to stdout)"

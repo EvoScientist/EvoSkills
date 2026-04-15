@@ -14,7 +14,13 @@ import time
 
 import httpx
 
-from utils import S2_BASE, s2_headers, request_with_retry, normalize_paper_id
+from utils import (
+    MissingSemanticScholarKey,
+    S2_BASE,
+    normalize_paper_id,
+    request_with_retry,
+    s2_headers,
+)
 
 S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,isOpenAccess,openAccessPdf"
 
@@ -152,16 +158,25 @@ def main():
 
     print(f"Fetching {args.direction} citations for {paper_id}...", file=sys.stderr)
 
-    if args.direction == "forward":
-        papers = get_citations(paper_id, args.limit)
-    elif args.direction == "backward":
-        papers = get_references(paper_id, args.limit)
-    else:
+    try:
+        if args.direction == "forward":
+            papers = get_citations(paper_id, args.limit)
+        elif args.direction == "backward":
+            papers = get_references(paper_id, args.limit)
+        else:
+            print(
+                "⚠️  Co-citation requires multiple API calls (may be slow)…\n",
+                file=sys.stderr,
+            )
+            papers = get_co_citations(paper_id, args.limit)
+    except MissingSemanticScholarKey:
         print(
-            "⚠️  Co-citation requires multiple API calls (may be slow)…\n",
+            "Semantic Scholar is disabled because S2_API_KEY is not set. "
+            "Ask the user to provide a Semantic Scholar key before running "
+            "citation traversal.",
             file=sys.stderr,
         )
-        papers = get_co_citations(paper_id, args.limit)
+        sys.exit(0)
 
     # Filter by min citations
     if args.min_citations > 0:
