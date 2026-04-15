@@ -18,11 +18,12 @@ import httpx
 
 from utils import (
     S2_BASE,
-    s2_headers,
-    request_with_retry,
-    RateLimitExhausted,
     MissingSemanticScholarKey,
+    RateLimitExhausted,
     arxiv_headers,
+    normalize_paper_id,
+    request_with_retry,
+    s2_headers,
 )
 
 S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf,publicationVenue,abstract"
@@ -296,7 +297,16 @@ def main():
         sys.exit(1)
 
     if args.paper_id:
-        paper = get_paper(args.paper_id)
+        try:
+            paper = get_paper(normalize_paper_id(args.paper_id))
+        except MissingSemanticScholarKey:
+            print(
+                "⚠️  S2_API_KEY is not set. Cannot fetch paper by S2 ID without a key.\n"
+                "Provide a direct arXiv ID (e.g. ArXiv:2501.12948), DOI, or use "
+                "--url with fetch_paper instead.",
+                file=sys.stderr,
+            )
+            sys.exit(0)
         if args.json:
             print(json.dumps(paper, indent=2))
         else:

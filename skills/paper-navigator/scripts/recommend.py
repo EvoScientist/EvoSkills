@@ -32,6 +32,8 @@ def _resolve_to_s2_id(client: httpx.Client, paper_id: str) -> str:
             client, f"{S2_BASE}/paper/{paper_id}", {"fields": "paperId"}, s2_headers()
         )
         return data.get("paperId", paper_id)
+    except MissingSemanticScholarKey:
+        raise
     except Exception:
         return paper_id
 

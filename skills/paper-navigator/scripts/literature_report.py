@@ -43,17 +43,6 @@ def fetch_papers(paper_ids: list[str]) -> list[tuple[str, dict | None]]:
                     results.append((pid, data))
                 # Rate limit: ~100 req/5min without key
                 time.sleep(0.3)
-            except MissingSemanticScholarKey:
-                print(
-                    "Semantic Scholar is disabled because S2_API_KEY is not set. "
-                    "Ask the user to provide a Semantic Scholar key before "
-                    "generating metadata-based literature reports.",
-                    file=sys.stderr,
-                )
-                results.extend(
-                    (missing_pid, None) for missing_pid in paper_ids[len(results) :]
-                )
-                break
             except SystemExit:
                 results.append((pid, None))
     return results
@@ -252,9 +241,17 @@ def _report_survey(papers: list[tuple[str, dict]]) -> str:
         lines.append(
             f"- **Must-read:** {top.get('title', 'Unknown')} (highest citations)"
         )
-        if len(sorted_papers) > 1:
-            recent = sorted_papers[-1][1]
-            lines.append(f"- **Watch:** {recent.get('title', 'Unknown')} (most recent)")
+        by_year = sorted(
+            [(pid, p) for pid, p in papers if p is not None],
+            key=lambda x: (x[1].get("year") or 0, x[1].get("publicationDate") or ""),
+            reverse=True,
+        )
+        if len(by_year) > 1:
+            recent = by_year[0][1]
+            lines.append(
+                f"- **Watch:** {recent.get('title', 'Unknown')} "
+                f"(most recent, {recent.get('year', '?')})"
+            )
     lines.append("- Use `citation_traverse` on key papers to discover related work")
     lines.append("- Use `find_code` to check reproducibility of promising papers")
 
@@ -447,7 +444,16 @@ def main():
     print(
         f"Fetching {len(paper_ids)} paper(s) from Semantic Scholar...", file=sys.stderr
     )
-    results = fetch_papers(paper_ids)
+    try:
+        results = fetch_papers(paper_ids)
+    except MissingSemanticScholarKey:
+        print(
+            "Semantic Scholar is disabled because S2_API_KEY is not set. "
+            "Ask the user to provide a Semantic Scholar key before "
+            "generating metadata-based literature reports.",
+            file=sys.stderr,
+        )
+        sys.exit(0)
 
     if args.json:
         output = {}

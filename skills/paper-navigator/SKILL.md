@@ -542,7 +542,7 @@ Scripts accept and normalize automatically: S2 ID, arXiv (`ArXiv:1706.03762` or 
 
 | API | Without key | With key | When rate limited |
 |-----|-------------|----------|-------------------|
-| Semantic Scholar | 100 req/5min (~1 req/3s); **NO parallel calls** | 100 req/min; parallel OK | Auto-fallback to arXiv in `scholar_search`; global pacer enforces 3s interval |
+| Semantic Scholar | **Disabled** — set `S2_API_KEY` to enable | 100 req/min; parallel OK | `scholar_search` auto-falls back to arXiv; `citation_traverse`/`recommend` require the key |
 | arXiv | 1 req/3s (courtesy) | N/A | Primary fallback when S2 is limited; no auth needed |
 | Jina Reader | Free tier | Higher with key | — |
 | HuggingFace | 500 req / 300s | Higher with `HF_TOKEN` | — |

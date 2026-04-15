@@ -37,6 +37,7 @@ def find_trending(
     """Search for papers and rank by citation velocity."""
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=period_days)
+    cutoff_date = cutoff.date()
     year_min = cutoff.year
 
     params: dict = {
@@ -52,6 +53,18 @@ def find_trending(
         )
 
     papers = data.get("data", [])
+
+    # Filter by actual publication date (year filter is a floor, not exact)
+    def _within_period(p: dict) -> bool:
+        pub = p.get("publicationDate")
+        if not pub:
+            return True  # keep papers without date (can't determine)
+        try:
+            return datetime.strptime(pub, "%Y-%m-%d").date() >= cutoff_date
+        except ValueError:
+            return True
+
+    papers = [p for p in papers if _within_period(p)]
 
     # Filter by min citations
     papers = [p for p in papers if (p.get("citationCount") or 0) >= min_citations]
