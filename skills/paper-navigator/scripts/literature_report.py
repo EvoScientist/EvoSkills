@@ -50,7 +50,9 @@ def fetch_papers(paper_ids: list[str]) -> list[tuple[str, dict | None]]:
                     "generating metadata-based literature reports.",
                     file=sys.stderr,
                 )
-                results.extend((missing_pid, None) for missing_pid in paper_ids[len(results) :])
+                results.extend(
+                    (missing_pid, None) for missing_pid in paper_ids[len(results) :]
+                )
                 break
             except SystemExit:
                 results.append((pid, None))
