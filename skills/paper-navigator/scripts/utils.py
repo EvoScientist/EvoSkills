@@ -38,16 +38,26 @@ class RateLimitExhausted(Exception):
     pass
 
 
+class MissingSemanticScholarKey(Exception):
+    """Semantic Scholar access requested without S2_API_KEY configured."""
+
+    pass
+
+
 def _is_s2_url(url: str) -> bool:
     """Check if URL targets Semantic Scholar API."""
     return url.startswith(S2_BASE) or url.startswith(S2_RECOMMEND_BASE)
 
 
+def has_s2_api_key() -> bool:
+    """Return whether Semantic Scholar API access is configured."""
+    return bool(os.environ.get("S2_API_KEY"))
+
+
 def pace_s2_request() -> None:
     """Enforce minimum interval between Semantic Scholar API calls."""
     global _last_s2_request_time
-    has_key = bool(os.environ.get("S2_API_KEY"))
-    interval = S2_MIN_INTERVAL_WITH_KEY if has_key else S2_MIN_INTERVAL
+    interval = S2_MIN_INTERVAL_WITH_KEY if has_s2_api_key() else S2_MIN_INTERVAL
     elapsed = time.time() - _last_s2_request_time
     if elapsed < interval:
         time.sleep(interval - elapsed)
@@ -126,6 +136,11 @@ def request_with_retry(
     """
     # Apply global rate pacer for Semantic Scholar API
     if _is_s2_url(url):
+        if not has_s2_api_key():
+            raise MissingSemanticScholarKey(
+                "S2_API_KEY is not set. Ask the user to provide a Semantic Scholar "
+                "API key, or continue with non-S2 sources."
+            )
         pace_s2_request()
 
     last_was_rate_limited = False

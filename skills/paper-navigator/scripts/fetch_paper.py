@@ -14,11 +14,12 @@ import httpx
 from utils import (
     S2_BASE,
     JINA_PREFIX,
-    s2_headers,
-    jina_headers,
-    request_with_retry,
-    normalize_paper_id,
+    MissingSemanticScholarKey,
     _strip_arxiv_version,
+    jina_headers,
+    normalize_paper_id,
+    request_with_retry,
+    s2_headers,
 )
 
 
@@ -28,10 +29,34 @@ def resolve_paper_url(paper_id: str) -> tuple[str, dict]:
 
     fields = "paperId,externalIds,title,authors,year,citationCount,tldr,isOpenAccess,openAccessPdf,abstract"
 
-    with httpx.Client() as client:
-        meta = request_with_retry(
-            client, f"{S2_BASE}/paper/{pid}", {"fields": fields}, s2_headers()
-        )
+    try:
+        with httpx.Client() as client:
+            meta = request_with_retry(
+                client, f"{S2_BASE}/paper/{pid}", {"fields": fields}, s2_headers()
+            )
+    except MissingSemanticScholarKey:
+        # Minimal direct resolution path when S2 is disabled.
+        if pid.startswith("ArXiv:"):
+            arxiv_id = pid.split(":", 1)[1]
+            return (
+                f"https://arxiv.org/abs/{arxiv_id}",
+                {
+                    "paperId": pid,
+                    "externalIds": {"ArXiv": arxiv_id},
+                    "title": f"ArXiv:{arxiv_id}",
+                },
+            )
+        if pid.startswith("DOI:"):
+            doi = pid.split(":", 1)[1]
+            return (
+                f"https://doi.org/{doi}",
+                {
+                    "paperId": pid,
+                    "externalIds": {"DOI": doi},
+                    "title": f"DOI:{doi}",
+                },
+            )
+        raise
 
     # Determine best URL
     url = ""
@@ -138,7 +163,16 @@ def main():
             except Exception:
                 pass
     else:
-        url, meta = resolve_paper_url(args.paper_id)
+        try:
+            url, meta = resolve_paper_url(args.paper_id)
+        except MissingSemanticScholarKey:
+            print(
+                "Semantic Scholar is disabled because S2_API_KEY is not set. "
+                "Ask the user to provide a Semantic Scholar key, or call "
+                "fetch_paper with a direct --url / ArXiv / DOI identifier.",
+                file=sys.stderr,
+            )
+            sys.exit(0)
 
     if args.json:
         output = {"metadata": meta, "url": url}

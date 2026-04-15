@@ -21,6 +21,7 @@ from utils import (
     s2_headers,
     request_with_retry,
     RateLimitExhausted,
+    MissingSemanticScholarKey,
     arxiv_headers,
 )
 
@@ -180,6 +181,13 @@ def search(
                 client, f"{S2_BASE}/paper/search", params, s2_headers()
             )
         return data.get("data", [])
+    except MissingSemanticScholarKey:
+        print(
+            "⚠️  S2_API_KEY is not set. Skipping Semantic Scholar and using arXiv "
+            "search instead...",
+            file=sys.stderr,
+        )
+        return _fallback_arxiv_search(query, limit, year_min, year_max)
     except RateLimitExhausted:
         print(
             "⚠️  S2 rate limited after all retries. Falling back to arXiv search...",
