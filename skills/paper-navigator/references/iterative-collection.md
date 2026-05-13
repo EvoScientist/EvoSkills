@@ -68,9 +68,9 @@ S1 DECOMPOSE → S2 MULTI_SEARCH → S3 CITATION_EXPAND → S4 GAP_CHECK → S5 
 
 **Why:** Co-citation is the single strongest signal for finding related work using different terminology. Forward citations find follow-ups. Backward finds foundations.
 
-**Action:** Rank pool by citation count. Pick top 3 as seeds, prefer seeds from *different sub-topics* (from S1) for diversity.
+**Action:** Rank pool by **relevance to the user's query** (semantic match on title + abstract); use citation count only as a tiebreaker among comparably-relevant candidates. Pick top 3 as seeds, prefer seeds from *different sub-topics* (from S1) for diversity. Citation count alone selects locally-famous but topically-distant papers, which then bias co-citation traversal away from the actual query.
 
-1. **Co-citation** on highest-cited seed:
+1. **Co-citation** on the most-relevant seed:
    `citation_traverse --paper-id <seed1> --direction co-citation --limit 15`
 2. **Forward** on top 2 seeds:
    `citation_traverse --paper-id <seed1> --direction forward --limit 20`

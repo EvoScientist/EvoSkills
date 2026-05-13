@@ -90,7 +90,7 @@ Internalize the patterns by contrast. Each example shows the most common mistake
 
 - ❌ `induction head original paper Anthropic` — formal word + org name dilute relevance
 - ❌ `who proposed induction head transformer` — natural-language phrasing
-- ✅ `induction head transformer` — bare entity, let citation-count ranking surface the foundational work
+- ✅ `induction head transformer` — bare entity, let relevance ranking surface the foundational work (S2 relevance already weights citation signal; explicit `--sort-by citations` is only needed when the user asked for canonical work specifically)
 
 **Why:** Academic indices rank bare-concept queries best. Modifiers create noise.
 

@@ -4,7 +4,7 @@ description: "Find, read, download, and locally cache academic papers. Disambigu
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '2.4.4'
+  version: '2.4.5'
   tags: [core, research, search, literature, download, local-library]
 ---
 
@@ -96,7 +96,8 @@ User wants a manageable list (≤~10) on a topic. One search round, no iterative
 **Steps:**
 1. **Light decomposition** — name 2-3 sub-angles of the topic (saves you from a single-keyword blind spot, no need for full reformulation).
 2. **Search** — typically 1-2 calls:
-   - `python scripts/scholar_search.py --query "<topic>" --limit 15 --sort-by citations` (start here)
+   - `python scripts/scholar_search.py --query "<topic>" --limit 15 --sort-by relevance` (start here)
+   - Only swap to `--sort-by citations` when the user explicitly asks for *seminal / foundational / most-cited / canonical* work. Citation order on a 15-paper window crowds out actually-on-topic papers with older popular ones — especially harmful for recent or niche topics.
    - Optional: `python scripts/arxiv_monitor.py --keywords "<topic variants>" --match-mode flexible --days 365` (broader recall on preprints)
 3. **Filter** by title + abstract relevance; deduplicate by title and arXiv ID.
 4. **Output — Paper Table:**
