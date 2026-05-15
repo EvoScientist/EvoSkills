@@ -78,6 +78,7 @@ def print_s2_key_tip() -> None:
         file=sys.stderr,
     )
 
+
 DEFAULT_USER_AGENT = "EvoScientist/1.0 (paper-navigator)"
 
 

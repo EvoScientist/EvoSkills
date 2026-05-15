@@ -41,10 +41,13 @@ def resolve_paper_url(paper_id: str) -> tuple[str, dict]:
             "ℹ️  No S2_API_KEY — skipping S2 metadata fetch, using arXiv URL directly.",
             file=sys.stderr,
         )
-        result = (f"https://arxiv.org/abs/{arxiv_id}", {
-            "externalIds": {"ArXiv": arxiv_id},
-            "title": "(metadata not fetched in no-key mode; use --paper-id with key for full TLDR/citations)",
-        })
+        result = (
+            f"https://arxiv.org/abs/{arxiv_id}",
+            {
+                "externalIds": {"ArXiv": arxiv_id},
+                "title": "(metadata not fetched in no-key mode; use --paper-id with key for full TLDR/citations)",
+            },
+        )
         print_s2_key_tip()
         return result
 

@@ -27,18 +27,27 @@ def load_index() -> list[dict]:
 
 def match_query(paper: dict, q_tokens: set[str]) -> int:
     """Return overlap count of query tokens with paper title + authors + tldr."""
-    haystack = " ".join(filter(None, [
-        paper.get("title") or "",
-        " ".join(paper.get("authors") or []),
-        paper.get("tldr") or "",
-        paper.get("venue") or "",
-    ])).lower()
+    haystack = " ".join(
+        filter(
+            None,
+            [
+                paper.get("title") or "",
+                " ".join(paper.get("authors") or []),
+                paper.get("tldr") or "",
+                paper.get("venue") or "",
+            ],
+        )
+    ).lower()
     haystack_tokens = set(haystack.replace(",", " ").replace(".", " ").split())
     return len(q_tokens & haystack_tokens)
 
 
-def search(query: str | None = None, arxiv_id: str | None = None,
-           title: str | None = None, min_overlap: int = 2) -> list[dict]:
+def search(
+    query: str | None = None,
+    arxiv_id: str | None = None,
+    title: str | None = None,
+    min_overlap: int = 2,
+) -> list[dict]:
     papers = load_index()
     if not papers:
         return []
@@ -66,23 +75,37 @@ def search(query: str | None = None, arxiv_id: str | None = None,
 
 
 def main():
-    p = argparse.ArgumentParser(description="Search local paper library ($PAPERS_DIR/index.json).")
+    p = argparse.ArgumentParser(
+        description="Search local paper library ($PAPERS_DIR/index.json)."
+    )
     g = p.add_mutually_exclusive_group()
-    g.add_argument("--query", "-q", help="Keyword query (matches title + authors + TLDR)")
+    g.add_argument(
+        "--query", "-q", help="Keyword query (matches title + authors + TLDR)"
+    )
     g.add_argument("--arxiv-id", "-a", help="Exact arXiv ID match")
     g.add_argument("--title", "-t", help="Substring match on title")
     g.add_argument("--list", action="store_true", help="List all cached papers")
     p.add_argument("--limit", type=int, default=10)
-    p.add_argument("--min-overlap", type=int, default=2,
-                   help="Min token overlap for keyword match (default 2)")
+    p.add_argument(
+        "--min-overlap",
+        type=int,
+        default=2,
+        help="Min token overlap for keyword match (default 2)",
+    )
     p.add_argument("--json", action="store_true")
     args = p.parse_args()
 
     if not INDEX_PATH.exists():
-        print(f"No local library at {PAPERS_DIR} (index.json missing).", file=sys.stderr)
+        print(
+            f"No local library at {PAPERS_DIR} (index.json missing).", file=sys.stderr
+        )
         print("Run download_paper.py to populate.", file=sys.stderr)
         if args.json:
-            print(json.dumps({"papers_dir": str(PAPERS_DIR), "results": [], "exists": False}))
+            print(
+                json.dumps(
+                    {"papers_dir": str(PAPERS_DIR), "results": [], "exists": False}
+                )
+            )
         sys.exit(1 if not args.json else 0)
 
     results = search(
@@ -94,7 +117,16 @@ def main():
     results = results[: args.limit]
 
     if args.json:
-        print(json.dumps({"papers_dir": str(PAPERS_DIR), "results": results, "count": len(results)}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "papers_dir": str(PAPERS_DIR),
+                    "results": results,
+                    "count": len(results),
+                },
+                indent=2,
+            )
+        )
         return
 
     if not results:
@@ -107,7 +139,9 @@ def main():
     print("|---|-------|---------|------|-----------|-------|------|")
     for i, r in enumerate(results, 1):
         title = (r.get("title") or "")[:60]
-        authors = ((r.get("authors") or [""])[0] + " et al.") if r.get("authors") else ""
+        authors = (
+            ((r.get("authors") or [""])[0] + " et al.") if r.get("authors") else ""
+        )
         year = r.get("year") or "—"
         cites = r.get("citations") or 0
         aid = r.get("arxiv_id") or "—"

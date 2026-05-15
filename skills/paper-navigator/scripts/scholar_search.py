@@ -15,12 +15,22 @@ from datetime import datetime, timezone
 
 import httpx
 
-from utils import S2_BASE, s2_headers, request_with_retry, RateLimitExhausted, arxiv_headers, print_s2_key_tip
+from utils import (
+    S2_BASE,
+    s2_headers,
+    request_with_retry,
+    RateLimitExhausted,
+    arxiv_headers,
+    print_s2_key_tip,
+)
 
 S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf,publicationVenue,abstract"
 
 ARXIV_API = "https://export.arxiv.org/api/query"
-ARXIV_NS = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+ARXIV_NS = {
+    "atom": "http://www.w3.org/2005/Atom",
+    "arxiv": "http://arxiv.org/schemas/atom",
+}
 
 
 def _fallback_arxiv_search(
@@ -37,8 +47,28 @@ def _fallback_arxiv_search(
     # Build robust arXiv search query.
     # Strategy: drop common stop words, use OR-of-content-words (arXiv API ranks by relevance).
     # Stopwords + 1-2 letter tokens dilute recall when AND'd.
-    STOP = {"is", "a", "an", "the", "of", "in", "on", "for", "to", "with",
-            "and", "or", "you", "all", "this", "that", "by", "at", "as", "from"}
+    STOP = {
+        "is",
+        "a",
+        "an",
+        "the",
+        "of",
+        "in",
+        "on",
+        "for",
+        "to",
+        "with",
+        "and",
+        "or",
+        "you",
+        "all",
+        "this",
+        "that",
+        "by",
+        "at",
+        "as",
+        "from",
+    }
     words = [w for w in query.split() if w.lower() not in STOP and len(w) > 2]
     if not words:
         words = query.split()  # all stopwords? fall back to raw split
@@ -161,6 +191,7 @@ def search(
     """
     # No-key mode: arxiv-first to avoid 429 wait penalty
     import os
+
     no_key = not os.environ.get("S2_API_KEY")
     if prefer_arxiv or no_key:
         print(

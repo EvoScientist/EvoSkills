@@ -169,7 +169,10 @@ def main():
     else:
         fetch_size = args.limit
 
-    print(f"Fetching {args.direction} citations for {paper_id} (pool={fetch_size})...", file=sys.stderr)
+    print(
+        f"Fetching {args.direction} citations for {paper_id} (pool={fetch_size})...",
+        file=sys.stderr,
+    )
 
     if args.direction == "forward":
         papers = get_citations(paper_id, fetch_size)

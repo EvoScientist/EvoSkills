@@ -29,9 +29,9 @@ from utils import (
 PAPERS_DIR = Path(os.environ.get("PAPERS_DIR", str(Path.home() / "papers")))
 INDEX_PATH = PAPERS_DIR / "index.json"
 
-MIN_PDF_KB = 10           # arxiv skill convention: reject sub-10KB error pages
-RATE_LIMIT_S = 1.0        # arxiv skill convention: 1s between downloads
-DEFAULT_MAX_MB = 50       # skip oversized PDFs (huge appendices etc.)
+MIN_PDF_KB = 10  # arxiv skill convention: reject sub-10KB error pages
+RATE_LIMIT_S = 1.0  # arxiv skill convention: 1s between downloads
+DEFAULT_MAX_MB = 50  # skip oversized PDFs (huge appendices etc.)
 
 
 def resolve_metadata(paper_id: str) -> dict:
@@ -91,26 +91,32 @@ def update_index(key: str, meta: dict, size: int) -> None:
     idx = load_index()
     idx["papers"] = [p for p in idx["papers"] if p.get("key") != key]
     ext = meta.get("externalIds", {}) or {}
-    idx["papers"].append({
-        "key": key,
-        "arxiv_id": _strip_arxiv_version(ext["ArXiv"]) if ext.get("ArXiv") else None,
-        "doi": ext.get("DOI"),
-        "s2_id": meta.get("paperId"),
-        "title": meta.get("title"),
-        "authors": [a.get("name") for a in (meta.get("authors") or [])],
-        "year": meta.get("year"),
-        "citations": meta.get("citationCount"),
-        "venue": meta.get("venue"),
-        "tldr": (meta.get("tldr") or {}).get("text"),
-        "abstract": meta.get("abstract"),
-        "downloaded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "size_bytes": size,
-        "has_pdf": True,
-    })
+    idx["papers"].append(
+        {
+            "key": key,
+            "arxiv_id": _strip_arxiv_version(ext["ArXiv"])
+            if ext.get("ArXiv")
+            else None,
+            "doi": ext.get("DOI"),
+            "s2_id": meta.get("paperId"),
+            "title": meta.get("title"),
+            "authors": [a.get("name") for a in (meta.get("authors") or [])],
+            "year": meta.get("year"),
+            "citations": meta.get("citationCount"),
+            "venue": meta.get("venue"),
+            "tldr": (meta.get("tldr") or {}).get("text"),
+            "abstract": meta.get("abstract"),
+            "downloaded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "size_bytes": size,
+            "has_pdf": True,
+        }
+    )
     save_index(idx)
 
 
-def download_one(paper_id: str, force: bool = False, max_mb: int = DEFAULT_MAX_MB) -> dict:
+def download_one(
+    paper_id: str, force: bool = False, max_mb: int = DEFAULT_MAX_MB
+) -> dict:
     """Download a single paper. Returns status dict."""
     try:
         meta = resolve_metadata(paper_id)
@@ -123,7 +129,12 @@ def download_one(paper_id: str, force: bool = False, max_mb: int = DEFAULT_MAX_M
     try:
         pdf_url, key = choose_pdf_url(meta)
     except ValueError as e:
-        return {"status": "no_oa_pdf", "id": paper_id, "title": meta.get("title"), "reason": str(e)}
+        return {
+            "status": "no_oa_pdf",
+            "id": paper_id,
+            "title": meta.get("title"),
+            "reason": str(e),
+        }
 
     out_dir = PAPERS_DIR / key
     pdf_path = out_dir / "paper.pdf"
@@ -141,18 +152,35 @@ def download_one(paper_id: str, force: bool = False, max_mb: int = DEFAULT_MAX_M
     # Download
     try:
         with httpx.Client(follow_redirects=True, timeout=60) as c:
-            r = c.get(pdf_url, headers={"User-Agent": "EvoScientist/1.0 (paper-navigator)"})
+            r = c.get(
+                pdf_url, headers={"User-Agent": "EvoScientist/1.0 (paper-navigator)"}
+            )
             r.raise_for_status()
             content = r.content
     except Exception as e:
-        return {"status": "download_failed", "id": paper_id, "url": pdf_url, "error": str(e)}
+        return {
+            "status": "download_failed",
+            "id": paper_id,
+            "url": pdf_url,
+            "error": str(e),
+        }
 
     # Validate
     size_kb = len(content) / 1024
     if size_kb < MIN_PDF_KB:
-        return {"status": "too_small", "id": paper_id, "size_bytes": len(content), "reason": f"< {MIN_PDF_KB}KB (likely error page)"}
+        return {
+            "status": "too_small",
+            "id": paper_id,
+            "size_bytes": len(content),
+            "reason": f"< {MIN_PDF_KB}KB (likely error page)",
+        }
     if size_kb / 1024 > max_mb:
-        return {"status": "too_large", "id": paper_id, "size_mb": size_kb / 1024, "reason": f"> {max_mb}MB"}
+        return {
+            "status": "too_large",
+            "id": paper_id,
+            "size_mb": size_kb / 1024,
+            "reason": f"> {max_mb}MB",
+        }
 
     # Save
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -171,14 +199,25 @@ def download_one(paper_id: str, force: bool = False, max_mb: int = DEFAULT_MAX_M
 
 
 def main():
-    p = argparse.ArgumentParser(description="Download paper PDFs to $PAPERS_DIR with index.")
+    p = argparse.ArgumentParser(
+        description="Download paper PDFs to $PAPERS_DIR with index."
+    )
     g = p.add_mutually_exclusive_group(required=True)
-    g.add_argument("--paper-id", "-p", help="Single paper ID (S2, ArXiv:, DOI:, or URL)")
+    g.add_argument(
+        "--paper-id", "-p", help="Single paper ID (S2, ArXiv:, DOI:, or URL)"
+    )
     g.add_argument("--arxiv-id", "-a", help="Single arXiv ID (e.g. 1706.03762)")
     g.add_argument("--bulk", "-b", help="Comma-separated paper IDs")
     g.add_argument("--bulk-file", help="File with one paper ID per line")
-    p.add_argument("--force", "-f", action="store_true", help="Re-download even if cached")
-    p.add_argument("--max-mb", type=int, default=DEFAULT_MAX_MB, help=f"Skip PDFs over N MB (default {DEFAULT_MAX_MB})")
+    p.add_argument(
+        "--force", "-f", action="store_true", help="Re-download even if cached"
+    )
+    p.add_argument(
+        "--max-mb",
+        type=int,
+        default=DEFAULT_MAX_MB,
+        help=f"Skip PDFs over N MB (default {DEFAULT_MAX_MB})",
+    )
     p.add_argument("--json", action="store_true", help="Emit results as JSON")
     args = p.parse_args()
 
@@ -192,7 +231,13 @@ def main():
         ids.extend([s.strip() for s in args.bulk.split(",") if s.strip()])
     elif args.bulk_file:
         text = Path(args.bulk_file).read_text()
-        ids.extend([line.strip() for line in text.splitlines() if line.strip() and not line.startswith("#")])
+        ids.extend(
+            [
+                line.strip()
+                for line in text.splitlines()
+                if line.strip() and not line.startswith("#")
+            ]
+        )
 
     if not ids:
         print("Error: no IDs provided", file=sys.stderr)
@@ -202,16 +247,24 @@ def main():
 
     results = []
     for i, pid in enumerate(ids):
-        print(f"[{i+1}/{len(ids)}] {pid}...", file=sys.stderr)
+        print(f"[{i + 1}/{len(ids)}] {pid}...", file=sys.stderr)
         r = download_one(pid, force=args.force, max_mb=args.max_mb)
         results.append(r)
         s = r["status"]
         if s == "downloaded":
-            print(f"  ✓ downloaded ({r['size_bytes']//1024}KB) → {r['path']}", file=sys.stderr)
+            print(
+                f"  ✓ downloaded ({r['size_bytes'] // 1024}KB) → {r['path']}",
+                file=sys.stderr,
+            )
         elif s == "cached":
-            print(f"  = already cached ({r['size_bytes']//1024}KB) → {r['path']}", file=sys.stderr)
+            print(
+                f"  = already cached ({r['size_bytes'] // 1024}KB) → {r['path']}",
+                file=sys.stderr,
+            )
         else:
-            print(f"  ✗ {s}: {r.get('error') or r.get('reason') or ''}", file=sys.stderr)
+            print(
+                f"  ✗ {s}: {r.get('error') or r.get('reason') or ''}", file=sys.stderr
+            )
         # Rate limit (arxiv skill convention)
         if i < len(ids) - 1 and s == "downloaded":
             time.sleep(RATE_LIMIT_S)

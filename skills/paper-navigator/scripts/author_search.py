@@ -71,8 +71,14 @@ def main():
         "--limit", "-l", type=int, default=20, help="Max papers (default 20)"
     )
     parser.add_argument("--sort-by", choices=["citations", "year"], default="year")
-    parser.add_argument("--year-min", type=int, help="Keep only papers with year >= this (client-side filter; S2 API has no server-side year filter for author papers)")
-    parser.add_argument("--year-max", type=int, help="Keep only papers with year <= this")
+    parser.add_argument(
+        "--year-min",
+        type=int,
+        help="Keep only papers with year >= this (client-side filter; S2 API has no server-side year filter for author papers)",
+    )
+    parser.add_argument(
+        "--year-max", type=int, help="Keep only papers with year <= this"
+    )
     parser.add_argument(
         "--candidate-pool",
         type=int,
@@ -111,7 +117,9 @@ def main():
     # Get papers
     if args.papers or args.author_id:
         # When year filtering, over-fetch from candidate-pool so we still get N results after filter
-        fetch_size = args.candidate_pool if (args.year_min or args.year_max) else args.limit
+        fetch_size = (
+            args.candidate_pool if (args.year_min or args.year_max) else args.limit
+        )
         papers = get_author_papers(author_id, fetch_size)
 
         # Year filters (client-side; S2 has no server-side year param for /author/{id}/papers)
