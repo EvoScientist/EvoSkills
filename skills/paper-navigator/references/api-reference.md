@@ -55,7 +55,7 @@ publicationVenue,abstract,publicationDate
 **Base URL:** `http://export.arxiv.org/api/query`
 
 **Auth:** None required
-**Rate limit:** Max 1 request per 3 seconds (courtesy)
+**Rate limit:** Max 1 request per 3 seconds (courtesy). `request_with_retry` enforces this with a local cross-process pacer so concurrent agents share one arXiv request lane.
 
 ### Query Parameters
 

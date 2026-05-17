@@ -198,7 +198,15 @@ def search(
             "ℹ️  No S2_API_KEY detected — using arXiv as primary search to skip S2 rate-limit penalty.",
             file=sys.stderr,
         )
-        results = _fallback_arxiv_search(query, limit, year_min, year_max)
+        try:
+            results = _fallback_arxiv_search(query, limit, year_min, year_max)
+        except RateLimitExhausted:
+            print(
+                "⚠️  arXiv API rate limited after all retries. "
+                "Concurrent local agents now share a cooldown; retry later.",
+                file=sys.stderr,
+            )
+            return []
         print_s2_key_tip()
         return results
 
@@ -225,7 +233,15 @@ def search(
             "⚠️  S2 rate limited after all retries. Falling back to arXiv search...",
             file=sys.stderr,
         )
-        return _fallback_arxiv_search(query, limit, year_min, year_max)
+        try:
+            return _fallback_arxiv_search(query, limit, year_min, year_max)
+        except RateLimitExhausted:
+            print(
+                "⚠️  arXiv fallback also rate limited after all retries. "
+                "Concurrent local agents now share a cooldown; retry later.",
+                file=sys.stderr,
+            )
+            return []
 
 
 def get_paper(paper_id: str) -> dict:

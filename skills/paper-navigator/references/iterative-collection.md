@@ -52,7 +52,7 @@ S1 DECOMPOSE → S2 MULTI_SEARCH → S3 CITATION_EXPAND → S4 GAP_CHECK → S5 
 1. For each query from S1:
    - `scholar_search --query "<q>" --limit 20 --sort-by relevance`
    - If `S2_API_KEY` is set → parallel OK; if not → run sequentially (parallel S2 without key exhausts rate limit and falls back to lower-quality arXiv search; check with `echo $S2_API_KEY`).
-2. In parallel with the above, run `arxiv_monitor --keywords "<v1,v2,v3>" --match-mode flexible --days 365` (arXiv has no parallelism constraint).
+2. In parallel with the above, run `arxiv_monitor --keywords "<v1,v2,v3>" --match-mode flexible --days 365`. The scripts use a shared arXiv pacer, so concurrent agents will queue arXiv API requests instead of bursting.
 3. Deduplicate by normalized title and arXiv ID.
 4. Filter by title + abstract relevance. Reject if abstract < 20 words or off-topic.
 

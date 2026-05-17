@@ -175,7 +175,7 @@ Semantic Scholar limits: **100 req/5min without API key (~1 req/3s)**, **100 req
 
 Check before starting: `echo $S2_API_KEY`. If empty, switch to sequential mode for all S2-dependent scripts: `scholar_search`, `citation_traverse`, `recommend`, `author_search`, `trending`.
 
-`arxiv_monitor` is independent and can always run in parallel with S2 calls.
+`arxiv_monitor` is independent from S2 and can run in parallel with S2 calls. Multiple arXiv callers on the same machine are serialized by a shared pacer, so expect them to queue rather than start at the same instant.
 
 ## Rate-Limit Fallback Chain
 
@@ -186,7 +186,7 @@ When you hit 429 or empty results:
 3. If arXiv also fails, web search for blog posts / surveys / GitHub repos that cite papers in the area.
 4. For `citation_traverse` and `recommend`, space calls ≥5s apart and reduce `--limit` to 10.
 
-Built-in retries: all scripts retry on 429/5xx with exponential backoff (3s, 6s, 12s, 24s, 48s — 5 retries) and use a global S2 pacer.
+Built-in retries: all scripts retry on 429/5xx with exponential backoff (3s, 6s, 12s, 24s, 48s — 5 retries), use a global S2 pacer, and serialize arXiv API request starts across local processes.
 
 ## When to Use Each Discovery Path
 

@@ -10,8 +10,11 @@ from __future__ import annotations
 import os
 import re
 import sys
+import tempfile
 import time
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -31,6 +34,15 @@ S2_MIN_INTERVAL = 3.0  # seconds between S2 requests (no key)
 S2_MIN_INTERVAL_WITH_KEY = 0.5  # seconds between S2 requests (with key)
 _last_s2_request_time: float = 0.0
 
+# ── arXiv Global Rate Pacer ─────────────────────────────────────
+# arXiv asks API clients to avoid bursts and keep request starts at least
+# 3 seconds apart. Unlike the in-process S2 pacer, this one must coordinate
+# independent agent processes, so it stores the last request timestamp in /tmp.
+ARXIV_API_HOST = "export.arxiv.org"
+ARXIV_API_PATH = "/api/query"
+ARXIV_MIN_INTERVAL = 3.0
+_last_arxiv_request_time: float = 0.0
+
 
 class RateLimitExhausted(Exception):
     """All retries exhausted due to rate limiting (429)."""
@@ -43,6 +55,12 @@ def _is_s2_url(url: str) -> bool:
     return url.startswith(S2_BASE) or url.startswith(S2_RECOMMEND_BASE)
 
 
+def _is_arxiv_url(url: str) -> bool:
+    """Check if URL targets the arXiv API endpoint."""
+    parsed = urlparse(url)
+    return parsed.netloc == ARXIV_API_HOST and parsed.path == ARXIV_API_PATH
+
+
 def pace_s2_request() -> None:
     """Enforce minimum interval between Semantic Scholar API calls."""
     global _last_s2_request_time
@@ -52,6 +70,99 @@ def pace_s2_request() -> None:
     if elapsed < interval:
         time.sleep(interval - elapsed)
     _last_s2_request_time = time.time()
+
+
+def _arxiv_min_interval() -> float:
+    raw = os.environ.get("PAPER_NAVIGATOR_ARXIV_MIN_INTERVAL")
+    if not raw:
+        return ARXIV_MIN_INTERVAL
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return ARXIV_MIN_INTERVAL
+
+
+def _arxiv_pacer_paths() -> tuple[Path, Path]:
+    base = Path(
+        os.environ.get(
+            "PAPER_NAVIGATOR_ARXIV_PACER_DIR",
+            str(Path(tempfile.gettempdir()) / "paper-navigator"),
+        )
+    )
+    return base / "arxiv-api.lock", base / "arxiv-api.last"
+
+
+def _read_arxiv_next_allowed(state_path: Path) -> float:
+    try:
+        return float(state_path.read_text().strip() or "0")
+    except (OSError, ValueError):
+        return 0.0
+
+
+def _reserve_arxiv_slot(state_path: Path, interval: float) -> None:
+    """Reserve the next arXiv request slot under an already-held lock."""
+    next_allowed = _read_arxiv_next_allowed(state_path)
+    now = time.time()
+    if now < next_allowed:
+        time.sleep(next_allowed - now)
+        now = time.time()
+
+    state_path.write_text(f"{now + interval:.6f}\n")
+
+
+def _with_arxiv_lock(callback) -> None:
+    lock_path, state_path = _arxiv_pacer_paths()
+    try:
+        import fcntl
+
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+") as lock_file:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+            callback(state_path)
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+    except (ImportError, OSError):
+        callback(None)
+
+
+def pace_arxiv_request() -> None:
+    """Enforce a cross-process interval between arXiv API request starts."""
+    global _last_arxiv_request_time
+
+    interval = _arxiv_min_interval()
+    if interval <= 0:
+        return
+
+    def reserve(state_path: Path | None) -> None:
+        global _last_arxiv_request_time
+        if state_path is None:
+            # Best-effort fallback for platforms without fcntl or writable temp dirs.
+            now = time.time()
+            if now < _last_arxiv_request_time:
+                time.sleep(_last_arxiv_request_time - now)
+                now = time.time()
+            _last_arxiv_request_time = now + interval
+            return
+        _reserve_arxiv_slot(state_path, interval)
+
+    _with_arxiv_lock(reserve)
+
+
+def defer_arxiv_requests(wait_seconds: int | float) -> None:
+    """Push the shared arXiv next-allowed time forward after a 429."""
+    wait = max(0.0, float(wait_seconds))
+    if wait <= 0:
+        return
+
+    def defer(state_path: Path | None) -> None:
+        global _last_arxiv_request_time
+        next_allowed = time.time() + wait
+        if state_path is None:
+            _last_arxiv_request_time = max(_last_arxiv_request_time, next_allowed)
+            return
+        current = _read_arxiv_next_allowed(state_path)
+        state_path.write_text(f"{max(current, next_allowed):.6f}\n")
+
+    _with_arxiv_lock(defer)
 
 
 _S2_TIP_SHOWN = False
@@ -152,10 +263,13 @@ def request_with_retry(
     # Apply global rate pacer for Semantic Scholar API
     if _is_s2_url(url):
         pace_s2_request()
+    is_arxiv_url = _is_arxiv_url(url)
 
     last_was_rate_limited = False
     for attempt in range(MAX_RETRIES):
         try:
+            if is_arxiv_url:
+                pace_arxiv_request()
             resp = client.request(
                 method,
                 url,
@@ -170,12 +284,16 @@ def request_with_retry(
                 if attempt < MAX_RETRIES - 1:
                     retry_after = resp.headers.get("Retry-After")
                     wait = int(retry_after) if retry_after else RETRY_DELAYS[attempt]
+                    if is_arxiv_url and resp.status_code == 429:
+                        defer_arxiv_requests(wait)
                     print(
                         f"Rate limited. Waiting {wait}s before retry...",
                         file=sys.stderr,
                     )
                     time.sleep(wait)
                     continue
+                if is_arxiv_url and resp.status_code == 429:
+                    defer_arxiv_requests(RETRY_DELAYS[-1])
             resp.raise_for_status()
             return resp.json() if parse_json else resp.text
         except httpx.HTTPStatusError as e:

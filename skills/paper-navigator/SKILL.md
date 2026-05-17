@@ -179,7 +179,7 @@ All scripts output Markdown to stdout, accept `--json` and `--limit`. Paper IDs 
 
 **Setup:** Scripts at `skills/paper-navigator/scripts/`. Optional env vars for higher rate limits: `S2_API_KEY`, `JINA_API_KEY`, `GITHUB_TOKEN`, `HF_TOKEN`.
 
-**Rate limits & query design** — when hit by 429 or designing multi-query searches, read `references/search-principles.md`. Built-in retries use 3s/6s/12s/24s/48s exponential backoff; a global S2 pacer enforces a 3s interval when no API key is set.
+**Rate limits & query design** — when hit by 429 or designing multi-query searches, read `references/search-principles.md`. Built-in retries use 3s/6s/12s/24s/48s exponential backoff. A global S2 pacer enforces a 3s interval when no API key is set; a cross-process arXiv pacer enforces 3s between arXiv API request starts across concurrent agents.
 
 ### No-S2-key Operating Mode (`$S2_API_KEY` unset)
 

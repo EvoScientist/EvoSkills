@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from utils import arxiv_headers, request_with_retry
+from utils import RateLimitExhausted, arxiv_headers, request_with_retry
 
 ARXIV_API = "https://export.arxiv.org/api/query"
 NS = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
@@ -200,13 +200,21 @@ def main():
         print("Error: --categories or --keywords required", file=sys.stderr)
         sys.exit(1)
 
-    papers = []
-    if args.categories:
-        cats = [c.strip() for c in args.categories.split(",")]
-        papers = fetch_by_categories(cats, args.days, args.limit)
-    else:
-        kws = [k.strip() for k in args.keywords.split(",")]
-        papers = fetch_by_keywords(kws, args.days, args.limit, args.match_mode)
+    try:
+        papers = []
+        if args.categories:
+            cats = [c.strip() for c in args.categories.split(",")]
+            papers = fetch_by_categories(cats, args.days, args.limit)
+        else:
+            kws = [k.strip() for k in args.keywords.split(",")]
+            papers = fetch_by_keywords(kws, args.days, args.limit, args.match_mode)
+    except RateLimitExhausted:
+        print(
+            "Error: arXiv API rate limit exhausted after retries. "
+            "Concurrent local agents now share a cooldown; retry later.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
     if not papers:
         print("No new papers found.", file=sys.stderr)
