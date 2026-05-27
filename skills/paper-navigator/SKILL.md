@@ -1,151 +1,294 @@
 ---
 name: paper-navigator
-description: "Find, read, download, and locally cache academic papers. Disambiguate ambiguous queries, discover via keyword search / citation traversal / recommendations / arXiv monitoring / trending / GitHub search, evaluate (TLDR, citations, code, SOTA), read using a 3-level strategy, and save PDFs to a local library for offline reuse. Use when finding a specific paper, listing papers on a topic, tracking recent advances, finding a baseline with code, reading or downloading a paper by URL, searching the local PDF library, or collecting a corpus for survey/ideation. Trigger phrases include: find/search papers, related work, citation analysis, latest research, download paper, save paper, my local library. Do NOT use for generating survey reports (use research-survey), generating research ideas (use research-ideation), writing a Related Work section (use paper-writing), comparing/ranking ideas (use research-ideation), or planning paper structure (use paper-planning)."
+description: "Find and read academic papers (S2 + arXiv). Disambiguate ambiguous queries, search by keyword + citation graph + recommendations + snippets, judge by author-graded rubric, and read with L1/L2/L3 strategy. Trigger phrases: find papers, search papers, related work, citation analysis, recent advances, read this paper, baseline with code. Do NOT use for: survey reports (research-survey), idea generation (research-ideation), Related Work sections (paper-writing)."
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '2.4.5'
-  tags: [core, research, search, literature, download, local-library]
+  version: '3.0.0'
+  tags: [core, research, literature, papers, search, rubric]
 ---
 
 # Paper Navigator
 
-Find and read academic papers. The skill routes by **intent** into three branches; cost should match intent.
-
-## Core Principles (apply to every branch)
-
-These four rules override branch-specific instructions when they conflict — they exist because every paper-search failure mode reduces to one of them.
-
-1. **Track history** — before each new search, recall queries already run and what they returned. Identical or near-identical queries waste budget; if a query returned nothing, change angle, not synonyms.
-2. **Search what's missing, not what you know** — every query must map to an explicit information gap (see `references/search-principles.md` § "Gap Diagnosis"). Stacking broad terms ("deep learning survey trends future") dilutes the relevance signal and returns noise.
-3. **Atomize multi-concept queries** — one query = one gap. Comparisons ("A vs B"), multi-property requests (mechanism + application), or year-spanning asks must be split into independent queries. The search engine cannot weigh two intents at once.
-4. **Never hallucinate** — every factual claim (title, author, year, citation count) must come from a tool result. Do not fill in from training data, even for famous papers — verify first.
-
-For the **query-design rules** (3-6 words, English-only, no formal words, banned symbols) and **domain terminology tables** that make these principles operational, see `references/search-principles.md`.
+Find and read academic papers. Route by **intent**, judge by **author-graded rubric**.
 
 ```
-       User request
-            │
-            ▼
-   ┌─── Intent Router ───┐
-   │                     │
-   ▼          ▼          ▼
- POINT      LIST    ITERATIVE
-(1 paper) (N≤~10)  (corpus, state machine)
-   │          │          │
-   ▼          ▼          ▼
-Paper Card  Paper Table  references/iterative-collection.md
+        User
+         │
+         ▼
+   ┌── Router ──┐
+   │            │
+   ▼            ▼
+ POINT      LIST/ITERATIVE
+(1 paper)   (rubric + 2–3 rounds)
 ```
 
-## Intent Router
+The agent does relevance judgment — no LLM-as-judge is called. You author the rubric, you triage each paper, you sort.
 
-| User signal | Branch | Typical cost | Section |
+## Setup
+
+Scripts at `skills/paper-navigator/scripts/`. Run via `python skills/paper-navigator/scripts/<name>.py`.
+
+| Env var | Used by | Notes |
+|---|---|---|
+| `S2_API_KEY` | All S2 scripts | Without it: `scholar_search` falls back to arXiv; `citation_traverse` / `recommend` / `snippet_search` are disabled |
+| `JINA_API_KEY` | `fetch_paper` | Free tier works without key |
+| `GITHUB_TOKEN` | `github_search`, `find_code` | Higher rate limits |
+| `PAPER_NAV_PAPERS_DIR` | `fetch_paper` full text | No default — set or pass `--metadata-only` |
+
+Full env-var list: `references/env-vars.md`.
+
+---
+
+## Five Red Lines (always)
+
+1. **Track history.** Don't re-run a query you already ran. Empty result → change angle, not synonyms.
+2. **Search a gap, not a vibe.** Every query maps to one missing piece of information. No stacked-keyword bags.
+3. **One query = one concept.** Split comparisons (`A vs B`), multi-property asks, and multi-year spans into separate calls.
+4. **Never hallucinate.** Every fact (title, author, year, citation count, content) comes from a tool result.
+5. **Quote-or-zero.** When you claim a paper meets a criterion, quote a ≤80-char span from its abstract / tldr / snippet. No quote → that criterion scores 0.
+
+---
+
+## Router
+
+| Branch | User signal | Cadence | Output |
 |---|---|---|---|
-| Title / URL / arXiv ID / "read this paper" / "what is paper X" | **POINT** | 1 call | [Branch 1](#branch-1--point) |
-| "find papers about X" / "papers on Y" / author+year / "what's trending" / "baseline for W" | **LIST** | 1-3 calls | [Branch 2](#branch-2--list) |
-| "survey X" / "30+ papers on Y" / called from `research-survey` or `research-ideation` | **ITERATIVE** | state machine | [Branch 3](#branch-3--iterative) |
+| **POINT** | Title quoted, URL, arXiv/DOI/PMID/S2 ID, "read this paper" | 1 call | Paper Card |
+| **LIST** (default) | "find papers about X", "is there a paper that …?", "papers satisfying A and B" | 2 rounds + optional patch | Shortlist with per-criterion evidence |
+| **ITERATIVE** | "survey of X", "30+ papers on Y", called from `research-survey` / `research-ideation` | up to 3 rounds, breadth-first | Ranked table (hand off to research-survey for the report) |
 
-**Default to LIST when unsure.** Offer to escalate to ITERATIVE if results look thin. Simple "find papers about X" should never trigger iterative collection — that wastes API budget and user time.
+**Default to LIST when unsure.** Don't add `survey` / `review` to LIST queries — it down-ranks the canonical originals the user wants.
 
-If the query is ambiguous (project nickname, codename, single capitalized word with zero hits) → read `references/disambiguation.md` first, then re-enter the router.
-
----
-
-## Branch 0 — LOCAL-FIRST (run before any external search)
-
-Why this exists: repeat queries on already-seen papers should not burn API quota. If the user has a local library at `$PAPERS_DIR` (default `~/papers/`), a previous download already has the answer.
-
-**When to run**: any POINT or LIST query, before the external scripts. Skip for ITERATIVE (a fresh corpus collection should not be biased by what happens to be downloaded).
-
-**How**: `python scripts/library_search.py --query "<topic or title>"` (or `--arxiv-id <ID>` for direct lookup). Returns a Paper Table from `$PAPERS_DIR/index.json`; zero network.
-
-**Decision**:
-- **Cache hit** that matches user intent → return the Paper Card / Paper Table, mark each row's source as "(local)", and stop. Mention the local path so the user can open the PDF.
-- **Cache miss or no library yet** → proceed to POINT / LIST routing as normal.
-- **Partial hit** (1 paper of 5 requested found locally) → use the local one + search externally for the rest; blend in output.
+Ambiguous query (project nickname, codename, single capitalized word with zero hits) → run `scholar_search` exact + web/GitHub search first to resolve identifiers, then re-route.
 
 ---
 
-## Branch 1 — POINT
+## POINT branch (known paper)
 
-User has a specific paper in mind, or wants to read a known paper.
+| Input | Command | Output |
+|---|---|---|
+| URL | `python scripts/fetch_paper.py --url <URL>` | Paper Card + reading notes (see `references/reading-strategy.md` for L1/L2/L3) |
+| Title quoted | `python scripts/match_paper_by_title.py --title "<title>"` (add `--fallback-search` for typos) | Paper Card |
+| Bare ID (arXiv / DOI / S2 / CorpusId) | `python scripts/fetch_paper.py --paper-id <ID> --metadata-only` | Paper Card |
 
-**Steps:**
-1. **URL given** → `python scripts/fetch_paper.py --url <URL>`. Choose reading depth (L1/L2/L3, see `references/reading-strategy.md`). Output a reading note using `assets/paper-summary-template.md`. Save to `artifacts/paper-notes/<paper-id>.md`.
-2. **Title or arXiv ID** → `python scripts/scholar_search.py --query "<title>" --limit 3` → return top hit as **Paper Card**.
-3. **Ambiguous name** → `references/disambiguation.md`.
+**Paper Card:**
 
-**Output — Paper Card:**
 ```
 📄 **<Title>**
 Authors: <First Author> et al. | Year: <Y> | Venue: <V>
-Citations: <N> | ID: <arXiv:xxxx.xxxxx> | DOI: <...>
+Citations: <N> | ID: <ArXiv:xxxx.xxxxx> | DOI: <...>
 TLDR: <one sentence>
 ```
 
-**Stop here.** Do not chain to citation expansion unless the user explicitly asks "what else should I read".
-
-**Optional persist** — if the user says "download" / "save offline" / "keep this", run `python scripts/download_paper.py --paper-id <ID>` after the card. Saves PDF + metadata to `$PAPERS_DIR`.
+Stop here. Do not chain to citation expansion unless asked.
 
 ---
 
-## Branch 2 — LIST
+## LIST / ITERATIVE branch — 6 steps
 
-User wants a manageable list (≤~10) on a topic. One search round, no iterative loop.
+### Step 1: Parse intent
 
-**Steps:**
-1. **Light decomposition** — name 2-3 sub-angles of the topic (saves you from a single-keyword blind spot, no need for full reformulation).
-2. **Search** — typically 1-2 calls:
-   - `python scripts/scholar_search.py --query "<topic>" --limit 15 --sort-by relevance` (start here)
-   - Only swap to `--sort-by citations` when the user explicitly asks for *seminal / foundational / most-cited / canonical* work. Citation order on a 15-paper window crowds out actually-on-topic papers with older popular ones — especially harmful for recent or niche topics.
-   - Optional: `python scripts/arxiv_monitor.py --keywords "<topic variants>" --match-mode flexible --days 365` (broader recall on preprints)
-3. **Filter** by title + abstract relevance; deduplicate by title and arXiv ID.
-4. **Output — Paper Table:**
-   ```
-   | # | Title | Authors | Year | Venue | Citations | ID |
-   |---|-------|---------|------|-------|-----------|----|
-   ```
+State in one sentence: the **research object** (specific technique / concept) and the **constraints** (domain, task, recency, exclusions). Confirm the router branch.
 
-**Variants of LIST:**
-- *Metadata search* (author + year): `python scripts/author_search.py --name "<A>" --papers --sort-by year` then filter by year/venue.
-- *Track recent advances*: `python scripts/arxiv_monitor.py --categories cs.CL --days 7` or `python scripts/trending.py --query "<topic>" --period 90`.
-- *Baseline with code*: top result + `python scripts/find_code.py` + `python scripts/sota.py --task <task>` → output as Baseline Recommendation (`references/output-formats.md`).
+### Step 2: Author the RUBRIC (via `think_tool`)
 
-**Gap-driven follow-up (when first round is insufficient).** If step 2 returned < N relevant papers or the user says "find more / something different", do **one** focused follow-up query targeting the specific missing angle. Pick from `references/search-principles.md` § "Gap Diagnosis":
-- Returned 0 results → change keyword angle (not synonyms)
-- Returned single-source claims → multi-source verification query (different community's term)
-- Returned outdated work → add year anchor (`2024`, `2025`)
-- Returned only one sub-topic → search the missing sub-topic explicitly
+Emit a structured block before any search. It persists across rounds and every later step references it.
 
-One follow-up call only. If still insufficient, propose Branch 3 escalation to the user — don't loop silently.
+```
+RUBRIC for "<user query verbatim>"
+Branch: LIST | ITERATIVE
+Criteria (2–4, atomic, weights sum to ≈1.0):
+  C1 [w=0.45] <what the paper MUST do/be — one sentence>
+  C2 [w=0.35] <...>
+  C3 [w=0.20] <...>
+Named entities to preserve verbatim: [<ent1>, <ent2>, ...]
+Angle tags (3–5 sub-topic axes): [<tag1>, <tag2>, <tag3>]
+Disqualifiers: [<auto-reject if abstract shows this>]
+```
 
-**Escalation triggers** — switch to Branch 3 ITERATIVE when:
-- User asks for "comprehensive coverage", "survey", "everything on X"
-- User requests >15 papers
-- This skill is invoked from `research-survey` or `research-ideation`
+Rules:
+- **Criteria** atomic (one condition each), weighted, non-redundant.
+- **Named entities** = proper-noun / technical-term anchors from the user's query. Every entity appears verbatim in ≥1 query across Rounds 1+2.
+- **Angle tags** = sub-topic axes (`method`, `task`, `dataset`, `evaluation`, `domain`, …). No two queries in the same round share a tag.
+- **Disqualifiers** = "specifically X, **not** Y" exclusions. Tripping a disqualifier scores 0 on the related criterion.
 
----
+For ITERATIVE, criteria can be lighter (e.g. `covers topic` + `is survey / canonical`); disqualifiers may be empty.
 
-## Branch 3 — ITERATIVE
+### Step 3: Search — Probe-then-Refine
 
-Multi-round collection with explicit state machine. **Read `references/iterative-collection.md` and execute its 5 states (S1 DECOMPOSE → S2 MULTI_SEARCH → S3 CITATION_EXPAND → S4 GAP_CHECK → S5 FINALIZE).** Use TodoWrite to track state progress.
+**Do not author all queries upfront.** Round 1 surfaces named entities Round 2 needs.
 
-This is the only branch where citation expansion and gap check are required — they are too expensive for Branch 2.
+**Round 1 — Probe** (2 parallel queries):
+- `Q-broad` — canonical phrasing of the topic (angle: `general`)
+- `Q-narrow` — a specific mechanism / sub-question / method (angle: tagged)
 
-Profile selection (sets recency bias, venue strictness, target N):
-- **Survey** — 30-80 papers, include foundational older work, top venues preferred
-- **Ideation** — 30-50 papers, 2020+ strong bias, top venues only
-- **User-specified N** — match user's number, apply nearest profile's quality
+```bash
+python scripts/scholar_search.py --query "<Q-broad>"  --limit 15 --sort-by relevance --output /tmp/pool.jsonl --append
+python scripts/scholar_search.py --query "<Q-narrow>" --limit 15 --sort-by relevance --output /tmp/pool.jsonl --append
+```
 
-After collection completes, hand off:
-| User goal | Next skill |
+`--output --append` auto-dedupes by `paperId` across rounds (built into the script), so a paper found by two queries is written once. Read `/tmp/pool.jsonl` to inspect (Step 4 triage).
+
+From Round 1 titles + tldrs, lift:
+- recurring **named entities** (algorithm / benchmark / dataset / model names),
+- **angle gaps** (Step-2 tags not seen),
+- vocabulary from **adjacent communities**.
+
+**Round 2 — Refine** (2–3 parallel queries):
+
+| Tier | Count | Shape |
+|---|---|---|
+| Method / mechanism | 1–2 | Sub-mechanism on an uncovered angle tag |
+| Named-entity | 1 | Entity verbatim from Round 1 titles + a modifier. Drop this tier if Round 1 surfaced no entities. |
+
+```bash
+python scripts/scholar_search.py --query "<refine 1: method, angle X>" --limit 15 --output /tmp/pool.jsonl --append
+python scripts/scholar_search.py --query "<refine 2: method, angle Y>" --limit 15 --output /tmp/pool.jsonl --append
+python scripts/scholar_search.py --query "<refine 3: lifted entity>"   --limit 15 --output /tmp/pool.jsonl --append
+```
+
+**Round 3 — Patch** (only if Step 5 gate says CONTINUE). One targeted query on the remaining gap.
+
+**Per-query rules:**
+- 4–7 words typical (up to 9 OK); <3 over-recalls, >9 dilutes ranking.
+- English only.
+- Bare entity names, no `paper` / `original` / `pdf`.
+- Forbidden: `"…"`, `(..)`, `OR`, `AND`, `|`, `site:`, `filetype:`.
+- No two queries in one round may share >60% of content tokens (after stop-words).
+
+**Without `S2_API_KEY`:** swap `scholar_search` for `arxiv_monitor --keywords "<variant>" --match-mode flexible --days 3650`.
+
+**Citation expansion** (ITERATIVE, or LIST after ≥3 strong seeds):
+```bash
+python scripts/citation_traverse.py --paper-id <SEED> --direction co-citation --limit 15 --output /tmp/pool.jsonl --append
+python scripts/citation_traverse.py --paper-id <SEED> --direction forward --limit 20 --min-citations 20 --year-min 2022 --output /tmp/pool.jsonl --append
+python scripts/recommend.py --positive <SEED1>,<SEED2> --limit 15 --output /tmp/pool.jsonl --append
+```
+
+### Step 4: Triage — PERFECT / GOOD / WEAK / IRREL
+
+After every round, classify each new paper. Emit a `think_tool` block:
+
+```
+TRIAGE round=<n>  query="<q>"
+  PERFECT (k): <paperId> "<title-≤60>" Y=<year> · [C1✓ C2✓ C3✓]
+                evidence C1: "<≤80-char quote>"
+                evidence C2: "<≤80-char quote>"
+                evidence C3: "<≤80-char quote>"
+  GOOD    (k): <paperId> "<title>" Y=<year> · [C1✓ C2~ C3✗]
+                evidence C1: "<quote>"
+  WEAK    (k): <paperId> "<title>" Y=<year> · [C1~ C2✗ C3✗]
+  IRREL   (k): <paperId> "<title>"
+```
+
+| Tier | Required mask | Quotes |
+|---|---|---|
+| `PERFECT` | every high-weight criterion `✓`, no `✗` anywhere | one ≤80-char quote per criterion |
+| `GOOD` | every high-weight (`w ≥ 0.3`) at least `~`, no `✗` on any high-weight | one quote per `✓` criterion |
+| `WEAK` | one high-weight `✗` or only low-weight hits | none |
+| `IRREL` | misses every high-weight or trips a disqualifier | none — drop from later rounds |
+
+`✓` = abstract/tldr clearly supports. `~` = partial/inferable. `✗` = no support or contradicts.
+
+Rules:
+1. **Dedup across rounds** by `paperId` first, then normalised title. Keep the stronger mask.
+2. **Disqualifier check** beats all other matches → IRREL.
+3. **Re-diagnose gaps:** list any criterion with 0 PERFECT candidates → that's the next refine target.
+4. **No fabrication:** missing abstract → mark `~`, do not infer from training data.
+
+**Snippet upgrade** for borderline papers (abstract silent on a criterion): batch-fetch real body text:
+```bash
+python scripts/snippet_search.py --query "<criterion phrase>" \
+  --paper-ids "CorpusId:1,CorpusId:2,..." --limit 50
+```
+
+### Step 5: Saturation Gate
+
+Read the across-round pool from Step 4, apply the table, take the action — no other input.
+
+**LIST branch after Round 1:**
+
+| Pool | Action |
 |---|---|
-| Survey report | `research-survey` |
-| Idea generation | `research-ideation` |
-| Quick summary table | `python scripts/literature_report.py --paper-ids <ids> --intent quick_scan` |
-| Related Work draft | `paper-writing` |
-| Baseline + experiment | `experiment-pipeline` |
-| Offline corpus (download all) | Write IDs to `artifacts/collected_ids.txt`, then `python scripts/download_paper.py --bulk-file artifacts/collected_ids.txt` — saves PDFs and grows the local library for future Branch 0 hits. |
+| ≥1 PERFECT | **STOP** → Step 6 |
+| 0 PERFECT, ≥2 GOOD | **CONTINUE → Round 2** (lift entities from Round 1) |
+| 0 PERFECT, <2 GOOD | **CONTINUE → Round 2**, plus ≥1 query on a *new* angle (rubric may be off) |
+
+**LIST branch after Round 2:**
+
+| Pool | Action |
+|---|---|
+| ≥1 new PERFECT, all high-weight criteria covered | **STOP** → Step 6 |
+| ≥1 new PERFECT, but a high-weight criterion still has 0 PERFECT | **CONTINUE → Round 3 patch** |
+| 0 new PERFECT+GOOD *and* Round 1 had 0 PERFECT | **STOP and re-decompose** — criteria are wrong. Report best Secondary candidate(s) + ask user to relax a criterion. |
+| Empty recall on every Round 2 query | **STOP** — topic not in corpus or entities are wrong |
+
+**ITERATIVE branch:** keep searching while any angle tag has 0 PERFECT+GOOD or any key claim has only one source. Stop when every angle tag has ≥2 PERFECT+GOOD.
+
+**Round caps:** LIST 2+1, ITERATIVE 3, POINT 1. If still not saturated at the cap, go to Step 6 and report which criteria / angle tags were not covered.
+
+**The gate is mechanical** — do not skip rounds because "the results look right".
+
+### Step 6: Rerank and Output
+
+**Gather:** every PERFECT and GOOD from across all rounds (dedup by `paperId`, keep stronger mask). Add WEAK only if PERFECT+GOOD < 3 (fallback fill). Drop IRREL.
+
+**Score** each criterion 0 / 0.25 / 0.5 / 0.75 / 1.0:
+
+| Score | Meaning |
+|---|---|
+| `1.0` | quote directly satisfies the criterion |
+| `0.75` | strong implication (one inference from quote) |
+| `0.5` | partial — topic match, not the specific condition |
+| `0.25` | adjacent — same field, off-criterion |
+| `0` | no quoted evidence, contradicts, or trips a disqualifier |
+
+**Compute** `weighted_total = Σ (criterion_score × criterion_weight)` ∈ [0, 1]. Sort DESC by `weighted_total`, tie-break by `citationCount` DESC → `year` DESC.
+
+**Tier the output:**
+
+| Tier | `weighted_total` | Use |
+|---|---|---|
+| Primary | ≥ 0.7 | The answer. Bold top-1 for single-recommendation questions. |
+| Secondary | 0.5 – 0.7 | "May also be relevant"; never promoted to Primary. |
+| Drop | < 0.5 | Exclude. |
+
+If Primary is empty after the round cap, report "no fully-matching paper found", list strongest Secondary candidates + their per-criterion gaps, stop.
+
+**K to return:**
+
+| Question shape | K |
+|---|---|
+| "Exactly N papers" | N (pad with Secondary only if Primary < N) |
+| "Is there a paper that …?" / "Recommend a paper" | 1–2 (bold top-1) |
+| "Find papers about …" | 3–5 |
+| "Survey of …" / ITERATIVE | up to 10 + 1–2 surveys |
+
+**Output formats:**
+
+LIST (shortlist with evidence):
+```
+**Primary answer (weighted_total = 0.92):**
+- **<paperId>** "<Title>" — <Authors> et al., <Year>, <Venue>. <URL>
+  - C1 (0.45): "<quote>" → 1.0
+  - C2 (0.35): "<quote>" → 1.0
+  - C3 (0.20): "<quote>" → 0.5
+
+**May also be relevant:**
+- <paperId> "<Title>" — total 0.62; missed C2 (no evidence in abstract).
+```
+
+ITERATIVE (ranked table):
+```
+| # | Title | Authors | Year | Venue | Link | Score |
+|---|-------|---------|------|-------|------|-------|
+| 1 | …    | … et al. | 2024 | NeurIPS | <URL> | 0.88 |
+```
+
+POINT: Paper Card (above).
+
+**Do not** hand-pick from the last round and skip the rerank — that is the dominant failure mode. The accumulated-pool rerank wins.
 
 ---
 
@@ -153,77 +296,61 @@ After collection completes, hand off:
 
 | Need | Script | Notes |
 |---|---|---|
-| Keyword search | `scholar_search.py` | S2 with arXiv fallback on 429 |
-| New arXiv | `arxiv_monitor.py` | `--categories` or `--keywords` |
-| Citation graph | `citation_traverse.py` | `--direction forward/backward/co-citation` |
-| Similar papers | `recommend.py` | seed-based, optionally with negatives |
-| Author papers | `author_search.py` | filter by year/venue |
-| Trending | `trending.py` | by citation velocity |
-| **Canonical repo (from paper)** | `find_code.py --arxiv-id <ID>` | **PREFERRED** for finding the official repo of a known paper. Uses paperswithcode's "Official" tag. |
-| Unpublished / industry repo | `github_search.py` | Use when no arXiv ID exists, or finding new tools/datasets. Note: keyword search may rank derivative repos above the original when derivatives have more stars (e.g. "mamba" returns Vim/VMamba ahead of state-spaces/mamba) — if this happens, get the arXiv ID and switch to `find_code.py`. |
-| Fetch full text | `fetch_paper.py` | URL/ID → markdown |
-| SOTA | `sota.py` | HuggingFace leaderboard, sorted by downloads — reliable |
-| **Canonical dataset** | `dataset_search.py --query "<short-name>"` | Query by known short-name (`imdb`, `sst2`, `mnli`, `squad`) — NOT by task description. Task-description queries (e.g. "sentiment analysis") return mostly small community uploads and miss IMDB/SST-2/etc. even with `--sort downloads`. If you don't know the short-name, check paperswithcode/Datasets first. |
-| Quick report | `literature_report.py` | brief table of N papers |
-| **Local library search** | `library_search.py --query "..."` (or `--arxiv-id <ID>`) | **Branch 0** entry point. Reads `$PAPERS_DIR/index.json`. Zero network. |
-| **Download PDF** | `download_paper.py --arxiv-id <ID>` (or `--paper-id`/`--bulk`/`--bulk-file`) | Saves to `$PAPERS_DIR/<id>/paper.pdf` + `metadata.json` + index update. Rejects <10KB blobs; 1s rate limit. |
-| **Read with cache** | `fetch_paper.py --cache --paper-id <ID>` | Cache hit → 0 network; miss → fetch via Jina + persist `content.md`. |
+| Keyword search | `scholar_search.py` | S2 → arXiv fallback on missing key / 429 |
+| Title → record | `match_paper_by_title.py` | S2 exact-match; `--fallback-search` for typos |
+| Citation graph | `citation_traverse.py` | `--direction forward/backward/co-citation`; `--min-citations`; `--year-min/max`; `--smart-sort`; `--enrich` |
+| Similar papers | `recommend.py` | seed-based; `--per-seed` for diverse seeds |
+| Author papers | `author_search.py` | `--sort-by year/citations` |
+| New arXiv | `arxiv_monitor.py` | `--categories cs.CL` or `--keywords "x,y" --match-mode flexible` |
+| Trending | `trending.py` | citation velocity |
+| Body-text snippets | `snippet_search.py` | `--paper-ids c1,c2,c3 --limit 50` (1 call, not N) |
+| Fetch full text | `fetch_paper.py` | Saves to `$PAPER_NAV_PAPERS_DIR/<id>.md`; stdout truncated to 2000 chars |
+| Code repo (known paper) | `find_code.py --arxiv-id <ID>` | Official repo lookup |
+| Code repo (unpublished) | `github_search.py` | When no arXiv ID exists |
+| HF leaderboard / SOTA | `sota.py` | sorted by downloads |
+| HF datasets | `dataset_search.py` | Query short-name (`imdb`, `sst2`), not task description |
+| Saturation gate (optional) | `saturation.py` | JSONL log of per-round yields; `estimate` returns STOP/CONTINUE |
 
-All scripts output Markdown to stdout, accept `--json` and `--limit`. Paper IDs accepted in S2/arXiv/DOI form, including **bare arXiv** (`1706.03762`, since v2.4.0).
-
-**Canonical vs. recent — choose the right tool:**
-- *Recent / trending work*: `recommend.py`, `trending.py`, `arxiv_monitor.py`, `citation_traverse.py --direction forward` (default sort by recency).
-- *Canonical / high-citation work*: `scholar_search.py --sort-by citations`, `citation_traverse.py --direction backward` (references), or `--direction co-citation`. S2's forward-citation and recommend endpoints surface **newest-first** results — for foundational seeds (≥10k citations) they will return only recent 0-cite preprints. Use scholar_search by topic when you want BERT/GPT-style impactful descendants.
-
-**Fallback query budget**: when a tool's warning suggests a `scholar_search` fallback, run at most **3-4 well-chosen queries** total — each targeting a *different* sub-topic of the seed (e.g., for Transformer: one for "language model architecture", one for "vision transformer", one for "efficient attention"). More queries past 4 add wall-clock without new canonical results; merge and rank what you have instead.
-
-**Setup:** Scripts at `skills/paper-navigator/scripts/`. Optional env vars for higher rate limits: `S2_API_KEY`, `JINA_API_KEY`, `GITHUB_TOKEN`, `HF_TOKEN`.
-
-**Rate limits & query design** — when hit by 429 or designing multi-query searches, read `references/search-principles.md`. Built-in retries use 3s/6s/12s/24s/48s exponential backoff. A global S2 pacer enforces a 3s interval when no API key is set; a cross-process arXiv pacer enforces 3s between arXiv API request starts across concurrent agents.
-
-### No-S2-key Operating Mode (`$S2_API_KEY` unset)
-
-Why this section exists: without an S2 API key, each S2 call costs ~10s after exponential backoff vs ~1.5s with a key. Heavy S2-dependent workflows become unusable.
-
-**Detection**: `scholar_search.py` auto-detects missing `$S2_API_KEY` and routes to arXiv API directly (skipping the 10s+ S2 backoff). It prints `ℹ️ No S2_API_KEY detected — using arXiv as primary search...` to stderr.
-
-**Trade-offs in no-key mode**:
-| What you lose | What still works |
-|---|---|
-| S2 TLDR field; citation counts in search results | All arxiv-indexed papers; arXiv metadata |
-| `citation_traverse.py`, `recommend.py`, `trending.py`, `author_search.py` (all S2-bound) | `arxiv_monitor.py`, `github_search.py`, `sota.py`, `dataset_search.py`, `library_search.py`, `download_paper.py` (uses arxiv.org/pdf directly) |
-| Forward/backward citations | Keyword search, recency filter, code search, HF lookup |
-
-**Routing under no-key**:
-- POINT / LIST → use `scholar_search` (auto-arxiv) + `arxiv_monitor` — both work without S2
-- Branch 0 LOCAL-FIRST → unchanged (offline)
-- Branch 3 ITERATIVE → restrict to `scholar_search` + `arxiv_monitor`; skip citation_traverse and recommend; tell the user S2 features unavailable
-- Download / cache → unchanged (`download_paper.py` uses arxiv.org/pdf, not S2)
-
-**When you must use citation/recommend without a key**: do at most 1-2 calls (each costs 10+s with retries), space them, and accept that fallback to arxiv may still trigger.
-
-**Surface the S2 key registration tip to the user**: when `scholar_search.py` or `fetch_paper.py` print the no-key tip on stderr (look for `💡 Tip: ... register a FREE Semantic Scholar API key`), include it (or paraphrase) in your final response to the user. Show it **once** per session, not after every call. This is the only legitimate way a user discovers they should register a key for better search quality.
+All discovery scripts: `--limit N`, `--json`, `--output FILE`, `--append`; accept S2 / arXiv / DOI / CorpusId IDs. `--output --append` auto-dedupes by `paperId` across rounds (within-batch + cross-file), so the pool stays clean.
 
 ---
 
-## Output Formats
+## Rate limits
 
-- **Paper Card** (Branch 1) — defined above
-- **Paper Table** (Branch 2/3) — defined above
-- **Baseline Recommendation / Disambiguation Report / Reading Notes / Citation Graph** — see `references/output-formats.md`
+| API | Without key | With key |
+|---|---|---|
+| Semantic Scholar | ~1 req / 3s, no parallel | 100 req/min, parallel OK |
+| arXiv | 1 req / 3s (courtesy) | N/A |
+| GitHub | 10 req/min | 5,000 req/hr |
+| HuggingFace | 500 req / 300s | Higher with `HF_TOKEN` |
+
+Global S2 pacer + circuit breaker (5 failures → 60s cooldown). Retries: 3s / 6s / 12s / 24s / 48s.
+
+Without `S2_API_KEY`: use `scholar_search` (arXiv fallback) + `arxiv_monitor`. Skip `citation_traverse` / `recommend` / `snippet_search` — they're S2-only; do not retry.
 
 ---
 
-## Reference Files
+## References
 
 | File | Read when |
 |---|---|
-| `references/search-principles.md` | Designing queries (3-6 word rule, atomic split, banned syntax); diagnosing the information gap; cross-discipline query (CS↔neuroscience etc.); hit a rate limit; need to broaden after low recall |
-| `references/iterative-collection.md` | Branch 3 (survey / ideation / large N) — contains the 5-state machine |
-| `references/disambiguation.md` | Query looks like a project nickname or codename |
-| `references/output-formats.md` | Need baseline / disambiguation / reading-note / mermaid graph format |
-| `references/reading-strategy.md` | Reading a paper — L1/L2/L3 framework |
-| `references/api-reference.md` | Need full script flag / API details |
-| `references/arxiv-categories.md` | Picking arXiv category codes |
+| `references/env-vars.md` | Setting environment variables |
+| `references/search-principles.md` | Per-query rules, gap diagnosis, rate-limit recovery |
+| `references/disambiguation.md` | Query is a project nickname / codename |
+| `references/reading-strategy.md` | L1 / L2 / L3 reading framework |
+| `references/api-reference.md` | S2 / arXiv / Jina / HF / GitHub endpoint details |
+| `references/arxiv-categories.md` | arXiv category codes |
+| `references/output-formats.md` | Baseline / Disambiguation / Reading-Notes / Citation-Graph templates |
 
-Reference files are self-contained. Do not chain between references — if a sub-task spans two refs, return to this SKILL.md and re-route.
+References are self-contained. Don't chain between them — return here to re-route.
+
+---
+
+## Hand off to
+
+| Goal | Skill |
+|---|---|
+| Survey report | `research-survey` |
+| Idea generation | `research-ideation` |
+| Related Work section | `paper-writing` |
+| Baseline + experiment | `experiment-pipeline` |
