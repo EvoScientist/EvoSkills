@@ -55,7 +55,7 @@ publicationVenue,abstract,publicationDate
 **Base URL:** `http://export.arxiv.org/api/query`
 
 **Auth:** None required
-**Rate limit:** Max 1 request per 3 seconds (courtesy). `request_with_retry` enforces this with a local cross-process pacer so concurrent agents share one arXiv request lane.
+**Rate limit:** Max 1 request per 3 seconds (courtesy)
 
 ### Query Parameters
 
@@ -141,60 +141,3 @@ Common tags: `text-generation`, `text-classification`, `image-classification`, `
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/search/repositories?q=...&sort=stars` | GET | Search repos by keyword |
-
----
-
-## S2 Author Multi-ID Handling (added v2.3.0)
-
-A single researcher often holds multiple Semantic Scholar author IDs. Causes: co-author-network disambiguation artifacts, institutional moves, or name-collision merges later split. Example: Yann LeCun has both `1688882` (primary, 403 papers) and `2270469816` (secondary, 33 papers including the top-cited 2024 work).
-
-**Symptom**: `author_search.py --name "<X>"` returns far fewer recent papers than expected for a prolific author.
-
-**Resolution** (used by Eval 12 in iter-4):
-1. `scholar_search.py --query "<full name> <recent topic>" --limit 5 --json` — inspect the `authors[].authorId` field to discover all S2 IDs attached to the name.
-2. For each unique ID, run `author_search.py --author-id <ID> --year-min <YYYY>`.
-3. Merge results, deduplicate by `paperId` or `arxiv_id`.
-
-**Why this matters**: a single-ID lookup of Yann LeCun missed the top 3 most-cited 2024 papers (Navigation World Models, DINO-WM, etc.) until both IDs were merged. The expected behavior — "one author = one ID" — is wrong for ~10-20% of senior researchers.
-
----
-
-## Local Library Files (added v2.3.0)
-
-`$PAPERS_DIR` (default `~/papers/`) is owned by `download_paper.py` / `library_search.py` / `fetch_paper.py --cache`. Layout:
-
-```
-$PAPERS_DIR/
-├── index.json                ← single-file index, atomically written
-├── <arxiv_id>/
-│   ├── paper.pdf             ← downloaded PDF (≥10 KB validated)
-│   ├── metadata.json         ← S2 metadata snapshot at download time
-│   └── content.md            ← optional Jina-extracted text (fetch_paper --cache)
-└── ...
-```
-
-`index.json` schema:
-```json
-{
-  "version": 1,
-  "updated_at": "ISO8601",
-  "papers": [
-    {
-      "key": "<arxiv_id or s2_id>",
-      "arxiv_id": "1706.03762",
-      "doi": null,
-      "s2_id": "...",
-      "title": "...",
-      "authors": ["..."],
-      "year": 2017,
-      "citations": 175716,
-      "venue": "NeurIPS",
-      "tldr": "...",
-      "abstract": "...",
-      "downloaded_at": "ISO8601",
-      "size_bytes": 2215244,
-      "has_pdf": true
-    }
-  ]
-}
-```
