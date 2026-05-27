@@ -6,13 +6,18 @@ within a recent time period.
 """
 
 import argparse
-import json
 import sys
 from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from utils import S2_BASE, s2_headers, request_with_retry
+from utils import (
+    S2_BASE,
+    s2_headers,
+    request_with_retry,
+    add_output_args,
+    emit_results,
+)
 
 S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf,publicationDate"
 
@@ -113,6 +118,7 @@ def main():
         "--limit", "-l", type=int, default=20, help="Max results (default 20)"
     )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    add_output_args(parser)
     args = parser.parse_args()
 
     papers = find_trending(args.query, args.period, args.min_citations, args.limit)
@@ -120,17 +126,11 @@ def main():
     if not papers:
         print(f"No trending papers found for '{args.query}'", file=sys.stderr)
         sys.exit(0)
-
-    if args.json:
-        print(json.dumps(papers, indent=2, default=str))
-        return
-
-    print(f'# Trending Papers: "{args.query}"\n')
-    print(
-        f"Period: last **{args.period}** days | Min citations: {args.min_citations}\n"
+    emit_results(
+        papers, args, format_fn=format_paper,
+        title=f'Trending Papers: "{args.query}" '
+              f'(last {args.period}d, ≥{args.min_citations} cites)',
     )
-    for i, p in enumerate(papers, 1):
-        print(format_paper(p, i))
 
 
 if __name__ == "__main__":

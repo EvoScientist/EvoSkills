@@ -6,14 +6,18 @@ or matching keywords.
 """
 
 import argparse
-import json
 import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from utils import RateLimitExhausted, arxiv_headers, request_with_retry
+from utils import (
+    arxiv_headers,
+    request_with_retry,
+    add_output_args,
+    emit_results,
+)
 
 ARXIV_API = "https://export.arxiv.org/api/query"
 NS = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
@@ -194,45 +198,33 @@ def main():
         help="Keyword matching: 'exact' (phrase match) or 'flexible' (AND of words, default)",
     )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    add_output_args(parser)
     args = parser.parse_args()
 
     if not args.categories and not args.keywords:
         print("Error: --categories or --keywords required", file=sys.stderr)
         sys.exit(1)
 
-    try:
-        papers = []
-        if args.categories:
-            cats = [c.strip() for c in args.categories.split(",")]
-            papers = fetch_by_categories(cats, args.days, args.limit)
-        else:
-            kws = [k.strip() for k in args.keywords.split(",")]
-            papers = fetch_by_keywords(kws, args.days, args.limit, args.match_mode)
-    except RateLimitExhausted:
-        print(
-            "Error: arXiv API rate limit exhausted after retries. "
-            "Concurrent local agents now share a cooldown; retry later.",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+    papers = []
+    if args.categories:
+        cats = [c.strip() for c in args.categories.split(",")]
+        papers = fetch_by_categories(cats, args.days, args.limit)
+    else:
+        kws = [k.strip() for k in args.keywords.split(",")]
+        papers = fetch_by_keywords(kws, args.days, args.limit, args.match_mode)
 
     if not papers:
         print("No new papers found.", file=sys.stderr)
         sys.exit(0)
-
-    if args.json:
-        print(json.dumps(papers, indent=2))
-        return
-
     mode = (
         f"categories: {args.categories}"
         if args.categories
         else f"keywords: {args.keywords}"
     )
-    print(f"# arXiv Monitor: {mode}\n")
-    print(f"Last **{args.days}** days | Found **{len(papers)}** papers\n")
-    for i, p in enumerate(papers, 1):
-        print(format_paper(p, i))
+    emit_results(
+        papers, args, format_fn=format_paper,
+        title=f"arXiv Monitor: {mode} — last {args.days} days",
+    )
 
 
 if __name__ == "__main__":

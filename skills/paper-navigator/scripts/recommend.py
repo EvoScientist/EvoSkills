@@ -8,7 +8,6 @@ returns semantically similar papers.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 
 import httpx
@@ -19,6 +18,8 @@ from utils import (
     s2_headers,
     request_with_retry,
     normalize_paper_id,
+    add_output_args,
+    emit_results,
 )
 
 S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,isOpenAccess,openAccessPdf"
@@ -35,12 +36,44 @@ def _resolve_to_s2_id(client: httpx.Client, paper_id: str) -> str:
         return paper_id
 
 
-def recommend(
-    positive_ids: list[str], negative_ids: list[str] | None = None, limit: int = 10
+def _request_recommendations(
+    client: httpx.Client, pos_s2: list[str], neg_s2: list[str], limit: int
 ) -> list[dict]:
-    """Get recommendations based on seed papers."""
+    body: dict = {"positivePaperIds": pos_s2}
+    if neg_s2:
+        body["negativePaperIds"] = neg_s2
+    data = request_with_retry(
+        client,
+        f"{S2_RECOMMEND_BASE}/papers/",
+        params={"fields": S2_FIELDS, "limit": min(limit, 500)},
+        headers=s2_headers(),
+        method="POST",
+        json_body=body,
+    )
+    return data.get("recommendedPapers", [])
+
+
+def recommend(
+    positive_ids: list[str],
+    negative_ids: list[str] | None = None,
+    limit: int = 10,
+    per_seed: bool = False,
+) -> list[dict]:
+    """Get recommendations based on seed papers.
+
+    With ``per_seed=False`` (default): one S2 API call with all
+    positives in the request body — S2 returns papers near the
+    centroid of the seed cluster. Cheaper but tends to wash out
+    sub-niches.
+
+    With ``per_seed=True``: one S2 API call per positive seed, results
+    concatenated. Each seed surfaces its own neighborhood. Higher recall
+    on a diverse seed set at the cost of N API calls. Returned list
+    keeps the first occurrence of each ``paperId`` so the caller sees a
+    deduped stream; downstream registry insert is also dedup-safe via
+    the ``paper_id`` PK.
+    """
     with httpx.Client() as client:
-        # Resolve all IDs to S2 format
         pos_s2 = [
             _resolve_to_s2_id(client, normalize_paper_id(pid)) for pid in positive_ids
         ]
@@ -49,21 +82,21 @@ def recommend(
             for pid in (negative_ids or [])
         ]
 
-        body: dict = {
-            "positivePaperIds": pos_s2,
-        }
-        if neg_s2:
-            body["negativePaperIds"] = neg_s2
+        if not per_seed or len(pos_s2) <= 1:
+            return _request_recommendations(client, pos_s2, neg_s2, limit)
 
-        data = request_with_retry(
-            client,
-            f"{S2_RECOMMEND_BASE}/papers/",
-            params={"fields": S2_FIELDS, "limit": min(limit, 500)},
-            headers=s2_headers(),
-            method="POST",
-            json_body=body,
-        )
-    return data.get("recommendedPapers", [])
+        seen: set[str] = set()
+        merged: list[dict] = []
+        for sid in pos_s2:
+            results = _request_recommendations(client, [sid], neg_s2, limit)
+            for p in results:
+                pid = p.get("paperId") or ""
+                if pid and pid in seen:
+                    continue
+                if pid:
+                    seen.add(pid)
+                merged.append(p)
+        return merged
 
 
 def format_paper(p: dict, idx: int) -> str:
@@ -110,22 +143,16 @@ def main():
         "--limit", "-l", type=int, default=10, help="Max results (default 10)"
     )
     parser.add_argument(
-        "--min-citations",
-        type=int,
-        default=0,
-        help="Filter papers with fewer citations (default 0 = no filter). Use 50-100 to surface canonical works.",
-    )
-    parser.add_argument(
-        "--canonical",
+        "--per-seed",
         action="store_true",
-        help="Shortcut for --min-citations 50 + larger pool. Surfaces foundational papers instead of recent preprints.",
-    )
-    parser.add_argument(
-        "--year-max",
-        type=int,
-        help="Filter papers published after this year (e.g. --year-max 2023 excludes 2024-2026).",
+        help=(
+            "Fire one API call per positive seed and concatenate (deduped). "
+            "Default is one combined call near the seed centroid; per-seed "
+            "surfaces each seed's own neighborhood at the cost of N calls."
+        ),
     )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    add_output_args(parser)
     args = parser.parse_args()
 
     positive = [p.strip() for p in args.positive.split(",") if p.strip()]
@@ -139,56 +166,15 @@ def main():
         print("Error: at least one positive paper ID required", file=sys.stderr)
         sys.exit(1)
 
-    # Determine pool size and min-citations
-    min_cites = args.min_citations
-    if args.canonical:
-        min_cites = max(min_cites, 50)
-
-    # Over-fetch if we're filtering (S2 returns newest first)
-    pool_size = args.limit
-    if min_cites > 0 or args.year_max:
-        pool_size = max(args.limit * 10, 100)
-
-    papers = recommend(positive, negative, pool_size)
-
-    # Filter by min_citations
-    if min_cites > 0:
-        papers = [p for p in papers if (p.get("citationCount") or 0) >= min_cites]
-
-    # Filter by year_max
-    if args.year_max:
-        papers = [p for p in papers if (p.get("year") or 0) <= args.year_max]
-
-    # Sort by citations when filtering (canonical mode wants high-impact first)
-    if min_cites > 0 or args.canonical:
-        papers.sort(key=lambda p: p.get("citationCount", 0), reverse=True)
-
-    papers = papers[: args.limit]
+    papers = recommend(positive, negative, args.limit, per_seed=args.per_seed)
 
     if not papers:
-        if min_cites > 0:
-            print(
-                f"⚠ No recommendations passed --min-citations {min_cites}. "
-                f"S2's recommend endpoint returns recent preprints (typically 0-citation). "
-                f"For canonical similar papers, try: `scholar_search.py --query '<topic>' --sort-by citations`",
-                file=sys.stderr,
-            )
-        else:
-            print("No recommendations found.", file=sys.stderr)
+        print("No recommendations found.", file=sys.stderr)
         sys.exit(0)
-
-    if args.json:
-        print(json.dumps(papers, indent=2))
-        return
-
-    print("# Paper Recommendations\n")
-    print(f"Seeds: {', '.join(f'`{p}`' for p in positive)}")
-    if negative:
-        print(f"Avoid: {', '.join(f'`{n}`' for n in negative)}")
-    print(f"\nFound **{len(papers)}** recommendations\n")
-    for i, p in enumerate(papers, 1):
-        print(format_paper(p, i))
-    print()
+    emit_results(
+        papers, args, format_fn=format_paper,
+        title="Paper Recommendations",
+    )
 
 
 if __name__ == "__main__":

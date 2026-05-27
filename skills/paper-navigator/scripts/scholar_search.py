@@ -8,29 +8,19 @@ TLDR summary, and open-access PDF links.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+from xml.parsers.expat import ExpatError
 
 import httpx
 
-from utils import (
-    S2_BASE,
-    s2_headers,
-    request_with_retry,
-    RateLimitExhausted,
-    arxiv_headers,
-    print_s2_key_tip,
-)
+from utils import S2_BASE, s2_headers, request_with_retry, RateLimitExhausted, arxiv_headers, add_output_args, emit_results
 
-S2_FIELDS = "paperId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf,publicationVenue,abstract"
+S2_FIELDS = "paperId,corpusId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf,publicationVenue,abstract"
 
 ARXIV_API = "https://export.arxiv.org/api/query"
-ARXIV_NS = {
-    "atom": "http://www.w3.org/2005/Atom",
-    "arxiv": "http://arxiv.org/schemas/atom",
-}
+ARXIV_NS = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
 
 
 def _fallback_arxiv_search(
@@ -44,42 +34,14 @@ def _fallback_arxiv_search(
     Uses flexible AND-of-words matching in title and abstract.
     Returns results in S2-compatible dict format.
     """
-    # Build robust arXiv search query.
-    # Strategy: drop common stop words, use OR-of-content-words (arXiv API ranks by relevance).
-    # Stopwords + 1-2 letter tokens dilute recall when AND'd.
-    STOP = {
-        "is",
-        "a",
-        "an",
-        "the",
-        "of",
-        "in",
-        "on",
-        "for",
-        "to",
-        "with",
-        "and",
-        "or",
-        "you",
-        "all",
-        "this",
-        "that",
-        "by",
-        "at",
-        "as",
-        "from",
-    }
-    words = [w for w in query.split() if w.lower() not in STOP and len(w) > 2]
-    if not words:
-        words = query.split()  # all stopwords? fall back to raw split
-    if len(words) >= 2:
-        # all: matches title|abstract|comment — broadest recall.
-        # ti:/abs: disjunction was tried in earlier versions but had worse recall on
-        # natural-language queries; arXiv's all: handles this better.
-        all_clause = " AND ".join(f"all:{w}" for w in words)
-        kw_query = f"({all_clause})"
+    # Split query into words, use AND logic for title/abstract matching
+    words = query.split()
+    if len(words) > 1:
+        ti_clause = " AND ".join(f"ti:{w}" for w in words)
+        abs_clause = " AND ".join(f"abs:{w}" for w in words)
+        kw_query = f"({ti_clause}) OR ({abs_clause})"
     else:
-        kw_query = f"all:{words[0]}"
+        kw_query = f"ti:{words[0]} OR abs:{words[0]}"
 
     # Date filtering
     date_parts = []
@@ -112,7 +74,14 @@ def _fallback_arxiv_search(
         return []
 
     # Parse arXiv XML and convert to S2-compatible format
-    root = ET.fromstring(xml_text)
+    # Reject XML with DTD/entity declarations before parsing to avoid XXE-style inputs.
+    if "<!DOCTYPE" in xml_text or "<!ENTITY" in xml_text:
+        raise ValueError("Unsafe XML payload from arXiv API")
+
+    try:
+        root = ET.fromstring(xml_text)
+    except (ET.ParseError, ExpatError) as exc:
+        raise ValueError("Invalid XML payload from arXiv API") from exc
     entries = root.findall("atom:entry", ARXIV_NS)
     papers = []
     for entry in entries:
@@ -181,35 +150,8 @@ def search(
     year_min: int | None = None,
     year_max: int | None = None,
     open_access_only: bool = False,
-    prefer_arxiv: bool = False,
 ) -> list[dict]:
-    """Search for papers matching query.
-
-    Tries S2 first by default. Falls back to arXiv on rate limit.
-    If `prefer_arxiv` is True (auto-set when S2_API_KEY missing), skips S2 entirely
-    to avoid the 30+s backoff penalty under no-key rate limits.
-    """
-    # No-key mode: arxiv-first to avoid 429 wait penalty
-    import os
-
-    no_key = not os.environ.get("S2_API_KEY")
-    if prefer_arxiv or no_key:
-        print(
-            "ℹ️  No S2_API_KEY detected — using arXiv as primary search to skip S2 rate-limit penalty.",
-            file=sys.stderr,
-        )
-        try:
-            results = _fallback_arxiv_search(query, limit, year_min, year_max)
-        except RateLimitExhausted:
-            print(
-                "⚠️  arXiv API rate limited after all retries. "
-                "Concurrent local agents now share a cooldown; retry later.",
-                file=sys.stderr,
-            )
-            return []
-        print_s2_key_tip()
-        return results
-
+    """Search S2 for papers matching query. Falls back to arXiv on rate limit."""
     try:
         params: dict = {
             "query": query,
@@ -233,15 +175,7 @@ def search(
             "⚠️  S2 rate limited after all retries. Falling back to arXiv search...",
             file=sys.stderr,
         )
-        try:
-            return _fallback_arxiv_search(query, limit, year_min, year_max)
-        except RateLimitExhausted:
-            print(
-                "⚠️  arXiv fallback also rate limited after all retries. "
-                "Concurrent local agents now share a cooldown; retry later.",
-                file=sys.stderr,
-            )
-            return []
+        return _fallback_arxiv_search(query, limit, year_min, year_max)
 
 
 def get_paper(paper_id: str) -> dict:
@@ -337,6 +271,7 @@ def main():
         "--paper-id", help="Get single paper by ID instead of searching"
     )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    add_output_args(parser)
     args = parser.parse_args()
 
     if not args.query and not args.paper_id:
@@ -345,10 +280,7 @@ def main():
 
     if args.paper_id:
         paper = get_paper(args.paper_id)
-        if args.json:
-            print(json.dumps(paper, indent=2))
-        else:
-            print(format_paper(paper))
+        emit_results([paper], args, format_fn=format_paper, title="Paper Details")
         return
 
     fetch_limit = 100 if args.sort_by != "relevance" else args.limit
@@ -366,15 +298,10 @@ def main():
         papers.sort(key=lambda p: p.get("year") or 0, reverse=True)
 
     papers = papers[: args.limit]
-
-    if args.json:
-        print(json.dumps(papers, indent=2))
-        return
-
-    print(f'# Search Results: "{args.query}"\n')
-    print(f"Found **{len(papers)}** papers\n")
-    for i, p in enumerate(papers, 1):
-        print(format_paper(p, i))
+    emit_results(
+        papers, args, format_fn=format_paper,
+        title=f'Search Results: "{args.query}"',
+    )
 
 
 if __name__ == "__main__":
