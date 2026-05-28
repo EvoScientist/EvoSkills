@@ -43,9 +43,9 @@ from typing import Any
 
 
 DEFAULT_MIN_ROUNDS = 3
-DEFAULT_STOP_RATE = 0.05          # new-relevant / candidates below this → slow
-DEFAULT_DROPOFF = 0.75            # round-over-round drop ≥ 75% → saturating
-DEFAULT_COVERAGE_TARGET = 0.90    # Chao1-estimated coverage to trigger stop
+DEFAULT_STOP_RATE = 0.05  # new-relevant / candidates below this → slow
+DEFAULT_DROPOFF = 0.75  # round-over-round drop ≥ 75% → saturating
+DEFAULT_COVERAGE_TARGET = 0.90  # Chao1-estimated coverage to trigger stop
 
 
 @dataclass
@@ -68,14 +68,16 @@ def _load_log(path: str) -> list[Round]:
             if not line:
                 continue
             d = json.loads(line)
-            rounds.append(Round(
-                round=int(d["round"]),
-                query=d.get("query", ""),
-                candidates=int(d.get("candidates", 0)),
-                new_relevant=int(d.get("new_relevant", 0)),
-                new_ids=list(d.get("new_ids") or []),
-                timestamp=d.get("timestamp", ""),
-            ))
+            rounds.append(
+                Round(
+                    round=int(d["round"]),
+                    query=d.get("query", ""),
+                    candidates=int(d.get("candidates", 0)),
+                    new_relevant=int(d.get("new_relevant", 0)),
+                    new_ids=list(d.get("new_ids") or []),
+                    timestamp=d.get("timestamp", ""),
+                )
+            )
     rounds.sort(key=lambda r: r.round)
     return rounds
 
@@ -83,14 +85,19 @@ def _load_log(path: str) -> list[Round]:
 def _append_round(path: str, rec: Round) -> None:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "a") as f:
-        f.write(json.dumps({
-            "round": rec.round,
-            "query": rec.query,
-            "candidates": rec.candidates,
-            "new_relevant": rec.new_relevant,
-            "new_ids": rec.new_ids,
-            "timestamp": rec.timestamp,
-        }) + "\n")
+        f.write(
+            json.dumps(
+                {
+                    "round": rec.round,
+                    "query": rec.query,
+                    "candidates": rec.candidates,
+                    "new_relevant": rec.new_relevant,
+                    "new_ids": rec.new_ids,
+                    "timestamp": rec.timestamp,
+                }
+            )
+            + "\n"
+        )
 
 
 def record_round(
@@ -113,14 +120,17 @@ def record_round(
     if round is None:
         existing = _load_log(log_path)
         round = (existing[-1].round + 1) if existing else 1
-    _append_round(log_path, Round(
-        round=round,
-        query=query,
-        candidates=candidates,
-        new_relevant=new_relevant,
-        new_ids=list(new_ids or []),
-        timestamp=timestamp,
-    ))
+    _append_round(
+        log_path,
+        Round(
+            round=round,
+            query=query,
+            candidates=candidates,
+            new_relevant=new_relevant,
+            new_ids=list(new_ids or []),
+            timestamp=timestamp,
+        ),
+    )
     return round
 
 
@@ -247,8 +257,7 @@ def fit(
     if last_two_low:
         should_stop = True
         reasons.append(
-            f"last 2 rounds yield-rate ≤ {stop_rate:.2f} "
-            f"({prev:.2f} → {last:.2f})"
+            f"last 2 rounds yield-rate ≤ {stop_rate:.2f} ({prev:.2f} → {last:.2f})"
         )
     if big_dropoff or abs_big_dropoff:
         should_stop = True
@@ -261,7 +270,8 @@ def fit(
     if not should_stop:
         reasons.append(
             "continue — last-round rate {:.2f} above threshold {:.2f}".format(
-                last, stop_rate,
+                last,
+                stop_rate,
             )
         )
 
@@ -273,9 +283,13 @@ def fit(
         "total_relevant": total_relevant,
         "rates": rates,
         "chao1": (
-            None if chao_est is None else {
-                "observed": s_obs, "estimated": round(chao_est, 2),
-                "singletons": f1, "doubletons": f2,
+            None
+            if chao_est is None
+            else {
+                "observed": s_obs,
+                "estimated": round(chao_est, 2),
+                "singletons": f1,
+                "doubletons": f2,
             }
         ),
         "reason": "; ".join(reasons),
@@ -303,12 +317,16 @@ def _cmd_record(args: argparse.Namespace) -> None:
         timestamp=args.timestamp or "",
     )
     _append_round(args.log, rec)
-    print(json.dumps({
-        "status": "ok",
-        "log": args.log,
-        "round": rec.round,
-        "new_relevant": rec.new_relevant,
-    }))
+    print(
+        json.dumps(
+            {
+                "status": "ok",
+                "log": args.log,
+                "round": rec.round,
+                "new_relevant": rec.new_relevant,
+            }
+        )
+    )
 
 
 def _cmd_estimate(args: argparse.Namespace) -> None:
@@ -326,10 +344,7 @@ def _cmd_estimate(args: argparse.Namespace) -> None:
     print(f"rounds: {result['rounds']}")
     print(f"method: {result['method']}")
     cov = result.get("coverage_estimate")
-    print(
-        "coverage_estimate: "
-        + ("n/a" if cov is None else f"{cov:.2f}")
-    )
+    print("coverage_estimate: " + ("n/a" if cov is None else f"{cov:.2f}"))
     rates_fmt = ", ".join(f"{r:.2f}" for r in result.get("rates") or [])
     print(f"rates: [{rates_fmt}]")
     if result.get("chao1"):
@@ -359,28 +374,56 @@ def main() -> None:
 
     rec = sub.add_parser("record", help="Append one round to the log")
     rec.add_argument("--log", required=True, help="Path to the JSONL saturation log")
-    rec.add_argument("--round", type=int, required=True, help="Round number (1-indexed)")
-    rec.add_argument("--query", default="", help="Query used this round (informational)")
-    rec.add_argument("--candidates", type=int, required=True, help="Papers screened this round")
-    rec.add_argument("--new-relevant", type=int, required=True,
-                     help="Relevant papers unseen before this round")
-    rec.add_argument("--new-ids", default="",
-                     help="Comma-separated IDs of new relevant papers (enables Chao1)")
+    rec.add_argument(
+        "--round", type=int, required=True, help="Round number (1-indexed)"
+    )
+    rec.add_argument(
+        "--query", default="", help="Query used this round (informational)"
+    )
+    rec.add_argument(
+        "--candidates", type=int, required=True, help="Papers screened this round"
+    )
+    rec.add_argument(
+        "--new-relevant",
+        type=int,
+        required=True,
+        help="Relevant papers unseen before this round",
+    )
+    rec.add_argument(
+        "--new-ids",
+        default="",
+        help="Comma-separated IDs of new relevant papers (enables Chao1)",
+    )
     rec.add_argument("--timestamp", default="", help="Optional ISO timestamp")
     rec.set_defaults(func=_cmd_record)
 
     est = sub.add_parser("estimate", help="Fit and report coverage")
     est.add_argument("--log", required=True)
     est.add_argument("--min-rounds", type=int, default=DEFAULT_MIN_ROUNDS)
-    est.add_argument("--stop-rate", type=float, default=DEFAULT_STOP_RATE,
-                     help="Yield-rate threshold: last 2 rounds below this → stop")
-    est.add_argument("--dropoff", type=float, default=DEFAULT_DROPOFF,
-                     help="Round-over-round drop fraction to treat as saturating")
-    est.add_argument("--coverage-target", type=float, default=DEFAULT_COVERAGE_TARGET,
-                     help="Chao1 coverage ≥ this → stop")
+    est.add_argument(
+        "--stop-rate",
+        type=float,
+        default=DEFAULT_STOP_RATE,
+        help="Yield-rate threshold: last 2 rounds below this → stop",
+    )
+    est.add_argument(
+        "--dropoff",
+        type=float,
+        default=DEFAULT_DROPOFF,
+        help="Round-over-round drop fraction to treat as saturating",
+    )
+    est.add_argument(
+        "--coverage-target",
+        type=float,
+        default=DEFAULT_COVERAGE_TARGET,
+        help="Chao1 coverage ≥ this → stop",
+    )
     est.add_argument("--json", action="store_true")
-    est.add_argument("--exit-zero", action="store_true",
-                     help="Always exit 0 (default: exit 2 when decision=CONTINUE, useful in shell loops)")
+    est.add_argument(
+        "--exit-zero",
+        action="store_true",
+        help="Always exit 0 (default: exit 2 when decision=CONTINUE, useful in shell loops)",
+    )
     est.set_defaults(func=_cmd_estimate)
 
     rst = sub.add_parser("reset", help="Delete the saturation log")

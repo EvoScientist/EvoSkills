@@ -19,6 +19,7 @@ from typing import Any
 
 import httpx
 
+
 # ── argparse: print full --help on error ─────────────────────────
 # Default argparse prints only 1-line "usage:" + error on bad flags. Agent
 # callers (e.g. minimax-m2.7) then guess another flag, trigger another
@@ -108,20 +109,18 @@ def _read_s2_date_cutoff() -> str | None:
         return None
     raw = raw.strip()
     if not _S2_DATE_CUTOFF_RE.match(raw):
-        raise ValueError(
-            f"S2_DATE_CUTOFF={raw!r} is not YYYY or YYYY-MM-DD"
-        )
+        raise ValueError(f"S2_DATE_CUTOFF={raw!r} is not YYYY or YYYY-MM-DD")
     return f":{raw}"
 
 
 # Endpoints that accept publicationDateOrYear. Single-paper / batch lookup
 # endpoints don't accept the filter — injecting it would 400 the call.
 _S2_DATE_FILTERABLE_PATTERNS = (
-    "/paper/search",          # also matches /paper/search/match, /paper/search/bulk
+    "/paper/search",  # also matches /paper/search/match, /paper/search/bulk
     "/snippet/search",
-    "/citations",             # /paper/{id}/citations
-    "/references",            # /paper/{id}/references
-    "/papers",                # /author/{id}/papers
+    "/citations",  # /paper/{id}/citations
+    "/references",  # /paper/{id}/references
+    "/papers",  # /author/{id}/papers
 )
 
 
@@ -172,6 +171,7 @@ def _log_api_call(
         return
     import uuid
     from datetime import datetime
+
     rec = {
         "ts": datetime.utcnow().isoformat() + "Z",
         "pid": os.getpid(),
@@ -189,7 +189,9 @@ def _log_api_call(
         try:
             os.makedirs(log_dir, exist_ok=True)
             ext = "json" if parse_json else "txt"
-            fname = f"{int(time.time() * 1e6)}_{os.getpid()}_{uuid.uuid4().hex[:8]}.{ext}"
+            fname = (
+                f"{int(time.time() * 1e6)}_{os.getpid()}_{uuid.uuid4().hex[:8]}.{ext}"
+            )
             out_path = os.path.join(log_dir, fname)
             with open(out_path, "w") as f:
                 if parse_json:
@@ -322,29 +324,43 @@ def request_with_retry(
             result = resp.json() if parse_json else resp.text
             if api:
                 _log_api_call(
-                    api, url, params, method,
-                    output=result, parse_json=parse_json,
+                    api,
+                    url,
+                    params,
+                    method,
+                    output=result,
+                    parse_json=parse_json,
                     status_code=resp.status_code,
                 )
             return result
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 if api:
-                    _log_api_call(api, url, params, method, status_code=404, error="404")
+                    _log_api_call(
+                        api, url, params, method, status_code=404, error="404"
+                    )
                 return {} if parse_json else ""
             if e.response.status_code == 429 and attempt == MAX_RETRIES - 1:
                 if api:
                     _log_api_call(
-                        api, url, params, method,
-                        status_code=429, error="rate-limit-exhausted",
+                        api,
+                        url,
+                        params,
+                        method,
+                        status_code=429,
+                        error="rate-limit-exhausted",
                     )
                 raise RateLimitExhausted(
                     f"Rate limit exhausted after {MAX_RETRIES} retries: {url}"
                 ) from e
             if api:
                 _log_api_call(
-                    api, url, params, method,
-                    status_code=e.response.status_code, error=repr(e),
+                    api,
+                    url,
+                    params,
+                    method,
+                    status_code=e.response.status_code,
+                    error=repr(e),
                 )
             raise
         except httpx.HTTPError as e:
@@ -358,7 +374,10 @@ def request_with_retry(
     if last_was_rate_limited:
         if api:
             _log_api_call(
-                api, url, params, method,
+                api,
+                url,
+                params,
+                method,
                 error="rate-limit-exhausted-fallthrough",
             )
         raise RateLimitExhausted(
@@ -533,8 +552,10 @@ def fetch_citations_paginated(
     with httpx.Client() as client:
         try:
             meta = request_with_retry(
-                client, f"{S2_BASE}/paper/{paper_id}",
-                {"fields": "citationCount,year"}, s2_headers(),
+                client,
+                f"{S2_BASE}/paper/{paper_id}",
+                {"fields": "citationCount,year"},
+                s2_headers(),
             )
             s2_circuit_breaker.record_success()
         except Exception as e:
@@ -553,17 +574,23 @@ def fetch_citations_paginated(
         )
 
     if total <= 1000 or limit <= 1000:
-        all_papers = _fetch_citations_simple(paper_id, endpoint, nested_key, limit, fields)
+        all_papers = _fetch_citations_simple(
+            paper_id, endpoint, nested_key, limit, fields
+        )
     else:
         y_from = year_from or paper_year
         y_to = year_to or 2026
         all_papers = asyncio.run(
-            _fetch_citations_by_year(paper_id, endpoint, nested_key, y_from, y_to, fields)
+            _fetch_citations_by_year(
+                paper_id, endpoint, nested_key, y_from, y_to, fields
+            )
         )
 
     # Apply filters
     if min_citations > 0:
-        all_papers = [p for p in all_papers if (p.get("citationCount") or 0) >= min_citations]
+        all_papers = [
+            p for p in all_papers if (p.get("citationCount") or 0) >= min_citations
+        ]
     if year_from:
         all_papers = [p for p in all_papers if (p.get("year") or 0) >= year_from]
     if year_to:
@@ -574,7 +601,11 @@ def fetch_citations_paginated(
 
 
 def _fetch_citations_simple(
-    paper_id: str, endpoint: str, nested_key: str, limit: int, fields: str,
+    paper_id: str,
+    endpoint: str,
+    nested_key: str,
+    limit: int,
+    fields: str,
 ) -> list[dict]:
     """Simple offset-based pagination, up to 9000 offset."""
     safe_fields = _citation_safe_fields(fields)
@@ -600,7 +631,11 @@ def _fetch_citations_simple(
                 print(f"Citation fetch failed at offset {offset}: {e}", file=sys.stderr)
                 break
 
-            batch = [item[nested_key] for item in (data.get("data") or []) if item.get(nested_key)]
+            batch = [
+                item[nested_key]
+                for item in (data.get("data") or [])
+                if item.get(nested_key)
+            ]
             if not batch:
                 break
             all_papers.extend(batch)
@@ -613,8 +648,12 @@ def _fetch_citations_simple(
 
 
 async def _fetch_year_slice(
-    paper_id: str, endpoint: str, nested_key: str, year: int,
-    sem: asyncio.Semaphore, fields: str,
+    paper_id: str,
+    endpoint: str,
+    nested_key: str,
+    year: int,
+    sem: asyncio.Semaphore,
+    fields: str,
 ) -> list[dict]:
     """Fetch all citations for a single year."""
     safe_fields = _citation_safe_fields(fields)
@@ -635,7 +674,10 @@ async def _fetch_year_slice(
                 }
                 try:
                     resp = await client.get(
-                        url, params=params, headers=s2_headers(), timeout=30,
+                        url,
+                        params=params,
+                        headers=s2_headers(),
+                        timeout=30,
                     )
                     if resp.status_code == 429 or resp.status_code >= 500:
                         await asyncio.sleep(3)
@@ -643,8 +685,12 @@ async def _fetch_year_slice(
                     resp.raise_for_status()
                     data = resp.json()
                     _log_api_call(
-                        "S2", url, params, "GET",
-                        output=data, parse_json=True,
+                        "S2",
+                        url,
+                        params,
+                        "GET",
+                        output=data,
+                        parse_json=True,
                         status_code=resp.status_code,
                     )
                     s2_circuit_breaker.record_success()
@@ -654,7 +700,11 @@ async def _fetch_year_slice(
                     print(f"Year {year} offset {offset} failed: {e}", file=sys.stderr)
                     break
 
-                batch = [item[nested_key] for item in (data.get("data") or []) if item.get(nested_key)]
+                batch = [
+                    item[nested_key]
+                    for item in (data.get("data") or [])
+                    if item.get(nested_key)
+                ]
                 if not batch:
                     break
                 papers.extend(batch)
@@ -667,8 +717,12 @@ async def _fetch_year_slice(
 
 
 async def _fetch_citations_by_year(
-    paper_id: str, endpoint: str, nested_key: str,
-    year_from: int, year_to: int, fields: str,
+    paper_id: str,
+    endpoint: str,
+    nested_key: str,
+    year_from: int,
+    year_to: int,
+    fields: str,
 ) -> list[dict]:
     """Fetch citations across year slices in parallel."""
     sem = asyncio.Semaphore(5)
@@ -840,9 +894,7 @@ def rerank(
     if provider == "cohere":
         return rerank_cohere(query, documents, top_n, model or "rerank-v3.5")
     elif provider == "openrouter":
-        return rerank_openrouter(
-            query, documents, top_n, model or "cohere/rerank-v3.5"
-        )
+        return rerank_openrouter(query, documents, top_n, model or "cohere/rerank-v3.5")
     else:
         raise ValueError(f"Unknown rerank provider: {provider}")
 
@@ -1027,7 +1079,6 @@ def enrich_citation_counts_from_s2(
     return papers
 
 
-
 # ── Output helpers ───────────────────────────────────────────────
 
 
@@ -1206,5 +1257,3 @@ def emit_results(
             print(format_fn(p, i))
     else:
         print(json.dumps(papers, indent=2))
-
-

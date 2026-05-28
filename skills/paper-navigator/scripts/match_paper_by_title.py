@@ -134,8 +134,10 @@ def _iter_jsonl_titles(path: str) -> Iterator[tuple[str, dict]]:
             try:
                 row = json.loads(line)
             except json.JSONDecodeError:
-                print(f"Warning: skipping malformed JSONL line: {line[:80]}",
-                      file=sys.stderr)
+                print(
+                    f"Warning: skipping malformed JSONL line: {line[:80]}",
+                    file=sys.stderr,
+                )
                 continue
             title = (row.get("title") or "").strip()
             if title:
@@ -196,7 +198,8 @@ def format_paper(p: dict, idx: int | None = None) -> str:
 
     cit_str = (
         f"**{citations}** (influential: {influential})"
-        if citations is not None else "N/A"
+        if citations is not None
+        else "N/A"
     )
 
     return f"""{prefix}{title}
@@ -221,16 +224,18 @@ def _run_single(args) -> int:
     else:
         print(format_paper(paper))
         if status == "fallback":
-            print("*(resolved via fallback search — exact title missed)*",
-                  file=sys.stderr)
+            print(
+                "*(resolved via fallback search — exact title missed)*", file=sys.stderr
+            )
     return 0
 
 
 def _run_batch(args) -> int:
     # Collect input
     if args.titles_file and args.input:
-        print("Error: --titles-file and --input are mutually exclusive",
-              file=sys.stderr)
+        print(
+            "Error: --titles-file and --input are mutually exclusive", file=sys.stderr
+        )
         return 1
     if args.titles_file:
         pairs = list(_iter_titles_file(args.titles_file))
@@ -252,17 +257,17 @@ def _run_batch(args) -> int:
     matched = fallback_used = missed = 0
     with httpx.Client() as client:
         for title, original in pairs:
-            paper, status = resolve_one(
-                client, title, fallback=args.fallback_search
-            )
+            paper, status = resolve_one(client, title, fallback=args.fallback_search)
             if paper is None:
                 missed += 1
                 if args.keep_misses:
-                    resolved.append({
-                        "_query_title": title,
-                        "_status": "miss",
-                        **original,
-                    })
+                    resolved.append(
+                        {
+                            "_query_title": title,
+                            "_status": "miss",
+                            **original,
+                        }
+                    )
                 continue
             if status == "fallback":
                 fallback_used += 1
@@ -280,7 +285,9 @@ def _run_batch(args) -> int:
         file=sys.stderr,
     )
     emit_results(
-        resolved, args, format_fn=format_paper,
+        resolved,
+        args,
+        format_fn=format_paper,
         title=f"Title-match results ({len(resolved)}/{len(pairs)})",
     )
     return 0
@@ -291,8 +298,8 @@ def main() -> int:
         description=(
             "Resolve paper title(s) to Semantic Scholar records via "
             "/paper/search/match. ~100× faster than full-text search for "
-            "navigational queries (\"the AlphaGeometry paper\", "
-            "\"BART by Lewis et al.\")."
+            'navigational queries ("the AlphaGeometry paper", '
+            '"BART by Lewis et al.").'
         ),
     )
     group = ap.add_mutually_exclusive_group(required=True)
@@ -302,7 +309,8 @@ def main() -> int:
         help="Plain-text file with one title per line (batch mode).",
     )
     group.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         help=(
             "JSONL file; each row must have a `title` field. Row fields "
             "carry through into the output (lets external lists be "
@@ -310,15 +318,17 @@ def main() -> int:
         ),
     )
     ap.add_argument(
-        "--fallback-search", action="store_true",
+        "--fallback-search",
+        action="store_true",
         help=(
             "When exact match misses, fall back to /paper/search top-1 "
             "(catches typos / punctuation drift). Fallback hits are tagged "
-            "`_source: \"s2_search_fallback\"`."
+            '`_source: "s2_search_fallback"`.'
         ),
     )
     ap.add_argument(
-        "--keep-misses", action="store_true",
+        "--keep-misses",
+        action="store_true",
         help=(
             "In batch mode, include unresolved titles as "
             "{_query_title, _status: 'miss', ...} rows."

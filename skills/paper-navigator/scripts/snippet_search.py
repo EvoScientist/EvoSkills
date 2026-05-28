@@ -107,7 +107,8 @@ def snippet_search_multi(
         target_ids.add(clean)
 
     filtered = [
-        r for r in all_results
+        r
+        for r in all_results
         if str(r.get("paper", {}).get("corpusId", "")) in target_ids
     ]
 
@@ -169,7 +170,7 @@ def format_snippet_summary(s: dict, idx: int) -> str:
     if len(text) > 60:
         preview += "..."
 
-    return f"{idx}. [{score:.2f}] [{kind}] {title[:70]} ({year}) CID:{corpus_id}  \"{preview}\""
+    return f'{idx}. [{score:.2f}] [{kind}] {title[:70]} ({year}) CID:{corpus_id}  "{preview}"'
 
 
 def main():
@@ -177,7 +178,9 @@ def main():
         description="Search for text snippets within papers"
     )
     parser.add_argument("--query", "-q", required=True, help="Search query")
-    parser.add_argument("--paper-id", "-p", help="Search within specific paper (direct API filter)")
+    parser.add_argument(
+        "--paper-id", "-p", help="Search within specific paper (direct API filter)"
+    )
     parser.add_argument(
         "--paper-ids",
         help="Comma-separated CorpusIds to filter to (corpus-wide search + client-side filter, 1 API call)",
@@ -190,8 +193,8 @@ def main():
         "--summary",
         action="store_true",
         help="Compact one-line-per-result output (~10x smaller context). "
-             "Shows title, year, corpusId, kind, score, and 60-char preview. "
-             "Use for browsing before fetching full text via snippet_match.",
+        "Shows title, year, corpusId, kind, score, and 60-char preview. "
+        "Use for browsing before fetching full text via snippet_match.",
     )
     add_output_args(parser)
     args = parser.parse_args()
@@ -208,7 +211,9 @@ def main():
 
     fmt = format_snippet_summary if args.summary else format_snippet
     emit_results(
-        results, args, format_fn=fmt,
+        results,
+        args,
+        format_fn=fmt,
         title=f'Snippet Search: "{args.query}"',
     )
 

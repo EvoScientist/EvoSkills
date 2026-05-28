@@ -118,7 +118,9 @@ def main():
 
         papers = papers[: args.limit]
         emit_results(
-            papers, args, format_fn=format_paper,
+            papers,
+            args,
+            format_fn=format_paper,
             title=f"Papers by Author `{author_id}` (sorted by {args.sort_by})",
         )
 

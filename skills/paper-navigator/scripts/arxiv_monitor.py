@@ -222,7 +222,9 @@ def main():
         else f"keywords: {args.keywords}"
     )
     emit_results(
-        papers, args, format_fn=format_paper,
+        papers,
+        args,
+        format_fn=format_paper,
         title=f"arXiv Monitor: {mode} — last {args.days} days",
     )
 

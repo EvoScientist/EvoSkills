@@ -15,12 +15,23 @@ from xml.parsers.expat import ExpatError
 
 import httpx
 
-from utils import S2_BASE, s2_headers, request_with_retry, RateLimitExhausted, arxiv_headers, add_output_args, emit_results
+from utils import (
+    S2_BASE,
+    s2_headers,
+    request_with_retry,
+    RateLimitExhausted,
+    arxiv_headers,
+    add_output_args,
+    emit_results,
+)
 
 S2_FIELDS = "paperId,corpusId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf,publicationVenue,abstract"
 
 ARXIV_API = "https://export.arxiv.org/api/query"
-ARXIV_NS = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+ARXIV_NS = {
+    "atom": "http://www.w3.org/2005/Atom",
+    "arxiv": "http://arxiv.org/schemas/atom",
+}
 
 
 def _fallback_arxiv_search(
@@ -299,7 +310,9 @@ def main():
 
     papers = papers[: args.limit]
     emit_results(
-        papers, args, format_fn=format_paper,
+        papers,
+        args,
+        format_fn=format_paper,
         title=f'Search Results: "{args.query}"',
     )
 

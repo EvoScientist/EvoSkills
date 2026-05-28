@@ -127,9 +127,11 @@ def main():
         print(f"No trending papers found for '{args.query}'", file=sys.stderr)
         sys.exit(0)
     emit_results(
-        papers, args, format_fn=format_paper,
+        papers,
+        args,
+        format_fn=format_paper,
         title=f'Trending Papers: "{args.query}" '
-              f'(last {args.period}d, ≥{args.min_citations} cites)',
+        f"(last {args.period}d, ≥{args.min_citations} cites)",
     )
 
 

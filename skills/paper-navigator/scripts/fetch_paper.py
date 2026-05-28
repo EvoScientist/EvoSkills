@@ -27,6 +27,7 @@ from utils import (
     _strip_arxiv_version,
 )
 
+
 def _resolve_papers_dir(cli_arg: str | None) -> str | None:
     """Resolve the papers directory: CLI flag > env var > None.
 
@@ -53,7 +54,9 @@ def _unpaywall_lookup(doi: str) -> str | None:
 
     Returns the best OA URL or None. Free API, no auth — just an email param.
     """
-    email = os.environ.get("UNPAYWALL_EMAIL", "paper-navigator@users.noreply.github.com")
+    email = os.environ.get(
+        "UNPAYWALL_EMAIL", "paper-navigator@users.noreply.github.com"
+    )
     url = f"{UNPAYWALL_API}/{doi}?email={email}"
     try:
         with httpx.Client() as client:
@@ -118,13 +121,13 @@ def _strip_boilerplate(text: str) -> str:
     """
     # Find the first content heading (## Abstract, ## Introduction, etc.)
     match = re.search(
-        r'^(#+\s*(?:Abstract|Introduction|Summary|Background|1\s))',
+        r"^(#+\s*(?:Abstract|Introduction|Summary|Background|1\s))",
         text,
         re.MULTILINE | re.IGNORECASE,
     )
     if match and match.start() > 200:
         # Only strip if there's significant boilerplate (>200 chars) before the heading
-        text = text[match.start():]
+        text = text[match.start() :]
     return text
 
 
@@ -186,7 +189,9 @@ def _safe_filename(paper_id: str) -> str:
     return re.sub(r"[^\w\-.]", "_", paper_id)
 
 
-def save_full_text(paper_id: str, metadata_header: str, content: str, papers_dir: str) -> str:
+def save_full_text(
+    paper_id: str, metadata_header: str, content: str, papers_dir: str
+) -> str:
     """Save full text to file. Returns the file path."""
     os.makedirs(papers_dir, exist_ok=True)
     filename = _safe_filename(paper_id) + ".md"
@@ -275,10 +280,16 @@ def main():
             content = fetch_via_jina(url, args.limit_chars)
             # Save to file
             pid = meta.get("paperId", args.paper_id or args.url)
-            filepath = save_full_text(pid, format_metadata(meta) if meta else "", content, papers_dir)
+            filepath = save_full_text(
+                pid, format_metadata(meta) if meta else "", content, papers_dir
+            )
             output["full_text_path"] = filepath
             if not args.full_stdout:
-                output["content"] = content[:args.max_output] + "..." if len(content) > args.max_output else content
+                output["content"] = (
+                    content[: args.max_output] + "..."
+                    if len(content) > args.max_output
+                    else content
+                )
             else:
                 output["content"] = content
         print(json.dumps(output, indent=2, default=str))

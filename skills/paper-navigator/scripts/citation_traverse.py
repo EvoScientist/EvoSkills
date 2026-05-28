@@ -15,8 +15,13 @@ import time
 import httpx
 
 from utils import (
-    S2_BASE, s2_headers, request_with_retry, normalize_paper_id,
-    add_output_args, emit_results, fetch_citations_paginated,
+    S2_BASE,
+    s2_headers,
+    request_with_retry,
+    normalize_paper_id,
+    add_output_args,
+    emit_results,
+    fetch_citations_paginated,
 )
 
 
@@ -24,17 +29,80 @@ from utils import (
 # goal of the seed-sanity check is to detect 0% topical overlap between
 # the seed title and the returned papers, not to do real NLP. Stopwords
 # get dropped from both sides of the comparison.
-_TITLE_STOPWORDS = frozenset({
-    "a", "an", "the", "and", "or", "of", "for", "with", "in", "on", "at",
-    "to", "from", "by", "is", "are", "was", "were", "be", "been", "via",
-    "based", "using", "use", "uses", "applied", "approach", "approaches",
-    "method", "methods", "study", "studies", "analysis", "analyses",
-    "review", "reviews", "survey", "surveys", "novel", "new", "paper",
-    "papers", "research", "work", "works", "model", "models", "system",
-    "systems", "this", "that", "these", "those", "it", "its", "as", "but",
-    "if", "into", "across", "between", "among", "than", "such", "more",
-    "most", "very", "much", "less", "least",
-})
+_TITLE_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "of",
+        "for",
+        "with",
+        "in",
+        "on",
+        "at",
+        "to",
+        "from",
+        "by",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "via",
+        "based",
+        "using",
+        "use",
+        "uses",
+        "applied",
+        "approach",
+        "approaches",
+        "method",
+        "methods",
+        "study",
+        "studies",
+        "analysis",
+        "analyses",
+        "review",
+        "reviews",
+        "survey",
+        "surveys",
+        "novel",
+        "new",
+        "paper",
+        "papers",
+        "research",
+        "work",
+        "works",
+        "model",
+        "models",
+        "system",
+        "systems",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "as",
+        "but",
+        "if",
+        "into",
+        "across",
+        "between",
+        "among",
+        "than",
+        "such",
+        "more",
+        "most",
+        "very",
+        "much",
+        "less",
+        "least",
+    }
+)
 
 
 def _seed_title_tokens(title: str) -> set[str]:
@@ -69,8 +137,10 @@ def _fetch_seed_title(paper_id: str) -> str | None:
     try:
         with httpx.Client(timeout=10) as client:
             data = request_with_retry(
-                client, f"{S2_BASE}/paper/{paper_id}",
-                {"fields": "title"}, s2_headers(),
+                client,
+                f"{S2_BASE}/paper/{paper_id}",
+                {"fields": "title"},
+                s2_headers(),
             )
         title = data.get("title")
         return title if isinstance(title, str) and title.strip() else None
@@ -85,7 +155,9 @@ _SEED_SANITY_MIN_RETURNED = 5
 
 
 def _seed_sanity_check(
-    seed_paper_id: str, returned_papers: list[dict], direction: str,
+    seed_paper_id: str,
+    returned_papers: list[dict],
+    direction: str,
 ) -> None:
     """Warn loudly when 0 of N returned papers share any distinguishing
     title token with the seed.
@@ -154,10 +226,11 @@ def _seed_sanity_check(
         print(f"    - {t!r}", file=sys.stderr)
     print(
         "  NEXT: verify the seed id is correct (typo? truncated SHA? "
-        "wrong CorpusId?). Use `match_paper_by_title.py --title \"...\"` "
-        "or `scholar_search.py --query \"...\"` to look up the canonical id.\n",
+        'wrong CorpusId?). Use `match_paper_by_title.py --title "..."` '
+        'or `scholar_search.py --query "..."` to look up the canonical id.\n',
         file=sys.stderr,
     )
+
 
 S2_FIELDS = "paperId,corpusId,externalIds,title,authors,year,citationCount,influentialCitationCount,isOpenAccess,openAccessPdf"
 
@@ -212,9 +285,12 @@ def _paged_citation_fetch(
 
 
 def get_citations(
-    paper_id: str, limit: int = 20, client: httpx.Client | None = None,
+    paper_id: str,
+    limit: int = 20,
+    client: httpx.Client | None = None,
     smart: bool = False,
-    year_from: int | None = None, year_to: int | None = None,
+    year_from: int | None = None,
+    year_to: int | None = None,
 ) -> list[dict]:
     """Forward citations: papers that cite this paper.
 
@@ -230,29 +306,49 @@ def get_citations(
     # Year-filtered or oversized requests need year-slicing
     if not smart and (limit > 1000 or year_from is not None or year_to is not None):
         return fetch_citations_paginated(
-            paper_id, "forward", limit, S2_FIELDS,
-            year_from=year_from, year_to=year_to,
+            paper_id,
+            "forward",
+            limit,
+            S2_FIELDS,
+            year_from=year_from,
+            year_to=year_to,
         )
 
     fields = (
         f"contexts,isInfluential,citingPaper.{S2_FIELDS}"
-        if smart else f"citingPaper.{S2_FIELDS}"
+        if smart
+        else f"citingPaper.{S2_FIELDS}"
     )
 
     if client:
         return _paged_citation_fetch(
-            client, paper_id, "citations", "citingPaper", fields, smart, limit,
+            client,
+            paper_id,
+            "citations",
+            "citingPaper",
+            fields,
+            smart,
+            limit,
         )
     with httpx.Client() as c:
         return _paged_citation_fetch(
-            c, paper_id, "citations", "citingPaper", fields, smart, limit,
+            c,
+            paper_id,
+            "citations",
+            "citingPaper",
+            fields,
+            smart,
+            limit,
         )
 
 
 def get_references(
-    paper_id: str, limit: int = 20, client: httpx.Client | None = None,
+    paper_id: str,
+    limit: int = 20,
+    client: httpx.Client | None = None,
     smart: bool = False,
-    year_from: int | None = None, year_to: int | None = None,
+    year_from: int | None = None,
+    year_to: int | None = None,
 ) -> list[dict]:
     """Backward citations: papers this paper references.
 
@@ -262,22 +358,39 @@ def get_references(
     """
     if not smart and (limit > 1000 or year_from is not None or year_to is not None):
         return fetch_citations_paginated(
-            paper_id, "backward", limit, S2_FIELDS,
-            year_from=year_from, year_to=year_to,
+            paper_id,
+            "backward",
+            limit,
+            S2_FIELDS,
+            year_from=year_from,
+            year_to=year_to,
         )
 
     fields = (
         f"contexts,isInfluential,citedPaper.{S2_FIELDS}"
-        if smart else f"citedPaper.{S2_FIELDS}"
+        if smart
+        else f"citedPaper.{S2_FIELDS}"
     )
 
     if client:
         return _paged_citation_fetch(
-            client, paper_id, "references", "citedPaper", fields, smart, limit,
+            client,
+            paper_id,
+            "references",
+            "citedPaper",
+            fields,
+            smart,
+            limit,
         )
     with httpx.Client() as c:
         return _paged_citation_fetch(
-            c, paper_id, "references", "citedPaper", fields, smart, limit,
+            c,
+            paper_id,
+            "references",
+            "citedPaper",
+            fields,
+            smart,
+            limit,
         )
 
 
@@ -357,7 +470,8 @@ def enrich_papers(papers: list[dict]) -> list[dict]:
             chunk = ids[i : i + 500]
             try:
                 data = request_with_retry(
-                    client, f"{S2_BASE}/paper/batch",
+                    client,
+                    f"{S2_BASE}/paper/batch",
                     params={"fields": ENRICH_FIELDS},
                     headers=s2_headers(),
                     method="POST",
@@ -412,9 +526,7 @@ def format_paper(p: dict, idx: int) -> str:
         sc = p.get("_smart_score", 0)
         smart_info = f" | influential:{inf} contexts:{ctx} score:{sc:.3f}"
 
-    return (
-        f"{idx}. **{title}** — {author_str} ({year}) — ⭐{citations} — {id_str}{smart_info}{tldr}"
-    )
+    return f"{idx}. **{title}** — {author_str} ({year}) — ⭐{citations} — {id_str}{smart_info}{tldr}"
 
 
 def main():
@@ -438,24 +550,31 @@ def main():
         "--min-citations", type=int, default=0, help="Minimum citation count filter"
     )
     parser.add_argument(
-        "--year-min", type=int, default=None,
+        "--year-min",
+        type=int,
+        default=None,
         help="Minimum publication year (inclusive)",
     )
     parser.add_argument(
-        "--year-max", type=int, default=None,
+        "--year-max",
+        type=int,
+        default=None,
         help="Maximum publication year (inclusive)",
     )
     parser.add_argument(
-        "--smart-sort", action="store_true",
+        "--smart-sort",
+        action="store_true",
         help="Use composite scoring (influential citations, context count, citation penalty) instead of raw citation count",
     )
     parser.add_argument(
-        "--enrich", action="store_true",
+        "--enrich",
+        action="store_true",
         help="Follow up with S2 batch lookup to add tldr/abstract to results",
     )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     parser.add_argument(
-        "--no-sanity-check", action="store_true",
+        "--no-sanity-check",
+        action="store_true",
         help="Skip the seed-sanity check that warns when 0 of N returned "
         "titles share any token with the seed title (the smell test for a "
         "typo'd / truncated paper-id). Use when the seed is intentionally "
@@ -476,13 +595,19 @@ def main():
 
     if args.direction == "forward":
         papers = get_citations(
-            paper_id, args.limit, smart=args.smart_sort,
-            year_from=args.year_min, year_to=args.year_max,
+            paper_id,
+            args.limit,
+            smart=args.smart_sort,
+            year_from=args.year_min,
+            year_to=args.year_max,
         )
     elif args.direction == "backward":
         papers = get_references(
-            paper_id, args.limit, smart=args.smart_sort,
-            year_from=args.year_min, year_to=args.year_max,
+            paper_id,
+            args.limit,
+            smart=args.smart_sort,
+            year_from=args.year_min,
+            year_to=args.year_max,
         )
     else:
         print(
@@ -528,7 +653,9 @@ def main():
         print("No papers found.", file=sys.stderr)
         sys.exit(0)
     emit_results(
-        papers, args, format_fn=format_paper,
+        papers,
+        args,
+        format_fn=format_paper,
         title=f"{direction_labels[args.direction]}",
     )
 

@@ -172,7 +172,9 @@ def main():
         print("No recommendations found.", file=sys.stderr)
         sys.exit(0)
     emit_results(
-        papers, args, format_fn=format_paper,
+        papers,
+        args,
+        format_fn=format_paper,
         title="Paper Recommendations",
     )
 
