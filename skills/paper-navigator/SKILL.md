@@ -4,7 +4,7 @@ description: "Find and read academic papers (S2 + arXiv). Disambiguate ambiguous
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '3.0.0'
+  version: '3.1.0'
   tags: [core, research, literature, papers, search, rubric]
 ---
 
@@ -250,9 +250,11 @@ Read the across-round pool from Step 4, apply the table, take the action — no 
 
 | Tier | `weighted_total` | Use |
 |---|---|---|
-| Primary | ≥ 0.7 | The answer. Bold top-1 for single-recommendation questions. |
+| Primary | ≥ 0.7 | The answer. Eligible for top-K. |
 | Secondary | 0.5 – 0.7 | "May also be relevant"; never promoted to Primary. |
 | Drop | < 0.5 | Exclude. |
+
+**Rank-1 quality bar.** For single-recommendation queries ("is there a paper that …?", "recommend a paper", "what's the canonical X") the bolded top-1 must have `weighted_total ≥ 0.85` AND every high-weight criterion (w ≥ 0.3) must score `≥ 0.75`. Rank 1 carries disproportionate weight in user perception and in downstream evaluation; promoting a 0.71 Primary to top-1 reads as a confident wrong answer. If no candidate clears the bar, lead with "No fully-matching paper found" and present the strongest near-miss honestly with its per-criterion gaps.
 
 If Primary is empty after the round cap, report "no fully-matching paper found", list strongest Secondary candidates + their per-criterion gaps, stop.
 
@@ -288,7 +290,15 @@ ITERATIVE (ranked table):
 
 POINT: Paper Card (above).
 
-**Do not** hand-pick from the last round and skip the rerank — that is the dominant failure mode. The accumulated-pool rerank wins.
+**Pre-output checklist (mandatory).** Before emitting the answer, verify each box. The dominant failure mode of this skill is skipping the rerank and emitting the last round's top-K verbatim — this checklist exists to make that impossible.
+
+- [ ] **Pool gathered** from every Step-5 triage block across all rounds, deduped by `paperId` (keep the stronger mask), IRREL excluded.
+- [ ] **weighted_total computed** for every Primary and Secondary candidate — the actual `Σ (criterion_score × criterion_weight)`, not estimated, not eyeballed.
+- [ ] **Sorted** DESC by `weighted_total` → `citationCount` → `year`.
+- [ ] **Rank-1 clears the bar** (`≥ 0.85` total AND every high-weight criterion `≥ 0.75`) for single-recommendation queries — or you've reported "No fully-matching paper found" instead of fronting a weak candidate.
+- [ ] **Every Primary paper has ≥1 evidence quote per high-weight criterion** (quote-or-zero rule, Red Line 5).
+
+If any box is unchecked, return to Step 6 — do not output.
 
 ---
 
