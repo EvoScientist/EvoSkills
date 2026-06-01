@@ -1,108 +1,69 @@
 #!/usr/bin/env python3
 """Monitor arXiv for new papers by category or keywords.
 
-Uses the arXiv API to fetch recent papers from specific categories
-or matching keywords.
+Uses the DeepXiv SDK (https://github.com/qhjqhj00/deepxiv_sdk) to fetch recent
+papers from specific categories or matching keywords. DeepXiv replaces the
+rate-limited arXiv API (3s delay, frequent HTTP 429): anonymous use allows
+1,000 requests/day, or 10,000 with DEEPXIV_API_TOKEN set.
 """
 
 import argparse
 import sys
-import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 
-import httpx
-
+import deepxiv_client
 from utils import (
-    arxiv_headers,
-    request_with_retry,
     add_output_args,
     emit_results,
 )
 
-ARXIV_API = "https://export.arxiv.org/api/query"
-NS = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+
+def _date_from(days: int) -> str:
+    """ISO ``YYYY-MM-DD`` for the start of the look-back window."""
+    start = datetime.now(timezone.utc) - timedelta(days=days)
+    return start.strftime("%Y-%m-%d")
 
 
-def _parse_entries(xml_text: str) -> list[dict]:
-    """Parse arXiv Atom XML into paper dicts."""
-    root = ET.fromstring(xml_text)
-    entries = root.findall("atom:entry", NS)
-    papers = []
-    for entry in entries:
-        title = entry.findtext("atom:title", "", NS).replace("\n", " ").strip()
-        summary = entry.findtext("atom:summary", "", NS).strip()
-        published = entry.findtext("atom:published", "", NS)
-        updated = entry.findtext("atom:updated", "", NS)
-
-        # Extract arXiv ID from the id URL
-        id_url = entry.findtext("atom:id", "", NS)
-        arxiv_id = id_url.split("/abs/")[-1] if "/abs/" in id_url else id_url
-
-        authors = []
-        for author in entry.findall("atom:author", NS):
-            name = author.findtext("atom:name", "", NS)
-            if name:
-                authors.append(name)
-
-        categories = []
-        for cat in entry.findall("atom:category", NS):
-            term = cat.get("term", "")
-            if term:
-                categories.append(term)
-
-        # PDF link
-        pdf_url = ""
-        for link in entry.findall("atom:link", NS):
-            if link.get("title") == "pdf":
-                pdf_url = link.get("href", "")
-
-        # Comment (often contains page count, conference info)
-        comment = ""
-        comment_el = entry.find("arxiv:comment", NS)
-        if comment_el is not None and comment_el.text:
-            comment = comment_el.text.strip()
-
-        papers.append(
-            {
-                "arxiv_id": arxiv_id,
-                "title": title,
-                "authors": authors,
-                "summary": summary[:300],
-                "categories": categories,
-                "published": published,
-                "updated": updated,
-                "pdf_url": pdf_url,
-                "comment": comment,
-            }
-        )
-    return papers
+def _item_to_paper(item: dict) -> dict:
+    """Map a DeepXiv result item to the monitor's paper dict."""
+    arxiv_id = deepxiv_client.item_id(item)
+    title = (item.get("title") or "").replace("\n", " ").strip()
+    summary = (item.get("abstract") or item.get("tldr") or "").strip()
+    published = item.get("date") or item.get("publish_at") or ""
+    categories = item.get("categories") or item.get("category") or []
+    if isinstance(categories, str):
+        categories = [categories]
+    pdf_url = item.get("src_url") or (
+        f"https://arxiv.org/pdf/{arxiv_id}" if arxiv_id else ""
+    )
+    return {
+        "arxiv_id": arxiv_id,
+        "title": title,
+        "authors": deepxiv_client.item_authors(item),
+        "summary": summary[:300],
+        "categories": list(categories),
+        "published": str(published),
+        "updated": str(item.get("publish_at") or published or ""),
+        "pdf_url": pdf_url,
+        "comment": "",
+    }
 
 
 def fetch_by_categories(
     categories: list[str], days: int = 1, limit: int = 50
 ) -> list[dict]:
-    """Fetch recent papers from specific arXiv categories."""
-    # arXiv API query: cat:cs.CL OR cat:cs.AI
-    cat_query = " OR ".join(f"cat:{c}" for c in categories)
+    """Fetch recent papers from specific arXiv categories via DeepXiv.
 
-    # Date filter via submittedDate
-    end = datetime.now(timezone.utc)
-    start = end - timedelta(days=days)
-    date_range = f"[{start.strftime('%Y%m%d')}0000 TO {end.strftime('%Y%m%d')}2359]"
-
-    query = f"({cat_query}) AND submittedDate:{date_range}"
-    params = {
-        "search_query": query,
-        "sortBy": "submittedDate",
-        "sortOrder": "descending",
-        "max_results": min(limit, 200),
-    }
-
-    with httpx.Client() as client:
-        xml_text = request_with_retry(
-            client, ARXIV_API, params, arxiv_headers(), parse_json=False
-        )
-    return _parse_entries(xml_text)
+    DeepXiv search requires a text query, so the category labels double as the
+    query while also being passed as a category filter.
+    """
+    items = deepxiv_client.search(
+        query=" ".join(categories),
+        limit=limit,
+        categories=categories,
+        date_from=_date_from(days),
+    )
+    return [_item_to_paper(it) for it in items]
 
 
 def fetch_by_keywords(
@@ -111,50 +72,18 @@ def fetch_by_keywords(
     limit: int = 50,
     match_mode: str = "flexible",
 ) -> list[dict]:
-    """Fetch recent papers matching keywords.
+    """Fetch recent papers matching keywords via DeepXiv semantic search.
 
     Args:
-        match_mode: "exact" for phrase matching (old behavior),
-                    "flexible" for AND-of-words matching (better recall).
+        match_mode: Accepted for CLI compatibility but unused — DeepXiv ranks
+            semantically rather than by exact/flexible token matching.
     """
-    # Search in title and abstract
-    kw_parts = []
-    for kw in keywords:
-        kw = kw.strip()
-        if match_mode == "flexible" and " " in kw:
-            # Split into individual words, AND them together
-            # "data pruning pretraining" →
-            #   (ti:data AND ti:pruning AND ti:pretraining)
-            #   OR (abs:data AND abs:pruning AND abs:pretraining)
-            words = kw.split()
-            ti_clause = " AND ".join(f"ti:{w}" for w in words)
-            abs_clause = " AND ".join(f"abs:{w}" for w in words)
-            kw_parts.append(f"({ti_clause}) OR ({abs_clause})")
-        elif " " in kw:
-            kw_parts.append(f'ti:"{kw}" OR abs:"{kw}"')
-        else:
-            kw_parts.append(f"ti:{kw} OR abs:{kw}")
-
-    kw_query = " OR ".join(f"({p})" for p in kw_parts)
-
-    end = datetime.now(timezone.utc)
-    start = end - timedelta(days=days)
-    date_range = f"[{start.strftime('%Y%m%d')}0000 TO {end.strftime('%Y%m%d')}2359]"
-
-    query = f"({kw_query}) AND submittedDate:{date_range}"
-    max_results = 500 if match_mode == "flexible" else 200
-    params = {
-        "search_query": query,
-        "sortBy": "submittedDate",
-        "sortOrder": "descending",
-        "max_results": min(limit, max_results),
-    }
-
-    with httpx.Client() as client:
-        xml_text = request_with_retry(
-            client, ARXIV_API, params, arxiv_headers(), parse_json=False
-        )
-    return _parse_entries(xml_text)
+    items = deepxiv_client.search(
+        query=" ".join(k.strip() for k in keywords),
+        limit=limit,
+        date_from=_date_from(days),
+    )
+    return [_item_to_paper(it) for it in items]
 
 
 def format_paper(p: dict, idx: int) -> str:
@@ -195,7 +124,7 @@ def main():
         "--match-mode",
         choices=["exact", "flexible"],
         default="flexible",
-        help="Keyword matching: 'exact' (phrase match) or 'flexible' (AND of words, default)",
+        help="Accepted for compatibility; ignored (DeepXiv ranks semantically)",
     )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     add_output_args(parser)

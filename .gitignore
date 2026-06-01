@@ -25,3 +25,6 @@ workspace/
 # Local skill version backups (kept locally for rollback, not committed)
 skills/*.bak.*/
 skills/**/*.bak.*
+
+# Local test harness (run locally, not committed — see tests/<skill>/)
+tests/

@@ -257,11 +257,6 @@ def jina_headers() -> dict:
     return h
 
 
-def arxiv_headers() -> dict:
-    """arXiv API headers."""
-    return {"User-Agent": DEFAULT_USER_AGENT}
-
-
 # ── HTTP with retry ───────────────────────────────────────────────
 
 

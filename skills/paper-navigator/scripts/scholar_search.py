@@ -9,29 +9,20 @@ from __future__ import annotations
 
 import argparse
 import sys
-import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
-from xml.parsers.expat import ExpatError
 
 import httpx
 
+import deepxiv_client
 from utils import (
     S2_BASE,
     s2_headers,
     request_with_retry,
     RateLimitExhausted,
-    arxiv_headers,
     add_output_args,
     emit_results,
 )
 
 S2_FIELDS = "paperId,corpusId,externalIds,title,authors,year,citationCount,influentialCitationCount,tldr,isOpenAccess,openAccessPdf,publicationVenue,abstract"
-
-ARXIV_API = "https://export.arxiv.org/api/query"
-ARXIV_NS = {
-    "atom": "http://www.w3.org/2005/Atom",
-    "arxiv": "http://arxiv.org/schemas/atom",
-}
 
 
 def _fallback_arxiv_search(
@@ -40,116 +31,57 @@ def _fallback_arxiv_search(
     year_min: int | None = None,
     year_max: int | None = None,
 ) -> list[dict]:
-    """Fallback search via arXiv API when S2 is rate limited.
+    """Fallback arXiv search via DeepXiv when S2 is rate limited.
 
-    Uses flexible AND-of-words matching in title and abstract.
-    Returns results in S2-compatible dict format.
+    DeepXiv (https://github.com/qhjqhj00/deepxiv_sdk) replaces the rate-limited
+    arXiv API. Returns results in S2-compatible dict format.
     """
-    # Split query into words, use AND logic for title/abstract matching
-    words = query.split()
-    if len(words) > 1:
-        ti_clause = " AND ".join(f"ti:{w}" for w in words)
-        abs_clause = " AND ".join(f"abs:{w}" for w in words)
-        kw_query = f"({ti_clause}) OR ({abs_clause})"
-    else:
-        kw_query = f"ti:{words[0]} OR abs:{words[0]}"
+    date_from = f"{year_min}-01-01" if year_min else None
+    date_to = f"{year_max}-12-31" if year_max else None
 
-    # Date filtering
-    date_parts = []
-    if year_min or year_max:
-        end = datetime.now(timezone.utc)
-        start_year = year_min or 2000
-        start = datetime(start_year, 1, 1, tzinfo=timezone.utc)
-        if year_max:
-            end = datetime(year_max, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
-        date_range = f"[{start.strftime('%Y%m%d')}0000 TO {end.strftime('%Y%m%d')}2359]"
-        date_parts.append(f"submittedDate:{date_range}")
+    items = deepxiv_client.search(
+        query=query,
+        limit=limit,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
-    search_query = kw_query
-    if date_parts:
-        search_query = f"({kw_query}) AND {date_parts[0]}"
-
-    params = {
-        "search_query": search_query,
-        "sortBy": "relevance",
-        "sortOrder": "descending",
-        "max_results": min(limit, 500),
-    }
-
-    with httpx.Client() as client:
-        xml_text = request_with_retry(
-            client, ARXIV_API, params, arxiv_headers(), parse_json=False
-        )
-
-    if not xml_text:
-        return []
-
-    # Parse arXiv XML and convert to S2-compatible format
-    # Reject XML with DTD/entity declarations before parsing to avoid XXE-style inputs.
-    if "<!DOCTYPE" in xml_text or "<!ENTITY" in xml_text:
-        raise ValueError("Unsafe XML payload from arXiv API")
-
-    try:
-        root = ET.fromstring(xml_text)
-    except (ET.ParseError, ExpatError) as exc:
-        raise ValueError("Invalid XML payload from arXiv API") from exc
-    entries = root.findall("atom:entry", ARXIV_NS)
     papers = []
-    for entry in entries:
-        title = entry.findtext("atom:title", "", ARXIV_NS).replace("\n", " ").strip()
-        summary = entry.findtext("atom:summary", "", ARXIV_NS).strip()
-        published = entry.findtext("atom:published", "", ARXIV_NS)
-
-        id_url = entry.findtext("atom:id", "", ARXIV_NS)
-        arxiv_id = id_url.split("/abs/")[-1] if "/abs/" in id_url else id_url
-
-        authors = []
-        for author in entry.findall("atom:author", ARXIV_NS):
-            name = author.findtext("atom:name", "", ARXIV_NS)
-            if name:
-                authors.append({"name": name})
-
-        categories = []
-        for cat in entry.findall("atom:category", ARXIV_NS):
-            term = cat.get("term", "")
-            if term:
-                categories.append(term)
-
-        pdf_url = ""
-        for link in entry.findall("atom:link", ARXIV_NS):
-            if link.get("title") == "pdf":
-                pdf_url = link.get("href", "")
-
+    for item in items:
+        arxiv_id = deepxiv_client.item_id(item)
+        published = item.get("date") or item.get("publish_at") or ""
         year = None
         if published:
             try:
-                year = int(published[:4])
+                year = int(str(published)[:4])
             except (ValueError, IndexError):
                 pass
 
-        comment = ""
-        comment_el = entry.find("arxiv:comment", ARXIV_NS)
-        if comment_el is not None and comment_el.text:
-            comment = comment_el.text.strip()
+        pdf_url = item.get("src_url") or (
+            f"https://arxiv.org/pdf/{arxiv_id}" if arxiv_id else ""
+        )
+        categories = item.get("categories") or item.get("category") or []
+        if isinstance(categories, str):
+            categories = [categories]
 
         # Convert to S2-compatible dict format
         papers.append(
             {
                 "paperId": f"arxiv:{arxiv_id}",
                 "externalIds": {"ArXiv": arxiv_id},
-                "title": title,
-                "authors": authors,
+                "title": (item.get("title") or "").replace("\n", " ").strip(),
+                "authors": [{"name": n} for n in deepxiv_client.item_authors(item)],
                 "year": year,
-                "citationCount": None,  # Not available from arXiv
+                "citationCount": item.get("citation_count", item.get("citation")),
                 "influentialCitationCount": None,
                 "tldr": None,
                 "isOpenAccess": True,
                 "openAccessPdf": {"url": pdf_url} if pdf_url else None,
                 "publicationVenue": None,
-                "abstract": summary,
-                "_source": "arxiv",  # Marker for fallback origin
-                "_comment": comment,
-                "_categories": categories,
+                "abstract": (item.get("abstract") or item.get("tldr") or "").strip(),
+                "_source": "arxiv",  # Marker for fallback origin (now via DeepXiv)
+                "_comment": "",
+                "_categories": list(categories),
             }
         )
     return papers

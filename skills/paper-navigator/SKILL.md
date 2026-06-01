@@ -4,7 +4,7 @@ description: "Find and read academic papers (S2 + arXiv). Disambiguate ambiguous
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '3.1.0'
+  version: '3.2.0'
   tags: [core, research, literature, papers, search, rubric]
 ---
 
@@ -29,9 +29,12 @@ The agent does relevance judgment — no LLM-as-judge is called. You author the 
 
 Scripts at `skills/paper-navigator/scripts/`. Run via `python skills/paper-navigator/scripts/<name>.py`.
 
+arXiv access (`arxiv_monitor`, `scholar_search` fallback) uses the DeepXiv SDK: `pip install deepxiv-sdk`.
+
 | Env var | Used by | Notes |
 |---|---|---|
-| `S2_API_KEY` | All S2 scripts | Without it: `scholar_search` falls back to arXiv; `citation_traverse` / `recommend` / `snippet_search` are disabled |
+| `S2_API_KEY` | All S2 scripts | Without it: `scholar_search` falls back to arXiv (via DeepXiv); `citation_traverse` / `recommend` / `snippet_search` are disabled |
+| `DEEPXIV_API_TOKEN` | `arxiv_monitor`, `scholar_search` fallback | Optional. Anonymous = 1,000 req/day; with token = 10,000/day |
 | `JINA_API_KEY` | `fetch_paper` | Free tier works without key |
 | `GITHUB_TOKEN` | `github_search`, `find_code` | Higher rate limits |
 | `PAPER_NAV_PAPERS_DIR` | `fetch_paper` full text | No default — set or pass `--metadata-only` |
