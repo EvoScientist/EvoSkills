@@ -5,8 +5,11 @@ enforce a 3-second delay and frequently return HTTP 429. DeepXiv
 (https://github.com/qhjqhj00/deepxiv_sdk) is a token-based, agent-oriented API
 that returns pre-parsed, structured results.
 
-Auth is optional: anonymous use allows 1,000 requests/day. Set
-``DEEPXIV_API_TOKEN`` (or ``DEEPXIV_TOKEN``) for 10,000/day.
+Auth: set ``DEEPXIV_API_TOKEN`` (or ``DEEPXIV_TOKEN``). The token is read from
+the environment first, then from ``./.env`` and ``~/.env`` — the same files the
+SDK's ``deepxiv config`` / ``deepxiv token`` commands write to (run either to
+provision a free token). Only the token keys are read; the rest of the file is
+ignored (no ``load_dotenv``, so other secrets never enter the environment).
 
 The DeepXiv ``Reader`` is imported lazily inside ``get_reader`` so that:
   * the dependency is only required when an arXiv search actually runs, and
@@ -16,19 +19,59 @@ The DeepXiv ``Reader`` is imported lazily inside ``get_reader`` so that:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 # Checked in priority order. DEEPXIV_API_TOKEN is the name used by this skill
-# (and by issue #19); DEEPXIV_TOKEN is the name the SDK's own CLI reads.
+# (and by issue #19); DEEPXIV_TOKEN is the name the SDK's own CLI reads/writes.
 TOKEN_ENV_VARS = ("DEEPXIV_API_TOKEN", "DEEPXIV_TOKEN")
+
+# Project-local first, then the SDK's default global location.
+ENV_FILES = (Path(".env"), Path.home() / ".env")
+
+
+def _token_from_env_file(path: Path) -> str | None:
+    """Read a DeepXiv token key from a ``.env`` file. Only the token keys are
+    parsed — the file is never loaded wholesale into the environment."""
+    try:
+        text = path.read_text()
+    except OSError:
+        return None
+    wanted = set(TOKEN_ENV_VARS)
+    found: dict[str, str] = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].lstrip()
+        key, sep, val = line.partition("=")
+        if not sep:
+            continue
+        key = key.strip()
+        if key in wanted:
+            found[key] = val.strip().strip('"').strip("'")
+    for var in TOKEN_ENV_VARS:
+        if found.get(var):
+            return found[var]
+    return None
 
 
 def deepxiv_token() -> str | None:
-    """Return the DeepXiv API token from the environment, or None if unset."""
+    """Return the DeepXiv API token, or None if unset.
+
+    Precedence: ``DEEPXIV_API_TOKEN``/``DEEPXIV_TOKEN`` in the environment, then
+    the same keys in ``./.env`` and ``~/.env`` (written by ``deepxiv config`` /
+    ``deepxiv token``).
+    """
     for var in TOKEN_ENV_VARS:
         val = os.environ.get(var)
         if val:
             return val
+    for path in ENV_FILES:
+        token = _token_from_env_file(path)
+        if token:
+            return token
     return None
 
 
