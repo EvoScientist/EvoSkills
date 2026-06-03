@@ -49,6 +49,7 @@ Simply ask the agent in conversation:
 | [`paper-writing`](#-paper-writing--section-by-section-paper-drafting) | ✍️ End-to-end paper writing assistance |
 | [`paper-review`](#-paper-review--self-review--quality-assurance) | 🔍 Automated paper review & feedback |
 | [`paper-rebuttal`](#-paper-rebuttal--rebuttal-writing-after-peer-review) | 💬 Rebuttal writing after peer review |
+| [`paper-figures`](#-paper-figures--publication-ready-data-visualizations) | 📊 Publication-ready matplotlib figure generation |
 | [`academic-slides`](#-academic-slides--presentation--research-talk-creation) | 🎤 Academic presentation & research talk creation |
 | [`evo-memory`](#-evo-memory--persistent-research-memory--self-evolution) | 🧠 Persistent research memory & self-evolution |
 | [`paper-navigator`](#-paper-navigator--academic-paper-discovery--reading) | 📚 Academic paper discovery, evaluation & reading |
@@ -81,7 +82,7 @@ The diagram above shows the full EvoScientist pipeline. The **Researcher Agent**
 flowchart LR
     A["<b>🔬 Research Phase</b><br/>💡 research-ideation"]
     --> B["<b>⚙️ Experiment Phase</b><br/>📐 paper-planning<br/>🧪 experiment-pipeline<br/>🔧 experiment-craft<br/>🔄 experiment-iterative-coder"]
-    --> C["<b>📝 Writing Phase</b><br/>✍️ paper-writing<br/>🔍 paper-review<br/>💬 paper-rebuttal<br/>🎤 academic-slides"]
+    --> C["<b>📝 Writing Phase</b><br/>✍️ paper-writing<br/>📊 paper-figures<br/>🔍 paper-review<br/>💬 paper-rebuttal<br/>🎤 academic-slides"]
 
     D[("🧠 evo-memory<br/>(IDE · IVE · ESE)")] <--> A
     D <--> B
@@ -194,6 +195,16 @@ Dedicated rebuttal skill for responding to reviewer feedback after peer review:
 - **Tactical Writing** — 18 rules for structure, content, and tone in rebuttal responses
 - **Counterintuitive Principles** — Submit even with extreme scores; concede small points to win the big argument
 - **Common Concerns** — Response strategies for 12 frequently raised reviewer complaints
+
+### 📊 `paper-figures` — Publication-Ready Data Visualizations
+
+Structured workflow for generating standalone scientific figures from tabular data with reproducible matplotlib scripts:
+
+- **Spec-First Figure Protocol** — Extract `figure-spec.md` before coding, including chart type, axes, scales, series, encodings, annotations, forbidden elements, and assumptions
+- **Render + Audit Loop** — Produce `plot.py` and `plot.png`, then write `audit.md` and `final-status.md` with `PASSED`, `PASSED_WITH_WARNINGS`, `REPAIRED`, or `FAILED_NEEDS_HANDOFF`
+- **Matplotlib Recipes** — Reference patterns for line, bar, bubble, tornado, pie/donut, phase diagrams, 3D plots, and multi-layer figures
+- **OWID Handling** — Rules for chart-name-only Our World in Data CSVs, entity selection, log-scale decisions, source notes, and non-overlapping regional decompositions
+- **Structural Validator** — `scripts/validate_figure.py` checks output files, figure specs, PNG validity, savefig settings, and log-scale consistency
 
 ### 🎤 `academic-slides` — Presentation & Research Talk Creation
 
