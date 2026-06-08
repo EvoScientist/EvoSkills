@@ -4,7 +4,7 @@ description: "Find and read academic papers (S2 + arXiv). Disambiguate ambiguous
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '3.2.1'
+  version: '3.3.0'
   tags: [core, research, literature, papers, search, rubric]
 ---
 
@@ -257,6 +257,8 @@ Read the across-round pool from Step 4, apply the table, take the action — no 
 | Secondary | 0.5 – 0.7 | "May also be relevant"; never promoted to Primary. |
 | Drop | < 0.5 | Exclude. |
 
+**Rerank is mandatory for every branch — LIST and ITERATIVE, not only single-recommendation.** The ranked answer IS the reranked accumulated pool: never emit a single search round's top-K verbatim, and never pad the ranked list with Secondary, WEAK, or IRREL papers to reach a count. The accumulated-pool rerank wins. Only Primary papers (`weighted_total ≥ 0.7`) appear in the ranked answer; Secondary papers go under "May also be relevant" (not part of the answer) and Drop/IRREL are excluded entirely. Over-collecting a broad pool and dumping it unranked is the dominant failure mode on survey-style queries — it buries the few on-criterion papers under many off-criterion ones.
+
 **Rank-1 quality bar.** For single-recommendation queries ("is there a paper that …?", "recommend a paper", "what's the canonical X") the bolded top-1 must have `weighted_total ≥ 0.85` AND every high-weight criterion (w ≥ 0.3) must score `≥ 0.75`. Rank 1 carries disproportionate weight in user perception and in downstream evaluation; promoting a 0.71 Primary to top-1 reads as a confident wrong answer. If no candidate clears the bar, lead with "No fully-matching paper found" and present the strongest near-miss honestly with its per-criterion gaps.
 
 If Primary is empty after the round cap, report "no fully-matching paper found", list strongest Secondary candidates + their per-criterion gaps, stop.
@@ -268,7 +270,9 @@ If Primary is empty after the round cap, report "no fully-matching paper found",
 | "Exactly N papers" | N (pad with Secondary only if Primary < N) |
 | "Is there a paper that …?" / "Recommend a paper" | 1–2 (bold top-1) |
 | "Find papers about …" | 3–5 |
-| "Survey of …" / ITERATIVE | up to 10 + 1–2 surveys |
+| "Survey of …" / ITERATIVE | ≤ 10 Primary (hard cap) + 1–2 surveys |
+
+**K is a hard ceiling, enforced after rerank — applies to surveys and ITERATIVE too.** For broad "survey / categorize the field" queries the dominant failure mode is dumping the whole accumulated pool (often 30–50 papers, most off-criterion) into the ranked output, which destroys top-K precision. Return at most K Primary papers, ranked by `weighted_total`. If more than K papers clear the Primary bar, keep the top K and move the remainder to a separate **"Also relevant (not ranked)"** list — never let the ranked output exceed K, and never backfill it with sub-0.7 papers.
 
 **Output formats:**
 
@@ -300,6 +304,7 @@ POINT: Paper Card (above).
 - [ ] **Sorted** DESC by `weighted_total` → `citationCount` → `year`.
 - [ ] **Rank-1 clears the bar** (`≥ 0.85` total AND every high-weight criterion `≥ 0.75`) for single-recommendation queries — or you've reported "No fully-matching paper found" instead of fronting a weak candidate.
 - [ ] **Every Primary paper has ≥1 evidence quote per high-weight criterion** (quote-or-zero rule, Red Line 5).
+- [ ] **Ranked output is Primary-only and ≤ K** — every paper in the ranked answer has `weighted_total ≥ 0.7`, the count does not exceed the K for this question shape, and surplus relevant papers sit in "Also relevant (not ranked)", not the shortlist. (Applies to surveys / ITERATIVE — prevents pool dumping.)
 
 If any box is unchecked, return to Step 6 — do not output.
 
