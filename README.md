@@ -49,6 +49,7 @@ Simply ask the agent in conversation:
 | [`paper-writing`](#-paper-writing--section-by-section-paper-drafting) | ✍️ End-to-end paper writing assistance |
 | [`paper-review`](#-paper-review--self-review--quality-assurance) | 🔍 Automated paper review & feedback |
 | [`paper-rebuttal`](#-paper-rebuttal--rebuttal-writing-after-peer-review) | 💬 Rebuttal writing after peer review |
+| [`paper-figures`](#-paper-figures--publication-ready-matplotlib-figures-from-data) | 📊 Publication-ready matplotlib figures from tabular data |
 | [`academic-slides`](#-academic-slides--presentation--research-talk-creation) | 🎤 Academic presentation & research talk creation |
 | [`evo-memory`](#-evo-memory--persistent-research-memory--self-evolution) | 🧠 Persistent research memory & self-evolution |
 | [`paper-navigator`](#-paper-navigator--academic-paper-discovery--reading) | 📚 Academic paper discovery, evaluation & reading |
@@ -194,6 +195,17 @@ Dedicated rebuttal skill for responding to reviewer feedback after peer review:
 - **Tactical Writing** — 18 rules for structure, content, and tone in rebuttal responses
 - **Counterintuitive Principles** — Submit even with extreme scores; concede small points to win the big argument
 - **Common Concerns** — Response strategies for 12 frequently raised reviewer complaints
+
+### 📊 `paper-figures` — Publication-Ready Matplotlib Figures from Data
+
+A spec-first workflow that turns CSVs and natural-language descriptions into standalone PNGs and reproducible matplotlib scripts:
+
+- **6-Step Protocol** — Plan Figure → Inspect Data → Write `figure-spec.md` → Pick matplotlib idiom → Render → Audit, with `plot.py` + `plot.png` as the always-paired output
+- **Spec-First Discipline** — Every figure is preceded by a compact `figure-spec.md` contract (axes, scales, series, forbidden elements, assumptions) that the audit checks against
+- **4 Honest Status Labels** — `PASSED` / `PASSED_WITH_WARNINGS` / `REPAIRED` / `FAILED_NEEDS_HANDOFF`. The script executing is not proof the figure matches the request
+- **Structural Audit, Not Visual** — Verifies title, axis labels, series ordering, colors, annotations, and axis bounds against the description (LLM visual inspection of PNGs is unreliable)
+- **Broad Chart Coverage** — Scatter, line, bar, pie, ring, bubble, tornado, KDE, violin, box, heatmap, histogram, area, and composite multi-panel figures
+- **Counterintuitive Rules** — Don't drop data silently; don't invent uninvited elements; CSV is authoritative when it disagrees with the description; tight framing that crops a named feature is equivalent to silent data dropping
 
 ### 🎤 `academic-slides` — Presentation & Research Talk Creation
 
