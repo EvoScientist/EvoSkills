@@ -54,6 +54,7 @@ Simply ask the agent in conversation:
 | [`evo-memory`](#-evo-memory--persistent-research-memory--self-evolution) | 🧠 Persistent research memory & self-evolution |
 | [`paper-navigator`](#-paper-navigator--academic-paper-discovery--reading) | 📚 Academic paper discovery, evaluation & reading |
 | [`research-survey`](#-research-survey--literature-survey--synthesis) | 📝 Structured literature survey synthesis |
+| [`paper-graph`](#-paper-graph--lineage-map-of-a-research-field-via-mermaid-diagrams) | 🌳 Lineage map of a research field as Mermaid diagrams |
 | [`nano-banana`](#-nano-banana--ai-generated-slides--illustrations) | 🍌 AI-generated presentation slides & illustrations via Gemini |
 | [`evomath-tao`](#-evomath-tao--tao-style-olympiad-proof-workflow) | 🧮 Tao-style olympiad-grade proof workflow with calibrated abstention |
 
@@ -238,6 +239,16 @@ Focused paper workflow in four stages — from query to evaluated reading list:
 - **Evaluate** — Quick assessment via TLDR, citations, code availability (HuggingFace + GitHub), and top models by task
 - **Read** — Full-text retrieval via Jina Reader with 3-level reading strategy (Technical, Analytical, Contextual)
 Includes Python scripts powered by Semantic Scholar, HuggingFace, GitHub, arXiv, and Jina Reader APIs.
+
+### 🌳 `paper-graph` — Lineage Map of a Research Field via Mermaid Diagrams
+
+A skill that turns a research topic or seed paper into a Markdown report tracing how a field evolved — challenges, solutions, and per-solution citation lineage, all rendered as embedded Mermaid diagrams:
+
+- **Two Graph Layers** — High-level taxonomy (root → challenges → solutions → papers) plus one per-solution evolution path tracing paper-to-paper "evolution from" edges and open challenges
+- **Agent-Driven LLM Calls** — The skill ships deterministic data fetchers (Semantic Scholar / DeepXiv), prompt templates, and Mermaid renderers; the host agent runs every LLM stage, so no outbound model dependency or API key
+- **Edge Audit Pass** — Every claimed "evolution from" edge between two papers is verified by a separate LLM audit step before it lands in the final graph
+- **Renders Anywhere** — Mermaid in fenced Markdown blocks views directly in GitHub, Obsidian, VS Code, and other Markdown viewers — no external rendering pipeline
+- **Use Cases** — "History of <topic>", "What did <paper> build on?", "Lineage of ideas in <field>", "Citation tree of <paper>"
 
 ### 🍌 `nano-banana` — AI-Generated Slides & Illustrations
 

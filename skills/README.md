@@ -31,6 +31,7 @@ EvoScientist discovers skills by scanning `skills/*/SKILL.md`. Each skill is loa
 | [`evo-memory`](evo-memory/) | Persistent research memory & self-evolution |
 | [`paper-navigator`](paper-navigator/) | Academic paper discovery, evaluation & reading |
 | [`research-survey`](research-survey/) | Structured literature survey synthesis |
+| [`paper-graph`](paper-graph/) | Lineage map of a research field as Mermaid diagrams (challenges → solutions → per-solution evolution) |
 | [`nano-banana`](nano-banana/) | AI-generated presentation slides & illustrations via Gemini image generation |
 
 ## Contributing a Skill
