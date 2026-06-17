@@ -1,0 +1,23 @@
+{
+  "skill_name": "idea-spark",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "I want to push further on self-supervised speech recognition. I recently read wav2vec 2.0 (https://arxiv.org/abs/2006.11477). Start an Idea Spark from this — name the research direction 'Self-supervised speech recognition'.",
+      "expected_output": "A new idea-spark tree at $MEMORIES_DIR/idea_spark_tree/self-supervised-speech-recognition/ with graph.json (schema_version=1, one root node carrying thread_id, the user-given name, description, next_action, references including the wav2vec 2.0 link) and a matching graph.md Mermaid view.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "In our paper-graph two solutions both stem from the same diffusion-LM paper: 'Discrete codec tokens for joint ASR-diarization' and 'Continuous latent diffusion for joint ASR-diarization'. Could these be treated as a single direction? Start an Idea Spark titled 'Joint ASR-diarization unification' that frames them as one problem.",
+      "expected_output": "A new idea-spark tree at $MEMORIES_DIR/idea_spark_tree/joint-asr-diarization-unification/ with a root node whose description names the two paper-graph nodes as the seed framing and articulates the load-bearing tension between discrete-token and continuous-latent approaches.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Start an Idea Spark on 'End-to-end joined speech recognition and diarization'. Then expand the root node into 4 candidate child research directions.",
+      "expected_output": "An idea-spark tree at $MEMORIES_DIR/idea_spark_tree/end-to-end-joined-speech-recognition-and-diarization/ with one root node plus exactly 4 child nodes parented to the root. Each child has a non-empty title and, ideally, description / next_action. graph.md renders all 5 nodes with edges from root to each child.",
+      "files": []
+    }
+  ]
+}
