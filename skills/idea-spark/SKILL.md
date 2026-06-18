@@ -4,7 +4,7 @@ description: "Use this skill to grow a persistent, branching tree of research id
 allowed-tools: "write_file edit_file read_file execute"
 metadata:
   author: EvoScientist
-  version: '0.1.3'
+  version: '0.1.6'
   tags: [research, ideation, graph, mermaid, webui]
 ---
 
@@ -62,7 +62,7 @@ Both are written atomically (`.tmp` + `rename`). `graph.md` is a pure projection
 
 **LLM:** the host agent uses its own model and API key. The skill emits prompt templates (`references/init.md`, `references/expand.md`) and validates the JSON the host hands back; it does not authenticate or call any LLM provider itself.
 
-**Working directory:** none. `graph.json` is the source of truth; the only intermediates are the short text files passed to the LLM (seed block, parent context) which can live in a tmp dir of the agent's choice.
+**Working directory:** none required for state — `graph.json` is the source of truth. Intermediates (seed blocks, parent contexts, LLM-emitted JSON) MUST be written to a **workspace-relative** path: scope them under `./.idea-spark/<sid>/` so the EvoScientist sandbox accepts them (its `_SYSTEM_PATH_PREFIXES` blocks `/tmp/`, `/home/`, `/etc/`, …) and a per-graph subdir keeps re-runs from clobbering each other. Hidden dir keeps the workspace root tidy.
 
 ## Runbook — `init` (new tree)
 
@@ -93,7 +93,7 @@ uv run python EvoScientist/skills/idea-spark/scripts/cli.py format_init_context 
     --paper "<paper1>" --paper "<paper2>" \
     --paper-graph-node "<existing node title>" \
     --note "<freeform extra context>" \
-    --out /tmp/<sid>_seed_block.txt
+    --out ./.idea-spark/<sid>/seed_block.txt
 ```
 
 At least one of `--topic / --paper / --paper-graph-node / --note` is required. `--paper` and `--paper-graph-node` are repeatable. Sections are emitted only for inputs the host supplies.
@@ -106,7 +106,7 @@ Read `EvoScientist/skills/idea-spark/references/init.md`. Substitute:
 
 Call the LLM (low temperature, ~0.2). Strip any code fences the model may have wrapped around the JSON. Parse as a single object with `title` (required, non-empty) and optional `description / next_action / references[]`.
 
-Save the parsed JSON to `/tmp/<sid>_root.json`.
+Save the parsed JSON to `./.idea-spark/<sid>/root.json`.
 
 ### Step 5 — `init` (CLI, deterministic)
 
@@ -114,7 +114,7 @@ Save the parsed JSON to `/tmp/<sid>_root.json`.
 uv run python EvoScientist/skills/idea-spark/scripts/cli.py init \
     --graph-id "<verbatim name>" \
     --name "<verbatim name>" \
-    --root-json /tmp/<sid>_root.json
+    --root-json ./.idea-spark/<sid>/root.json
 ```
 
 The CLI auto-discovers the thread id from sessions.db; do not pass `--thread-id` in normal runs. Writes `graph.json` + `graph.md` atomically. Exits with code 3 if the graph dir already exists (Phase 1 forbids overwriting — pick a different name or have the user remove the dir manually). Prints `{graph_id, root_node_id, path}` on success.
@@ -131,7 +131,7 @@ The user names the node to expand — either by `id` (if they have it from the W
 uv run python EvoScientist/skills/idea-spark/scripts/cli.py format_expand_context \
     --graph-id <sid> \
     --parent-node-id <parent_id> \
-    --out /tmp/<sid>_<parent_id>_context.txt
+    --out ./.idea-spark/<sid>/<parent_id>_context.txt
 ```
 
 Builds `{parent_context}` for the expand prompt: research-direction name + the ancestor chain from root to parent (with descriptions where available) + any existing direct children of the parent (so the LLM doesn't duplicate them) + the parent's references.
@@ -142,7 +142,7 @@ Read `EvoScientist/skills/idea-spark/references/expand.md`. Substitute:
 - `{n_children}` — the user-requested branching factor, or `IDEA_SPARK_CHILDREN`, or **4**.
 - `{parent_context}` — contents of the file from Step 2.
 
-Call the LLM (temperature ~0.4 — slightly warmer than `init` to encourage divergent branches). Strip code fences. Parse as `{"children": [...]}` and validate each child has a non-empty `title`. Save to `/tmp/<sid>_<parent_id>_children.json`.
+Call the LLM (temperature ~0.4 — slightly warmer than `init` to encourage divergent branches). Strip code fences. Parse as `{"children": [...]}` and validate each child has a non-empty `title`. Save to `./.idea-spark/<sid>/<parent_id>_children.json`.
 
 ### Step 4 — `merge_children` (CLI, deterministic)
 
@@ -150,7 +150,7 @@ Call the LLM (temperature ~0.4 — slightly warmer than `init` to encourage dive
 uv run python EvoScientist/skills/idea-spark/scripts/cli.py merge_children \
     --graph-id <sid> \
     --parent-node-id <parent_id> \
-    --children-json /tmp/<sid>_<parent_id>_children.json
+    --children-json ./.idea-spark/<sid>/<parent_id>_children.json
 ```
 
 The CLI auto-discovers the thread id from sessions.db. Reads `graph.json`, validates each child (drops unknown keys, fails loud on missing `title`), assigns a fresh node id per child, appends, and atomically rewrites both `graph.json` and `graph.md`. Prints `{graph_id, parent_node_id, added: [ids...]}`. New children carry the discovered thread id; existing nodes keep theirs — a graph extended across conversations will hold a mix of thread ids per node, which is exactly the provenance the WebUI uses to route click-throughs.
@@ -169,6 +169,8 @@ If any of those fail, the most likely cause is malformed LLM output upstream. Re
 
 - **SCHEMA.md is the contract with the WebUI.** Any change to `graph.json` field semantics has to land there first. Optional node fields (`description`, `next_action`, `references`, `created_at`) are writer-only in Phase 1 — the WebUI ignores them — but they're persisted so Phase 2/3 can surface them without a re-run.
 - **Single source of truth for Mermaid escaping.** `mermaid_safe()` in `scripts/cli.py` duplicates the minimal punctuation table from `paper-graph/scripts/mermaid.py:_MERMAID_ESCAPE_TABLE`. If paper-graph adds an entry, mirror it here.
+- **Reference normalization is done at the CLI boundary, not in the prompt.** `_normalize_reference()` in `scripts/cli.py` converts bare arxiv ids (`2406.08207`), the `arXiv:` / `arxiv:` prefix, and bare or `doi:`-prefixed DOIs into canonical `https://arxiv.org/abs/...` and `https://doi.org/...` URLs before persisting. URLs pass through; titles and unrecognized forms pass through too (the WebUI renders them as plain text — preferable to silently dropping data the writer believed was useful). This keeps the WebUI's defensive resolver as a fallback rather than load-bearing.
+- **Phase 2 contract (since v0.1.6):** every new node carries `rejected: false`. The WebUI flips `rejected` to `true` between skill runs; the skill itself never writes `true`. On subsequent runs the **agent** (not the CLI) is responsible for reading `graph.json`, treating any node with `rejected: true` plus all its descendants as inactive, and only feeding non-rejected `--parent-node-id` values to `format_expand_context`. While `init` or `merge_children` is mid-write, the skill holds an exclusive `<graph_dir>/graph.lock` per SCHEMA.md — no staleness heuristic, the user removes it manually if it's genuinely stuck.
 - **Node ids are opaque.** `node-<16 hex>` from `secrets.token_hex(8)`. Provenance lives in `thread_id`. The WebUI only needs them to round-trip click events back to the JSON; no semantic encoding.
 - **Append-only.** No re-parent, no rename, no delete — even with a flag. SCHEMA.md says cleanup is a user op; the skill honors that.
 - **No concurrency lock.** Two simultaneous runs on the same `<graph_id>` race per SCHEMA.md open question #1. Acceptable for Phase 1.

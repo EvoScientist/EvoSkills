@@ -77,9 +77,9 @@ Authored by the `idea-spark` skill. The skill MAY read the existing file and upd
 | `nodes[].thread_id` | string | The LangGraph thread that produced this node. Used by the WebUI to click-through to the originating chat. |
 | `nodes[].title` | string | One-line node label. The skill MUST escape Mermaid-sensitive characters before emitting — match the convention already in `EvoScientist/skills/paper-graph/scripts/mermaid.py`. |
 
-### Optional node fields (Phase 1, writer-only)
+### Optional node fields
 
-The skill MAY attach the following optional fields to any node. The WebUI **ignores** them in Phase 1 — they are persisted for Phase 2/3 to surface (accept/reject reasoning, click-into-detail panels, paper extraction) without re-running ideation.
+The skill MAY attach the following optional fields to any node. The WebUI **ignores** the descriptive fields in Phase 1 (they are persisted for Phase 2/3 to surface) and reads `rejected` in Phase 2.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -87,13 +87,26 @@ The skill MAY attach the following optional fields to any node. The WebUI **igno
 | `nodes[].next_action` | string | One-sentence concrete next step a researcher would take. |
 | `nodes[].references` | array of string | URLs / arxiv ids anchoring the node. Order is informational. |
 | `nodes[].created_at` | RFC 3339 string | UTC. Set once at node creation; never updated. |
+| `nodes[].rejected` | boolean | **Phase 2.** `true` = the user marked this direction as not worth pursuing in the WebUI. Absent or `false` = accepted (default). |
 
 Rules:
 
-- All four are **optional**. Absence is meaningful (= not provided), not a schema violation.
-- Writers (the `idea-spark` skill) SHOULD attach `created_at` to every new node and SHOULD attach `description` / `next_action` for nodes produced by LLM ideation. `references` is attached only when the writer has them.
-- Readers (the WebUI in Phase 1) MUST tolerate both presence and absence of these fields. Unknown fields beyond this list MUST be ignored without erroring.
-- Once a node's `id` is fixed, its optional fields MAY be updated by later skill runs — but in Phase 1 the skill is append-only, so this only matters for future phases.
+- All fields are **optional** at the schema level. Absence is meaningful (= field not provided), not a schema violation.
+- Writers (the `idea-spark` skill since v0.1.6) MUST attach `created_at` and `rejected: false` to every new node and SHOULD attach `description` / `next_action` for nodes produced by LLM ideation. `references` is attached only when the writer has them.
+- Pre-v0.1.6 graphs may have nodes without `rejected`; readers MUST treat absence as `false`.
+- Readers MUST tolerate both presence and absence of any optional field. Unknown fields beyond this list MUST be ignored without erroring.
+- Once a node's `id` is fixed, its optional fields MAY be updated by later skill runs or WebUI mutations. In Phase 2 the WebUI flips `rejected` between `true` and `false`; the skill itself only writes `rejected: false` on node creation and never modifies an existing node's `rejected` value.
+- **Rejection semantics** (consumed by the agent navigating the graph, not by the CLI in Phase 2): a node with `rejected: true` and every descendant of it MUST be treated as inactive — the agent skips them when picking a parent to expand and the WebUI renders them under a "Rejected" collapsed section. The cascade is the user's intent expressed via the WebUI; the skill does not write `rejected: true` on descendants itself.
+
+### `graph.lock` file
+
+While the skill is mid-write on a graph, it holds an exclusive `<graph_dir>/graph.lock` file. The WebUI uses its presence to disable Reject/Restore controls; on disappearance, the WebUI refetches `graph.json` so newly-appended nodes appear.
+
+- **Path**: `<graph_dir>/graph.lock`, sibling of `graph.json`. The filename is deliberately non-hidden — the WebUI's memory backend does not list dot-prefixed entries, so a `.lock` form would be invisible to the polling logic.
+- **Content**: one line, `<pid> <iso-utc>` — informational, for diagnostics when something is stuck.
+- **Acquired** atomically (`O_CREAT | O_EXCL`) at the start of `init` and `merge_children` writes. **Released** in `finally` after the write (success or failure).
+- **Concurrency**: a second skill run encountering an existing `graph.lock` exits non-zero with a message naming the holder. No retry, no staleness heuristic — legitimate runs can take arbitrary time and false-positive takeover would corrupt an in-progress write. If a `graph.lock` is genuinely stuck after a crash, the user removes it manually.
+- Read-only commands (`sanitize_id`, `format_init_context`, `format_expand_context`) do not acquire the lock.
 
 ## `graph.md` — derived Mermaid view
 

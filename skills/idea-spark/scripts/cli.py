@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import os
 import re
@@ -47,6 +48,33 @@ _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     re.IGNORECASE,
 )
+# References get normalized to canonical URLs so the WebUI's defensive
+# resolver isn't load-bearing. Matches the three shapes the WebUI knows:
+#   bare arxiv id ("2406.08207" or "2406.08207v2") or "arXiv:" prefix
+#   bare doi ("10.NNNN/...") or "doi:" prefix
+#   anything already a URL passes through unchanged
+_ARXIV_ID_RE = re.compile(r"^(?:arXiv:)?(\d{4}\.\d{4,5})(v\d+)?$", re.IGNORECASE)
+_DOI_RE = re.compile(r"^(?:doi:)?(10\.\d+/\S+)$", re.IGNORECASE)
+_URL_RE = re.compile(r"^https?://", re.IGNORECASE)
+
+
+def _normalize_reference(s: str) -> str:
+    """Canonicalize a reference string to a URL when possible.
+
+    Unrecognized forms (titles, free text, malformed ids) pass through
+    unchanged — the WebUI renders them as plain text, which is preferable
+    to dropping data the writer believed was useful.
+    """
+    s = s.strip()
+    if not s or _URL_RE.match(s):
+        return s
+    m = _ARXIV_ID_RE.match(s)
+    if m:
+        return f"https://arxiv.org/abs/{m.group(1)}{m.group(2) or ''}"
+    m = _DOI_RE.match(s)
+    if m:
+        return f"https://doi.org/{m.group(1)}"
+    return s
 
 
 def _uuid_thread_id(value: str) -> str:
@@ -191,6 +219,44 @@ def load_graph(graph_id: str) -> dict | None:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def _virtual_memories_path(p: Path) -> str:
+    """Rewrite a host path under MEMORIES_DIR to its virtual-mount form.
+
+    The EvoScientist sandbox's FilesystemBackend (ls, read_file) only
+    dereferences `/memories/...`; the host-absolute form is opaque to it.
+    Printing virtual paths lets the agent navigate to what we just wrote
+    without an extra path-translation round.
+
+    Falls back to the literal path string when *p* is outside MEMORIES_DIR —
+    shouldn't happen for this skill, but keeps the helper safe to reuse.
+    """
+    try:
+        base = memories_dir().resolve()
+        rel = p.resolve().relative_to(base)
+    except ValueError:
+        return str(p)
+    rel_str = str(rel)
+    return "/memories" if rel_str == "." else f"/memories/{rel_str}"
+
+
+def _summarize_existing_graph(graph_dir: Path) -> str:
+    """One-line description of the existing graph at graph_dir.
+
+    Used in the `init` "already exists" error to tell the agent what's
+    actually on disk — name, node count, last update — so it can choose
+    between extending via merge_children vs picking a new graph-id.
+    """
+    json_path = graph_dir / "graph.json"
+    try:
+        g = json.loads(json_path.read_text(encoding="utf-8"))
+        name = g.get("name", "(unnamed)")
+        nodes = g.get("nodes", [])
+        updated = g.get("updated_at", "(unknown)")
+        return f"name={name!r}, nodes={len(nodes)}, updated_at={updated}"
+    except (OSError, json.JSONDecodeError):
+        return "(graph.json missing or unreadable — possibly a half-finished prior run)"
+
+
 def render_mermaid(graph: dict) -> str:
     lines = ["graph LR"]
     for n in graph["nodes"]:
@@ -208,8 +274,50 @@ def write_graph(graph: dict) -> None:
     atomic_write_text(d / "graph.md", render_mermaid(graph))
 
 
-def _coerce_node_fields(payload: dict) -> dict:
-    """Extract validated node fields from a host-supplied dict.
+@contextlib.contextmanager
+def _graph_lock(graph_dir: Path):
+    """Hold an exclusive `graph.lock` on the graph dir for a write.
+
+    The WebUI checks for this file: while present, Reject/Restore controls
+    are disabled. Released on both success and failure so the UI restores
+    interactivity in either case. No staleness heuristic — legitimate skill
+    runs can take arbitrary time, and false-positive takeover would corrupt
+    an in-progress write. If a `graph.lock` is genuinely stuck after a
+    crash, the user removes it manually.
+
+    Filename is `graph.lock`, not `.lock`: the WebUI doesn't list hidden
+    (dot-prefixed) entries through its memory backend, so the dotfile form
+    would be invisible to the polling logic that disables the controls.
+    """
+    graph_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = graph_dir / "graph.lock"
+    try:
+        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        existing = ""
+        with contextlib.suppress(OSError):
+            existing = lock_path.read_text(encoding="utf-8").strip()
+        raise SystemExit(
+            f"ERROR: graph at {_virtual_memories_path(graph_dir)} is locked "
+            f"by another skill run (holder={existing!r}). Wait for it to "
+            "finish, or remove the graph.lock file manually if you know the "
+            "holder is dead."
+        ) from None
+    try:
+        os.write(fd, f"{os.getpid()} {utcnow_iso()}\n".encode())
+        os.close(fd)
+        yield
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            lock_path.unlink()
+
+
+def _node_content_fields(payload: dict) -> dict:
+    """Extract the schema-recognized content fields of a node from a host dict.
+
+    "Content fields" = the per-node payload the host (LLM) supplies and the
+    skill validates. Distinct from the structural fields (`id`, `parent_id`,
+    `thread_id`, `created_at`, `rejected`) which the skill mints itself.
 
     Required: title. Optional: description, next_action, references[].
     Unknown keys are dropped — the host can stash whatever it likes in the
@@ -225,7 +333,10 @@ def _coerce_node_fields(payload: dict) -> dict:
             out[k] = v.strip()
     refs = payload.get("references")
     if isinstance(refs, list):
-        cleaned = [r for r in refs if isinstance(r, str) and r.strip()]
+        cleaned = [
+            _normalize_reference(r) for r in refs if isinstance(r, str) and r.strip()
+        ]
+        cleaned = [r for r in cleaned if r]  # defensive: normalize may produce empty
         if cleaned:
             out["references"] = cleaned
     return out
@@ -281,22 +392,29 @@ def cmd_init(args: argparse.Namespace) -> int:
         )
         return 2
     if graph_dir_for(sid).exists():
+        existing_dir = graph_dir_for(sid)
+        existing = _summarize_existing_graph(existing_dir)
         print(
-            f"ERROR: graph '{sid}' already exists at {graph_dir_for(sid)}. "
-            "Phase 1 forbids overwriting; pick a different graph-id or have "
-            "the user remove the directory.",
+            f"ERROR: graph '{sid}' already exists at "
+            f"{_virtual_memories_path(existing_dir)}\n"
+            f"  Existing: {existing}\n"
+            "  If this is your prior attempt for this direction, extend it "
+            "via the merge_children subcommand instead of re-running init. "
+            "Otherwise pick a different graph-id or have the user remove "
+            "the directory.",
             file=sys.stderr,
         )
         return 3
     thread_id = resolve_thread_id(args.thread_id)
     root_payload = json.loads(Path(args.root_json).read_text(encoding="utf-8"))
-    root_fields = _coerce_node_fields(root_payload)
+    root_fields = _node_content_fields(root_payload)
     now = utcnow_iso()
     root = {
         "id": new_node_id(),
         "parent_id": None,
         "thread_id": thread_id,
         "created_at": now,
+        "rejected": False,
         **root_fields,
     }
     graph = {
@@ -307,13 +425,14 @@ def cmd_init(args: argparse.Namespace) -> int:
         "updated_at": now,
         "nodes": [root],
     }
-    write_graph(graph)
+    with _graph_lock(graph_dir_for(sid)):
+        write_graph(graph)
     print(
         json.dumps(
             {
                 "graph_id": sid,
                 "root_node_id": root["id"],
-                "path": str(graph_dir_for(sid)),
+                "path": _virtual_memories_path(graph_dir_for(sid)),
             }
         )
     )
@@ -390,18 +509,20 @@ def cmd_merge_children(args: argparse.Namespace) -> int:
     now = utcnow_iso()
     added: list[dict] = []
     for c in children_raw:
-        fields = _coerce_node_fields(c)
+        fields = _node_content_fields(c)
         node = {
             "id": new_node_id(),
             "parent_id": args.parent_node_id,
             "thread_id": thread_id,
             "created_at": now,
+            "rejected": False,
             **fields,
         }
         added.append(node)
     graph["nodes"].extend(added)
     graph["updated_at"] = now
-    write_graph(graph)
+    with _graph_lock(graph_dir_for(graph["id"])):
+        write_graph(graph)
     print(
         json.dumps(
             {
