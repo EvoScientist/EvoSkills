@@ -4,7 +4,7 @@ description: "Use this skill to map the **genealogical lineage and historical pr
 allowed-tools: "write_file edit_file read_file execute"
 metadata:
   author: EvoScientist
-  version: '0.1.0'
+  version: '0.1.1'
   tags: [research, literature-review, graph, mermaid]
 ---
 
@@ -60,7 +60,9 @@ Mermaid is just text inside ```` ```mermaid ```` fences — the file renders dir
 
 **LLM:** the host agent uses its own model and API key. The skill emits prompt templates and parses responses; it does not authenticate or call any LLM provider.
 
-**Working directory:** create one dir per run to hold staged JSON / Markdown intermediates. Suggested layout (assuming final report goes to `<output>`):
+**Working directory:** create one dir per run, anchored **relative to your current working directory** (e.g. `./<basename>.work/`). Avoid absolute system paths like `/tmp/...` — some harnesses sandbox the shell and the file-read tools to different filesystem roots, so an absolute path can appear writable to one and missing to the other. A cwd-relative path works the same everywhere. Run `pwd` once at the start if unsure.
+
+Suggested layout (assuming final report goes to `<output>`):
 
 ```
 <output>.work/
@@ -68,24 +70,26 @@ Mermaid is just text inside ```` ```mermaid ```` fences — the file renders dir
 ├── seed.json                resolve_seed_papers
 ├── seed_block.txt           format_seed_block
 ├── parsed_query.json        LLM: parse_query output
+├── goal_block.txt           build_goal_block (reused in steps 8, 10, 11)
 ├── papers.json              fetch_papers → prefetch_sections → classify-merged
 ├── papers_input.txt         format_papers (full set)
 ├── classify_raw.json        LLM: classify output (consumed by merge_classifications)
-├── papers_input_core.txt    format_papers (CORE-only)
+├── core_filter.json         compute_core_filter (+ core_filter.json.allowed.txt)
+├── papers_input_core.txt    format_papers (CORE-only; + papers_input_core.txt.allowed.txt)
 ├── outline_raw.md           LLM: outline output
 ├── outline.json             parse_outline summary
 ├── outline_mermaid.json     render_outline_mermaid
 ├── solutions/<key>.json     per-solution context (one file per solution)
 ├── parsed/<key>.json        parse_detail output (used by step 11 audit)
 ├── details/
-│   ├── <key>_input.txt      format_papers (per-solution allowed set)
+│   ├── <key>_input.txt      format_papers (per-solution allowed set; + .allowed.txt sibling)
 │   ├── <key>_raw.md         LLM: detail output
 │   └── <key>.json           render_detail_mermaid (consumed by assemble)
 ├── verdicts/<key>.json      [{source_n, target_n, verdict}] from audit
 └── <run>.log.jsonl files    one next to each subcommand output, default-on
 ```
 
-Filenames are agent-chosen — these are recommendations to match what the runbook below references. `<key>` is the solution key string `<s_major>.<s_minor>` (e.g. `1.1`).
+Filenames are agent-chosen — these are recommendations to match what the runbook below references. `<key>` is the solution key string `<s_major>.<s_minor>` (e.g. `1.1`). Every `format_papers` call writes a sibling `<out>.allowed.txt` containing the `(N), (N), ...` form ready to drop into a `{allowed_numbers}` placeholder.
 
 ---
 
@@ -197,9 +201,21 @@ After this step, any subsequent `format_papers` call automatically embeds each p
 
 ### Step 8 — `outline` (LLM)
 
-Compute the CORE filter from the merged `papers.json`: a flat JSON array of 1-based paper indices whose `_classification.label == "CORE"`. For example, if papers 1, 3, and 5 are CORE, write `[1, 3, 5]` to `<workdir>/core_filter.json`. If no papers are CORE (classifier rejected everything), use every paper instead (e.g. `[1, 2, …, N]`).
+Materialize the two prompt fragments that recur from here on — `goal_block` (the `{goal}` substitution) and `core_filter` (the CORE-only filter + its `{allowed_numbers}` sidecar) — as files on disk. Steps 10 and 11 read these files back, so the agent never has to carry them as conversation state.
 
-Build the CORE-only `{papers_input}`:
+```bash
+uv run python EvoScientist/skills/paper-graph/scripts/cli.py build_goal_block \
+    --parsed-query <workdir>/parsed_query.json \
+    --out <workdir>/goal_block.txt
+
+uv run python EvoScientist/skills/paper-graph/scripts/cli.py compute_core_filter \
+    --papers <workdir>/papers.json \
+    --out <workdir>/core_filter.json
+```
+
+`compute_core_filter` writes the index JSON to `--out` and the matching `(N), (N), ...` `{allowed_numbers}` form to a sibling `<out>.allowed.txt`. On a no-CORE classifier outcome it falls back to every paper and prints `(FALLBACK: …)` — the run continues.
+
+Build the CORE-only `{papers_input}` (also emits a sibling `.allowed.txt`, redundant here but consistent with Step 10):
 
 ```bash
 uv run python EvoScientist/skills/paper-graph/scripts/cli.py format_papers \
@@ -208,25 +224,10 @@ uv run python EvoScientist/skills/paper-graph/scripts/cli.py format_papers \
     --out <workdir>/papers_input_core.txt
 ```
 
-**Build the `goal_block` once and reuse it.** The runbook distinguishes two different objects that both relate to the user's research goal:
-
-- **`goal_sentence`** — the single-sentence string at `parsed_query.json["goal"]`. Used nowhere directly in prompts; it's just the seed for `goal_block`.
-- **`goal_block`** — the multi-line string substituted into the `{goal}` placeholder in `references/outline.md` and `references/detail.md`. Build it once now and reuse the exact same string in Step 10. Shape:
-
-  ```
-  <goal_sentence>
-
-  **Key Term Definitions:**
-  - <term 1>: <one-sentence definition>
-  - <term 2>: <one-sentence definition>
-  ```
-
-  If `parsed_query.json["definitions"]` is empty, `goal_block` is just `goal_sentence` with no trailing definitions block.
-
 Read `references/outline.md`. Substitute:
-- `{goal}` — the `goal_block` you just built.
-- `{papers_input}` — contents of `papers_input_core.txt`.
-- `{allowed_numbers}` — the same set as `core_filter.json` but reformatted as a prompt string: wrap each integer in parens and join with `, `. For example, `[1, 3, 5]` becomes `(1), (3), (5)`.
+- `{goal}` — contents of `<workdir>/goal_block.txt`.
+- `{papers_input}` — contents of `<workdir>/papers_input_core.txt`.
+- `{allowed_numbers}` — contents of `<workdir>/core_filter.json.allowed.txt`.
 
 Call the LLM (low temperature, ~0.2; allow ~8000 max tokens). Strip any leading/trailing code fences from the response — the prompt instructs the model to emit raw Markdown but a fence sometimes slips through. Save the cleaned Markdown to `<workdir>/outline_raw.md`.
 
@@ -262,9 +263,11 @@ Exits with code 4 and a stderr diagnostic if the outline contained no parseable 
 
 > **CRITICAL — read "Fan-out task brief" below BEFORE delegating this step to subagents.** A subagent prompt that points at SKILL.md or asks to "run paper-graph for solution X" will restart the whole workflow from Step 1 in a separate workdir, and its output will be unusable by the parent run.
 
+Read `references/detail.md` **once** at the start of this step; substitute per-solution in the orchestrator. The subagents you fan out to never read templates themselves.
+
 For each `<workdir>/solutions/<key>.json` produced in step 9:
 
-(a) Build the per-solution `{papers_input}`. `format_papers --filter` accepts a solution context file directly (it reads the `allowed` array out of it):
+(a) Build the per-solution `{papers_input}`. `format_papers --filter` accepts a solution context file directly (it reads the `allowed` array out of it); the matching `{allowed_numbers}` string lands in the `.allowed.txt` sibling.
 
 ```bash
 uv run python EvoScientist/skills/paper-graph/scripts/cli.py format_papers \
@@ -273,12 +276,12 @@ uv run python EvoScientist/skills/paper-graph/scripts/cli.py format_papers \
     --out <workdir>/details/<key>_input.txt
 ```
 
-(b) Read `references/detail.md`. Substitute:
-- `{goal}` — the same `goal_block` you built in Step 8 (verbatim — do not re-derive or shorten to just `goal_sentence`).
+(b) Substitute into `references/detail.md`:
+- `{goal}` — contents of `<workdir>/goal_block.txt` (the file built in Step 8).
 - `{challenge_name}` — from the solution context (`challenge_name`).
 - `{solution_name}` — from the solution context (`solution_name`).
 - `{papers_input}` — from `<workdir>/details/<key>_input.txt`.
-- `{allowed_numbers}` — `(N)`-style list built from the context's `allowed` array, same conversion as Step 8 (`[1, 3]` → `(1), (3)`).
+- `{allowed_numbers}` — from `<workdir>/details/<key>_input.txt.allowed.txt`.
 
 Call the LLM (temperature ~0.2; allow ~12000 max tokens to fit scratchpad + tree). Save the raw response to `<workdir>/details/<key>_raw.md`.
 
@@ -300,17 +303,19 @@ If the host supports concurrent tool calls, fan all per-solution LLM calls + the
 - The expected response shape: raw Markdown evolution tree per `references/detail.md`'s output spec.
 - An explicit instruction: *"Call your LLM with the prompt below and return only the raw Markdown response. Do not read any other file, do not run any shell command, do not invoke any other skill."*
 
-The subagent returns the Markdown text; the orchestrator writes it to `<workdir>/details/<key>_raw.md` and runs `parse_detail` / `render_detail_mermaid` itself. **A subagent that re-reads SKILL.md will restart the whole workflow from step 1** — that's a host-side bug to prevent, and the fix is to keep the subagent prompt bounded as above.
+Do **not** point the subagent at SKILL.md, do **not** instruct it to "run paper-graph for solution X", and do **not** give it any CLI invocation to run. The subagent returns the Markdown text; the orchestrator writes it to `<workdir>/details/<key>_raw.md` and runs `parse_detail` itself. **A subagent that re-reads SKILL.md will restart the whole workflow from step 1** — the fix is to keep the subagent prompt bounded as above.
 
 ### Step 11 — `audit_edge` (LLM, per edge)
 
 > **CRITICAL — read "Fan-out task brief" below BEFORE delegating this step to subagents.** Same orchestration failure mode as Step 10: a subagent pointed at SKILL.md restarts the whole workflow.
 
+Read `references/audit_edge.md` **once** at the start of this step; substitute per-edge in the orchestrator. The subagents you fan out to never read templates themselves.
+
 For each `<workdir>/parsed/<key>.json`'s `edges` list, audit each edge against the source / target abstracts and conclusion excerpts.
 
 For every `{source_n, target_n, gap}` edge in the solution:
 - Look up source paper = `papers[source_n - 1]` and target = `papers[target_n - 1]` from `<workdir>/papers.json`.
-- Read `references/audit_edge.md`. Substitute the placeholders: `{m_n}`, `{m_title}`, `{m_abstract}` (truncated to 1500 chars), `{m_excerpt}` (the `_conclusion_section` or `(no excerpt)`, truncated to 1500 chars), `{n_n}`, `{n_title}`, `{n_abstract}`, `{n_excerpt}`, `{gap_text}`.
+- Substitute the placeholders in `references/audit_edge.md`: `{m_n}`, `{m_title}`, `{m_abstract}` (truncated to 1500 chars), `{m_excerpt}` (the `_conclusion_section` or `(no excerpt)`, truncated to 1500 chars), `{n_n}`, `{n_title}`, `{n_abstract}`, `{n_excerpt}`, `{gap_text}`.
 - Call the LLM (low temperature ~0.1, reasoning off, ~600 max tokens). Parse the response:
 
 ```json

@@ -177,7 +177,13 @@ def outline_to_mermaid(
     allowed: set[int] | None = None,
     theme: str | None = None,
 ) -> str:
-    """Convert the outline Markdown to a Mermaid ``graph LR`` definition."""
+    """Convert the outline Markdown to a Mermaid ``graph LR`` definition.
+
+    LLM-emitted labels (root title, challenge names, solution names) are
+    run through ``_mermaid_safe`` so Mermaid-significant punctuation
+    (``()``, ``[]``, ``{}``, ``|``, ``"``, ``:``, ``;``, ``#``) cannot
+    close a node shape early.
+    """
     th = _resolve_theme(theme)
     root_title, challenges, challenge_solutions = parse_outline_markdown(
         markdown_text,
@@ -186,10 +192,10 @@ def outline_to_mermaid(
 
     parts: list[str] = [th.init_block, "graph LR"]
     if root_title:
-        parts.append(f'    ROOT[("{root_title}")]')
+        parts.append(f'    ROOT[("{_mermaid_safe(root_title)}")]')
 
     for c_num, c_name in sorted(challenges.items()):
-        parts.append(f"    C{c_num}{{{{<b>{c_name}</b>}}}}")
+        parts.append(f"    C{c_num}{{{{<b>{_mermaid_safe(c_name)}</b>}}}}")
         if root_title:
             parts.append(f"    ROOT --> C{c_num}")
 
@@ -199,7 +205,9 @@ def outline_to_mermaid(
         for s_major, s_minor, sol_name, paper_nums in challenge_solutions.get(
             c_num, []
         ):
-            parts.append(f"    C{c_num} --> S{s_major}_{s_minor}[{sol_name}]")
+            parts.append(
+                f"    C{c_num} --> S{s_major}_{s_minor}[{_mermaid_safe(sol_name)}]"
+            )
             for paper_num in paper_nums:
                 idx = paper_idx_per_challenge[c_num]
                 parts.append(

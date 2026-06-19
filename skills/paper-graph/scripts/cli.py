@@ -293,18 +293,128 @@ def _cmd_format_papers(args: argparse.Namespace) -> None:
     block = "\n\n".join(pipeline._format_one_paper(n, papers[n - 1]) for n in indices)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(block, encoding="utf-8")
+
+    # Always emit the `{allowed_numbers}` prompt fragment as a sibling so the
+    # agent can substitute it directly without rebuilding the string.
+    allowed_str = ", ".join(f"({n})" for n in indices)
+    allowed_path = Path(args.out).with_suffix(Path(args.out).suffix + ".allowed.txt")
+    allowed_path.write_text(allowed_str, encoding="utf-8")
+
     logger.event(
         "format_papers",
         total_papers=len(papers),
         selected=len(indices),
         indices=indices,
         out_chars=len(block),
+        allowed_out=str(allowed_path),
     )
     logger.close()
     print(
         f"format_papers: {len(indices)}/{len(papers)} papers, "
-        f"{len(block)} chars -> {args.out}"
+        f"{len(block)} chars -> {args.out} (+ {allowed_path.name})"
     )
+
+
+# ---------------------------------------------------------------------------
+# compute_core_filter
+# ---------------------------------------------------------------------------
+
+
+def _cmd_compute_core_filter(args: argparse.Namespace) -> None:
+    """Write the CORE-filter JSON array + matching ``{allowed_numbers}`` text.
+
+    Consumed by Step 8: ``--out`` plugs straight into ``format_papers --filter``,
+    and ``<out>.allowed.txt`` plugs into the ``{allowed_numbers}`` placeholder in
+    ``references/outline.md``. Falls back to every paper when no paper is
+    labeled CORE (e.g. all-REJECT classifier or a classify fallback).
+    """
+    papers = _read_json(Path(args.papers))
+    if not isinstance(papers, list):
+        print(
+            f"ERROR: --papers must point to a JSON array (got {type(papers).__name__}).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    indices = [
+        i + 1
+        for i, p in enumerate(papers)
+        if isinstance(p, dict)
+        and isinstance(p.get("_classification"), dict)
+        and p["_classification"].get("label") == "CORE"
+    ]
+    fallback = False
+    if not indices:
+        indices = list(range(1, len(papers) + 1))
+        fallback = True
+
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.out).write_text(json.dumps(indices), encoding="utf-8")
+
+    allowed_str = ", ".join(f"({n})" for n in indices)
+    allowed_path = Path(args.out).with_suffix(Path(args.out).suffix + ".allowed.txt")
+    allowed_path.write_text(allowed_str, encoding="utf-8")
+
+    logger = _make_logger(args.log, Path(args.out))
+    logger.event(
+        "compute_core_filter",
+        total_papers=len(papers),
+        core_count=len(indices),
+        indices=indices,
+        fallback_no_core=fallback,
+        allowed_out=str(allowed_path),
+    )
+    logger.close()
+
+    suffix = " (FALLBACK: no CORE — using all papers)" if fallback else ""
+    print(
+        f"compute_core_filter: {len(indices)}/{len(papers)} CORE "
+        f"-> {args.out} (+ {allowed_path.name}){suffix}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# build_goal_block
+# ---------------------------------------------------------------------------
+
+
+def _cmd_build_goal_block(args: argparse.Namespace) -> None:
+    """Materialize the ``{goal}`` prompt fragment for steps 8, 10, and 11.
+
+    Reads ``parsed_query.json`` from Step 4 and writes the multi-line block
+    (goal sentence + optional Key Term Definitions) to ``--out``. Downstream
+    steps substitute this file verbatim into the ``{goal}`` placeholder of
+    ``references/outline.md`` and ``references/detail.md``.
+    """
+    parsed = _read_json(Path(args.parsed_query))
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("goal"), str):
+        print(
+            "ERROR: --parsed-query must point to a JSON object with a string 'goal'.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    goal = parsed["goal"].strip()
+    definitions = parsed.get("definitions") or {}
+    if isinstance(definitions, dict) and definitions:
+        lines = [goal, "", "**Key Term Definitions:**"]
+        lines.extend(f"- {term}: {body}" for term, body in definitions.items())
+        block = "\n".join(lines)
+    else:
+        block = goal
+
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.out).write_text(block, encoding="utf-8")
+
+    logger = _make_logger(args.log, Path(args.out))
+    logger.event(
+        "build_goal_block",
+        goal_chars=len(goal),
+        definition_count=len(definitions) if isinstance(definitions, dict) else 0,
+        out_chars=len(block),
+    )
+    logger.close()
+    print(f"build_goal_block: {len(block)} chars -> {args.out}")
 
 
 # ---------------------------------------------------------------------------
@@ -1039,6 +1149,45 @@ def main(argv: list[str] | None = None) -> None:
         help="JSONL log path. Defaults to '<out>.log.jsonl'. Pass 'none' to disable.",
     )
     p.set_defaults(func=_cmd_format_papers)
+
+    p = sub.add_parser(
+        "compute_core_filter",
+        help="Write the CORE-only index list (+ allowed_numbers sidecar).",
+    )
+    p.add_argument("--papers", required=True, help="Path to the merged papers JSON.")
+    p.add_argument(
+        "--out",
+        required=True,
+        help="Output JSON path (e.g. <workdir>/core_filter.json). "
+        "Sibling '<out>.allowed.txt' is also written for {allowed_numbers}.",
+    )
+    p.add_argument(
+        "--log",
+        default=None,
+        help="JSONL log path. Defaults to '<out>.log.jsonl'. Pass 'none' to disable.",
+    )
+    p.set_defaults(func=_cmd_compute_core_filter)
+
+    p = sub.add_parser(
+        "build_goal_block",
+        help="Materialize the {goal} prompt fragment from parsed_query.json.",
+    )
+    p.add_argument(
+        "--parsed-query",
+        required=True,
+        help="Path to parsed_query.json (Step 4 output).",
+    )
+    p.add_argument(
+        "--out",
+        required=True,
+        help="Output text path (e.g. <workdir>/goal_block.txt).",
+    )
+    p.add_argument(
+        "--log",
+        default=None,
+        help="JSONL log path. Defaults to '<out>.log.jsonl'. Pass 'none' to disable.",
+    )
+    p.set_defaults(func=_cmd_build_goal_block)
 
     p = sub.add_parser(
         "merge_classifications",
