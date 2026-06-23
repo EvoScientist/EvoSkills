@@ -4,7 +4,7 @@ description: "Use this skill to grow a persistent, branching tree of research id
 allowed-tools: "write_file edit_file read_file execute"
 metadata:
   author: EvoScientist
-  version: '0.1.6'
+  version: '0.2.1'
   tags: [research, ideation, graph, mermaid, webui]
 ---
 
@@ -23,6 +23,8 @@ Trigger when the user asks something like:
 - "I want to push further in `<field>` — I recently read `<paper>`. Where could this go?"
 - "Expand the `<node>` idea — give me a few child directions."
 - "Start an Idea Spark on `<topic>`."
+- "Continue exploring `<existing-direction>` — I've marked some directions as rejected." *(iteration after WebUI feedback)*
+- "Pick the most promising remaining direction in `<existing-direction>` and go deeper." *(iteration after WebUI feedback)*
 
 Skip when:
 - The user just wants a one-paper summary or a single brainstorm reply in chat (no persistence).
@@ -54,15 +56,20 @@ Both are written atomically (`.tmp` + `rename`). `graph.md` is a pure projection
 
 ## Setup
 
-**Env (all optional):**
-- `EVOSCIENTIST_WORKSPACE_DIR` — workspace that scopes the sessions.db thread-id lookup. Set by the EvoScientist harness; falls back to `cwd` when missing. The skill doesn't write it.
-- `EVOSCIENTIST_MEMORIES_DIR` — overrides the memories root. Default `~/.evoscientist/memories/`.
-- `IDEA_SPARK_CHILDREN` — default branching factor for `expand` when the user doesn't specify. Default **4**.
-- `MERMAID_PUNCT` — `ESCAPE` (default) or `FULLWIDTH`. Same semantics as paper-graph; affects how titles render inside Mermaid labels.
+**Env:**
+- `IDEA_SPARK_CHILDREN` (optional) — default branching factor for `expand` when the user doesn't specify. Default **4**.
+- `MERMAID_PUNCT` (optional) — `ESCAPE` (default) or `FULLWIDTH`. Same semantics as paper-graph; affects how titles render inside Mermaid labels.
 
 **LLM:** the host agent uses its own model and API key. The skill emits prompt templates (`references/init.md`, `references/expand.md`) and validates the JSON the host hands back; it does not authenticate or call any LLM provider itself.
 
-**Working directory:** none required for state — `graph.json` is the source of truth. Intermediates (seed blocks, parent contexts, LLM-emitted JSON) MUST be written to a **workspace-relative** path: scope them under `./.idea-spark/<sid>/` so the EvoScientist sandbox accepts them (its `_SYSTEM_PATH_PREFIXES` blocks `/tmp/`, `/home/`, `/etc/`, …) and a per-graph subdir keeps re-runs from clobbering each other. Hidden dir keeps the workspace root tidy.
+**Working directory:** none required for state — `graph.json` is the source of truth. Intermediates (seed blocks, parent contexts, LLM-emitted JSON) go under `./.idea-spark/<sid>/` — workspace-relative, one subdir per graph, hidden so the workspace root stays tidy.
+
+**Invocation discipline:**
+
+- **Write JSON intermediates with the `write_file` tool, not shell heredocs.** Chains like `cat <<'EOF' > file ... EOF && uv run python …` are fragile: if the `EOF` marker sits on the same line as the next command, the shell keeps consuming, the file ends up containing the next invocation as literal text, the CLI then crashes on malformed JSON, and the error is easily mistaken for success when buried in a long compound output. `write_file` is unambiguous and atomic.
+- **Run each `uv run python EvoScientist/skills/idea-spark/scripts/cli.py …` invocation as its own `execute` call.** Do not chain it with `ls`, `cat`, file creation, or another CLI subcommand using `&&`. A failure mid-chain produces stderr that is hard to attribute and easy to misread as success — especially when the agent has SKILL.md's expected success format in mind and matches against ambient output.
+- **After every CLI call, read the actual stdout/stderr before continuing.** Do not assume success because the runbook says success normally prints a JSON object — check that the JSON is present in the output you just received.
+- **Use only two path shapes.** `/memories/...` for inspecting graph state via sandbox tools (`ls /memories/idea_spark_tree/<sid>/`, `read_file /memories/idea_spark_tree/<sid>/graph.json`). `./.idea-spark/<sid>/...` for your own intermediates. Do not construct or pass any other path shape — the CLI knows how to resolve its own state from the `--graph-id <sid>` argument alone.
 
 ## Runbook — `init` (new tree)
 
@@ -106,7 +113,7 @@ Read `EvoScientist/skills/idea-spark/references/init.md`. Substitute:
 
 Call the LLM (low temperature, ~0.2). Strip any code fences the model may have wrapped around the JSON. Parse as a single object with `title` (required, non-empty) and optional `description / next_action / references[]`.
 
-Save the parsed JSON to `./.idea-spark/<sid>/root.json`.
+Save the parsed JSON to `./.idea-spark/<sid>/root.json` **using the `write_file` tool** — not a shell heredoc (see Setup → Invocation discipline).
 
 ### Step 5 — `init` (CLI, deterministic)
 
@@ -142,7 +149,7 @@ Read `EvoScientist/skills/idea-spark/references/expand.md`. Substitute:
 - `{n_children}` — the user-requested branching factor, or `IDEA_SPARK_CHILDREN`, or **4**.
 - `{parent_context}` — contents of the file from Step 2.
 
-Call the LLM (temperature ~0.4 — slightly warmer than `init` to encourage divergent branches). Strip code fences. Parse as `{"children": [...]}` and validate each child has a non-empty `title`. Save to `./.idea-spark/<sid>/<parent_id>_children.json`.
+Call the LLM (temperature ~0.4 — slightly warmer than `init` to encourage divergent branches). Strip code fences. Parse as `{"children": [...]}` and validate each child has a non-empty `title`. Save to `./.idea-spark/<sid>/<parent_id>_children.json` **using the `write_file` tool** — not a shell heredoc (see Setup → Invocation discipline).
 
 ### Step 4 — `merge_children` (CLI, deterministic)
 
@@ -154,6 +161,37 @@ uv run python EvoScientist/skills/idea-spark/scripts/cli.py merge_children \
 ```
 
 The CLI auto-discovers the thread id from sessions.db. Reads `graph.json`, validates each child (drops unknown keys, fails loud on missing `title`), assigns a fresh node id per child, appends, and atomically rewrites both `graph.json` and `graph.md`. Prints `{graph_id, parent_node_id, added: [ids...]}`. New children carry the discovered thread id; existing nodes keep theirs — a graph extended across conversations will hold a mix of thread ids per node, which is exactly the provenance the WebUI uses to route click-throughs.
+
+## Runbook — Continuing after user feedback (iteration)
+
+When invoked on an existing tree (any iteration trigger above), the agent does a pre-flight that respects the WebUI's `rejected` state before reaching for `format_expand_context`. This is **agent-side prose only** — no new CLI subcommand. The pre-flight ends by handing off to Step 2 of the Expand runbook above.
+
+### Pre-flight Step 1 — Read the existing graph
+
+Read `/memories/idea_spark_tree/<sanitized-name>/graph.json`. Use `sanitize_id` against the user's name first if you only have the user-visible form.
+
+### Pre-flight Step 2 — Compute the active subgraph
+
+A node is **inactive** if its own `rejected` is `true` OR any ancestor is inactive — the rejection cascade is the agent's read-side responsibility (the CLI never writes `rejected: true`; it only initializes new nodes to `false`). All other nodes are **active**. Discard inactive nodes from the candidate set.
+
+The cascade rule is load-bearing: the WebUI persists `rejected: true` on the highest clicked node and lets the cascade flow down implicitly. Do not trust per-node `rejected: true` to be the full picture — always walk from the root and mark descendants of inactive nodes as inactive.
+
+### Pre-flight Step 3 — Pick a parent
+
+From active nodes only:
+
+- Default to a **leaf** (no active children) — that's where ideation is genuinely incomplete.
+- Among leaves, prefer the one whose `description` reads as the most under-explored or load-bearing.
+- If the user named a specific node (e.g. "expand the X idea"), honour their pick — but if it's inactive, stop and surface to the user. Do not silently expand a rejected direction.
+- If the active set is empty (every node is inactive), the user has rejected the whole direction. Ask whether to start a fresh tree on a different angle rather than expanding silently.
+
+### Pre-flight Step 4 — Hand off to the Expand runbook
+
+From here, run **Step 2 of the Expand runbook** (`format_expand_context` on the chosen parent) onward. The CLI subcommands are unchanged; only the pre-flight selection differs.
+
+### Known race
+
+The agent reads `graph.json` outside the `graph.lock`. If the user flips another node's `rejected` between the agent's read and `merge_children`, the new children land under what the agent saw as active but is now inactive — momentarily accepted under a rejected parent. The WebUI's cascade will catch them on the next click; until then they look out-of-sync. Acceptable for v0.2.0.
 
 ## Verification
 
