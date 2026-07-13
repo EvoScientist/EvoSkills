@@ -4,7 +4,7 @@ description: "Use this skill to grow a persistent, branching tree of research id
 allowed-tools: "write_file edit_file read_file execute"
 metadata:
   author: EvoScientist
-  version: '0.2.1'
+  version: '0.2.3'
   tags: [research, ideation, graph, mermaid, webui]
 ---
 
@@ -36,6 +36,7 @@ Skip when:
 **Inputs for a new tree (`init`):**
 - A **research-direction name** — verbatim user phrasing (will be sanitized into the dir name).
 - A **seed** — any combination of: a topic string, one or more paper titles / arxiv ids / links, or one or more node titles lifted from an existing `paper-graph` artifact.
+- *(Optional)* number of **initial branches** to generate under the root (overrides `IDEA_SPARK_CHILDREN` env, default **4**). Every `init` produces a root + initial branches in one flow — see runbook Step 6. Idea Spark's contract is a tree, not a stump.
 - The current LangGraph **thread id** — **the CLI discovers it itself** by querying `EvoScientist.sessions.list_threads()` (a public function over `sessions.db`) and picking the most recent thread whose `workspace_dir` matches `EVOSCIENTIST_WORKSPACE_DIR` (or `cwd` when unset). Both the CLI and the WebUI write through the same `_ApiPruningCheckpointer`, so this resolves to the calling conversation's thread for the single-conversation-per-workspace flow. The agent does NOT pass `--thread-id` in normal operation. **Never invent a UUID.**
 
   Pass `--thread-id <uuid>` only when the user has explicitly pointed at a specific existing graph (the override case). Shape-validated as UUID v4 or v7; arg wins over discovery when both could resolve.
@@ -71,13 +72,32 @@ Both are written atomically (`.tmp` + `rename`). `graph.md` is a pure projection
 - **After every CLI call, read the actual stdout/stderr before continuing.** Do not assume success because the runbook says success normally prints a JSON object — check that the JSON is present in the output you just received.
 - **Use only two path shapes.** `/memories/...` for inspecting graph state via sandbox tools (`ls /memories/idea_spark_tree/<sid>/`, `read_file /memories/idea_spark_tree/<sid>/graph.json`). `./.idea-spark/<sid>/...` for your own intermediates. Do not construct or pass any other path shape — the CLI knows how to resolve its own state from the `--graph-id <sid>` argument alone.
 
+## Fresh-invocation rule
+
+Every time the user triggers this skill, treat the request as **fresh** unless the user's current session explicitly hands over prior state. Prior-session memory entries, observation summaries, and your own recollection of previous idea-spark trees are **not authorization** to reuse a `graph_id`, a `<node-id>`, or a `thread_id` from a prior session — and are not authorization to treat the current request as a continuation of a prior tree.
+
+The only authoritative sources for graph / node / thread identity are:
+
+1. **The user's current session** — a graph name, `<node-id>`, `<sid>`, or thread id supplied by the user in this session (the triggering request or a clarifying follow-up in the same session).
+2. **The WebUI trigger payload** — sids and node ids embedded in the pre-fill message.
+3. **CLI outputs from the current session** — a `graph_id` printed by an `init` call in this session, a `node_id` printed by `merge_children` in this session.
+
+Two concrete corollaries you must honour:
+
+- **On `init` exit code 3** (`graph already exists at ...`), do not fall back to reading the existing graph and running `merge_children` on its root. That is a silent continuation of prior state. Surface the collision to the user (name, node count, `updated_at`) and ask whether to expand a specific existing node, pick a different name, or have the user delete the prior directory.
+- **When your context suggests a prior tree exists on the same topic** but the user's current session hasn't named a graph, ask before assuming a continuation.
+
+Rationale: idea-spark writes to persistent memory. Silently piggy-backing on prior-session state on the basis of memory / observation summaries produces cross-session accumulation bugs — multiple sessions appending near-duplicate LLM-generated children under the same root.
+
 ## Runbook — `init` (new tree)
 
 ### Step 1 — Confirm the research-direction name and seed with the user
 
-The user names the direction (e.g. "Self-supervised speech recognition"). Capture:
+The user names the direction (e.g. "Self-supervised speech recognition") in the current session. Names and seed material must come from this session (or the WebUI trigger payload) — a topic that appears only in prior-session memory is not a seed. If your context suggests a prior tree on the same topic exists, surface that to the user and ask before doing anything.
+
+Capture:
 - the verbatim `name` (preserved on disk for display),
-- any seed material — topic string, paper links/arxiv ids, paper-graph node titles, freeform notes.
+- any seed material — topic string, paper links / arxiv ids, paper-graph node titles, freeform notes.
 
 Ask if any of these are missing or ambiguous. Don't proceed with an empty seed.
 
@@ -126,11 +146,19 @@ uv run python EvoScientist/skills/idea-spark/scripts/cli.py init \
 
 The CLI auto-discovers the thread id from sessions.db; do not pass `--thread-id` in normal runs. Writes `graph.json` + `graph.md` atomically. Exits with code 3 if the graph dir already exists (Phase 1 forbids overwriting — pick a different name or have the user remove the dir manually). Prints `{graph_id, root_node_id, path}` on success.
 
+### Step 6 — Populate initial branches (mandatory)
+
+Immediately after Step 5 succeeds, run the full **Expand runbook (Steps 2–4 below)** with the newly minted root's `root_node_id` (from Step 5's stdout JSON) as `--parent-node-id`, using `IDEA_SPARK_CHILDREN` (env, default **4**) as the branching factor unless the user specified an override in Step 1.
+
+This step is **not optional**. Idea Spark's contract is a tree, not a stump — a user who wanted a topic analysis with no branches would have used a different tool. Every `init` produces a root plus its initial branches in one flow.
+
+**Failure handling:** if Step 6 fails after Step 5 succeeded, the root persists on disk (root-only is a valid intermediate state). Surface the failure to the user — do not delete the graph, do not retry silently — and let them retry the `expand` step manually against the persisted root once they have addressed the cause.
+
 ## Runbook — `expand` (extend an existing tree)
 
 ### Step 1 — Identify the parent node
 
-The user names the node to expand — either by `id` (if they have it from the WebUI) or by description ("expand the LLM-as-diarizer branch"). If by description, look it up in `graph.json` first and confirm the match with the user before proceeding.
+Both the graph and the node identity must come from the current session (or the WebUI trigger payload), not from prior-session memory. The user names the node to expand — either by `<node-id>` (from the WebUI URL or trigger payload) or by description in the current session. If by description, look it up in `graph.json` first and confirm the match with the user before proceeding. If your context recalls a prior tree that seems to match but the user's current session hasn't named one, ask which graph they mean — do not pick one from memory.
 
 ### Step 2 — `format_expand_context` (CLI, deterministic)
 
@@ -195,10 +223,16 @@ The agent reads `graph.json` outside the `graph.lock`. If the user flips another
 
 ## Verification
 
-After `init` or `merge_children`:
+After `init` (which now includes the mandatory Step 6 auto-expand):
+
+- Both success-line JSONs are present on stdout — one from the Step 5 `init` CLI (`{graph_id, root_node_id, path}`) and one from the Step 6 `merge_children` CLI (`{graph_id, parent_node_id, added: [...]}`).
+- `graph.json` parses; `nodes[]` count = **1 root + N initial branches** where N is the branching factor used in Step 6 (`IDEA_SPARK_CHILDREN` env, default 4, or the user's override).
+- `graph.md` opens with `# <name>` followed by a fenced `mermaid` block whose node ids match `graph.json` exactly.
+
+After a mid-tree `merge_children`:
 
 - The success-line JSON on stdout names the affected node ids.
-- `graph.json` parses; `nodes[]` has the expected count.
+- `graph.json` parses; new node count = previous count + N.
 - `graph.md` opens with `# <name>` followed by a fenced `mermaid` block whose node ids match `graph.json` exactly.
 
 If any of those fail, the most likely cause is malformed LLM output upstream. Re-run the LLM call once; on second failure, simplify the seed / parent context and try again.
