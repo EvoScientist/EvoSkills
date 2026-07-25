@@ -1,0 +1,10 @@
+# EvoSkills is a skills repo: Markdown is the product, Python under
+# scripts/ is agent-run helper code. Lint is a bug floor, not a style
+# regime. Never let ruff touch code blocks inside SKILL.md/references —
+# they are prompt content consumed verbatim by agents.
+extend-exclude = ["*.md"]
+
+[lint]
+# ruff's pre-0.16 defaults, made explicit so ruff upgrades can't
+# silently change what CI enforces.
+select = ["E4", "E7", "E9", "F"]

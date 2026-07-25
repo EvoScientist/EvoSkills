@@ -15,7 +15,10 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install ruff
-        run: pip install ruff
+        # Pinned: ruff 0.16.0 expanded default lint rules and began formatting
+        # Python code blocks inside Markdown, breaking CI without code changes.
+        # Bump deliberately in a dedicated PR (run `ruff check --fix` there).
+        run: pip install "ruff==0.15.8"
       - name: Run ruff linter
         run: ruff check --output-format=github .
       - name: Run ruff format check
