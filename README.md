@@ -367,7 +367,7 @@ Every contribution brings us one step closer to a future where AI accelerates sc
 
 ### 📈 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=EvoScientist/EvoSkills&type=date&legend=bottom-right)](https://www.star-history.com/?repos=EvoScientist%2FEvoSkills&type=date&legend=bottom-right)
+[![Star History Chart](https://api.star-history.com/chart?repos=EvoScientist/EvoSkills&type=date&legend=top-left&sealed_token=HEpIZ_Dp7r9PmyXtOFkimqAMV3xC7wDZHkERJGE4tgHPyW-axSubyGyeO3k11MWlgaa3HXsxRl2CHIGqwx8D8zt-YJjiWRQAHo3atUHgEv_j2IQp6ACMpA)](https://www.star-history.com/?repos=EvoScientist%2FEvoSkills&type=date&legend=top-left)
 
 <p align="right"><a href="#top">🔝Back to top</a></p>
 
