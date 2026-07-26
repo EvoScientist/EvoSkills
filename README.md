@@ -1,5 +1,11 @@
 # 🧬 EvoSkills
 
+<div align="center">
+
+**English | [简体中文](./README.zh-CN.md)**
+
+</div>
+
 **The official skill repository for [EvoScientist](https://github.com/EvoScientist/EvoScientist). Each skill is an installable knowledge pack that extends EvoScientist with domain-specific expertise.**
 
 ## 📦 Installation
@@ -301,17 +307,8 @@ Stay tuned — more skills are on the way!
   <tbody>
     <tr>
       <td align="center">
-        <a href="https://github.com/EvoScientist/EvoScientist">
-          <img src="https://avatars.githubusercontent.com/u/257286936?s=200&v=4"
-               width="100" height="100"
-               style="object-fit: cover; border-radius: 20%;" alt="Xi Zhang"/>
-          <br />
-          <sub><b>EvoScientist</b></sub>
-        </a>
-      </td>
-      <td align="center">
         <a href="https://x-izhang.github.io/">
-          <img src="https://x-izhang.github.io/author/xi-zhang/avatar_hu13660783057866068725.jpg"
+          <img src="https://x-izhang.github.io/author/xi-zhang/avatar.jpg"
                width="100" height="100"
                style="object-fit: cover; border-radius: 20%;" alt="Xi Zhang"/>
           <br />
