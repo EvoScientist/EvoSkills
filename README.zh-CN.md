@@ -57,7 +57,7 @@
 | [`experiment-pipeline`](#-experiment-pipeline--四阶段实验执行) | 🧪 结构化四阶段实验执行 |
 | [`experiment-craft`](#-experiment-craft--实验调试与迭代) | 🔧 实验调试、日志记录与迭代 |
 | [`experiment-iterative-coder`](#-experiment-iterative-coder--迭代式代码精炼) | 🔄 迭代式代码精炼（规划 → 编码 → 评估 → 精炼） |
-| [`paper-writing`](#-paper-writing--逐节论文撰写) | ✍️ 端到端论文写作辅助 |
+| [`paper-writing`](#%EF%B8%8F-paper-writing--逐节论文撰写) | ✍️ 端到端论文写作辅助 |
 | [`paper-review`](#-paper-review--自审与质量保障) | 🔍 自动化论文审阅与反馈 |
 | [`paper-rebuttal`](#-paper-rebuttal--同行评审后的-rebuttal-撰写) | 💬 同行评审后的 Rebuttal 撰写 |
 | [`paper-figures`](#-paper-figures--从数据生成出版级-matplotlib-图表) | 📊 从表格数据生成出版级 matplotlib 图表 |
@@ -369,7 +369,7 @@ flowchart LR
 
 ### 📈 Star 趋势
 
-[![Star History Chart](https://api.star-history.com/chart?repos=EvoScientist/EvoSkills&type=date&legend=top-left&sealed_token=HEpIZ_Dp7r9PmyXtOFkimqAMV3xC7wDZHkERJGE4tgHPyW-axSubyGyeO3k11MWlgaa3HXsxRl2CHIGqwx8D8zt-YJjiWRQAHo3atUHgEv_j2IQp6ACMpA)](https://www.star-history.com/?repos=EvoScientist%2FEvoSkills&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/chart?repos=EvoScientist/EvoSkills&type=date&legend=top-left&sealed_token=aiiKT_W8lO0VUktO2hVHL7jmLFkHrKF6SjzkDilktnITq2poApMnar2rs40ohkpGEPn2H_mKUfWXzhHxEzOPNS0cICz9SeItmovfPYWNojH3QqKE36CWvg)](https://www.star-history.com/?repos=EvoScientist%2FEvoSkills&type=date&legend=top-left)
 
 <p align="right"><a href="#top">🔝回到顶部</a></p>
 

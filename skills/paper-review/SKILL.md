@@ -1,10 +1,11 @@
 ---
 name: paper-review
-description: "Guides self-review of YOUR OWN academic paper before submission with adversarial stress-testing. Core method: 5-aspect checklist (contribution sufficiency, writing clarity, results quality, testing completeness, method design), counterintuitive protocol (reject-first simulation, delete unsupported claims, score trust, promote limitations, attack novelty), reverse-outlining, and figure/table quality checks. Use when: user wants to self-review or self-check their own paper draft before submission, stress-test their claims, prepare for reviewer criticism, or mentions 'self-review', 'check my draft', 'is my paper ready'. Do NOT use for writing a peer review of someone else's paper, and do NOT use after receiving actual reviews (use paper-rebuttal instead)."
+description: "Guides self-review of YOUR OWN academic paper before submission with adversarial stress-testing. Core method: 5-aspect checklist (contribution sufficiency, writing clarity, results quality, testing completeness, method design), counterintuitive protocol (reject-first simulation, delete unsupported claims, score trust, promote limitations, attack novelty), reverse-outlining, and figure/table quality checks. Use when: user wants to self-review or self-check their own paper draft before submission, stress-test their claims, prepare for reviewer criticism, or mentions 'self-review', 'check my draft', 'is my paper ready'. Do NOT use for writing a peer review of someone else's paper, and do NOT use after receiving actual reviews (use paper-rebuttal instead). Also runs as a background expert: dispatch it async with a draft path and it reviews end-to-end while you keep working."
 allowed-tools: "read_file edit_file write_file think_tool"
 metadata:
   author: EvoScientist
-  version: '1.0.0'
+  version: '1.1.0'
+  type: [skill, expert]
   tags: [core, writing, academic-writing, peer-review]
 ---
 
@@ -206,3 +207,11 @@ Your self-review artifacts (reject-first simulation, claim-evidence audit, prebu
 See [references/review-checklist.md](references/review-checklist.md) for an expanded version of the 5-aspect checklist with more detailed sub-questions.
 
 For adversarial stress testing and reject-risk thresholds, see [references/counterintuitive-review.md](references/counterintuitive-review.md).
+
+The 5-aspect pass is also available as an executed workflow:
+[scripts/five_aspect_review.js](scripts/five_aspect_review.js) — load it into
+the code interpreter and call `await fiveAspectReview(draftText)` to run the
+five aspects as parallel sub-reviews with typed results (score, findings,
+blocking issues per aspect) and a synthesized verdict. Prefer it over
+re-deriving the fan-out in prose; fall back to the sequential checklist above
+only if the interpreter is unavailable.

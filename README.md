@@ -47,12 +47,12 @@ Simply ask the agent in conversation:
 
 | Skill | Description |
 | ----- | ----------- |
-| [`research-ideation`](#-research-ideation--literature-grounding--tournament--proposal) | 💡 Literature grounding, tournament ranking & proposal generation |
+| [`research-ideation`](#-research-ideation--literature-grounding-tournament--proposal) | 💡 Literature grounding, tournament ranking & proposal generation |
 | [`paper-planning`](#-paper-planning--research-paper-planning--outline-generation) | 📐 Research paper planning & outline generation |
 | [`experiment-pipeline`](#-experiment-pipeline--4-stage-experiment-execution) | 🧪 Structured 4-stage experiment execution |
 | [`experiment-craft`](#-experiment-craft--experiment-debugging--iteration) | 🔧 Experiment debugging, logging & iteration |
 | [`experiment-iterative-coder`](#-experiment-iterative-coder--iterative-code-refinement) | 🔄 Iterative code refinement (plan → code → evaluate → refine) |
-| [`paper-writing`](#-paper-writing--section-by-section-paper-drafting) | ✍️ End-to-end paper writing assistance |
+| [`paper-writing`](#%EF%B8%8F-paper-writing--section-by-section-paper-drafting) | ✍️ End-to-end paper writing assistance |
 | [`paper-review`](#-paper-review--self-review--quality-assurance) | 🔍 Automated paper review & feedback |
 | [`paper-rebuttal`](#-paper-rebuttal--rebuttal-writing-after-peer-review) | 💬 Rebuttal writing after peer review |
 | [`paper-figures`](#-paper-figures--publication-ready-matplotlib-figures-from-data) | 📊 Publication-ready matplotlib figures from tabular data |
@@ -364,7 +364,7 @@ Every contribution brings us one step closer to a future where AI accelerates sc
 
 ### 📈 Star History
 
-[![Star History Chart](https://api.star-history.com/chart?repos=EvoScientist/EvoSkills&type=date&legend=top-left&sealed_token=HEpIZ_Dp7r9PmyXtOFkimqAMV3xC7wDZHkERJGE4tgHPyW-axSubyGyeO3k11MWlgaa3HXsxRl2CHIGqwx8D8zt-YJjiWRQAHo3atUHgEv_j2IQp6ACMpA)](https://www.star-history.com/?repos=EvoScientist%2FEvoSkills&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/chart?repos=EvoScientist/EvoSkills&type=date&legend=top-left&sealed_token=aiiKT_W8lO0VUktO2hVHL7jmLFkHrKF6SjzkDilktnITq2poApMnar2rs40ohkpGEPn2H_mKUfWXzhHxEzOPNS0cICz9SeItmovfPYWNojH3QqKE36CWvg)](https://www.star-history.com/?repos=EvoScientist%2FEvoSkills&type=date&legend=top-left)
 
 <p align="right"><a href="#top">🔝Back to top</a></p>
 
