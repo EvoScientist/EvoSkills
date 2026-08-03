@@ -103,6 +103,9 @@ flowchart LR
     F["🍌 nano-banana<br/>(独立)"] -.-> C
     G["🧮 evomath-tao<br/>(独立)"] -.-> A
     G -.-> B
+    H["📝 research-survey<br/>(独立)"] -.-> A
+    I["🌳 paper-graph<br/>(独立)"] -.-> A
+    J["📊 paper-figures<br/>(独立)"] -.-> C
 
     style A fill:#7C3AED,stroke:#5B21B6,stroke-width:2px,color:#fff
     style B fill:#D97706,stroke:#B45309,stroke-width:2px,color:#fff
@@ -111,6 +114,9 @@ flowchart LR
     style E fill:#0369A1,stroke:#075985,stroke-width:2px,color:#fff
     style F fill:#D97706,stroke:#B45309,stroke-width:2px,color:#fff
     style G fill:#BE185D,stroke:#9D174D,stroke-width:2px,color:#fff
+    style H fill:#0891B2,stroke:#0E7490,stroke-width:2px,color:#fff
+    style I fill:#65A30D,stroke:#4D7C0F,stroke-width:2px,color:#fff
+    style J fill:#9333EA,stroke:#7E22CE,stroke-width:2px,color:#fff
 ```
 
 ---
