@@ -1,0 +1,10 @@
+name: alphaxiv
+label: "alphaXiv  (search & read papers, PDF QA, repo reading — requires ALPHAXIV_API_KEY)"
+description: "Search and read research papers via alphaXiv"
+tags: [academic-search, onboarding]
+transport: http
+url: "https://api.alphaxiv.org/mcp/v1"
+headers:
+  Authorization: "Bearer ${ALPHAXIV_API_KEY}"
+env_key: ALPHAXIV_API_KEY
+env_hint: "export ALPHAXIV_API_KEY=axv2_... (get one at alphaxiv.org Settings > API Keys)"

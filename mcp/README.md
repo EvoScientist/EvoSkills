@@ -22,6 +22,7 @@ Once installed, the server is available to all agents in future EvoScientist ses
 
 | Server | Description | Transport |
 | ------ | ----------- | --------- |
+| [`alphaxiv`](alphaxiv.yaml) | Search and read research papers via alphaXiv | http |
 | [`arxiv`](arxiv.yaml) | Search & fetch academic papers from arXiv | stdio |
 | [`context7`](context7.yaml) | Fast documentation lookup for libraries and frameworks | stdio |
 | [`deepwiki`](deepwiki.yaml) | Search & read GitHub repo documentation | streamable_http |
