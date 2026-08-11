@@ -50,21 +50,39 @@ async function fiveAspectReview(draftText) {
   const aspect_scores = {};
   const findings = {};
   const blocking_issues = [];
+  const missing_aspects = [];
   for (const aspect of ASPECTS) {
     const key = aspect[0];
     const r = results[key];
-    aspect_scores[key] = r ? r.score : 0;
-    findings[key] = r ? r.findings : ["aspect failed twice - review manually"];
     if (r) {
+      aspect_scores[key] = r.score;
+      findings[key] = r.findings;
       for (const b of r.blocking) blocking_issues.push("[" + key + "] " + b);
+    } else {
+      missing_aspects.push(key);
+      findings[key] = ["aspect failed twice - review manually"];
     }
   }
-  const minScore = Math.min.apply(null, Object.values(aspect_scores));
-  const verdict =
+  const ranScores = Object.values(aspect_scores);
+  const minScore = ranScores.length > 0 ? Math.min.apply(null, ranScores) : 0;
+  const scoreVerdict =
     blocking_issues.length === 0 && minScore >= 3
       ? "ready"
       : minScore <= 2
         ? "major-rework"
         : "needs-work";
-  return { aspect_scores, findings, blocking_issues, verdict };
+  if (missing_aspects.length > 0) {
+    // A dispatch failure is not a quality judgement: report the run as
+    // incomplete rather than scoring the missing aspect 0, and confine the
+    // score-based verdict to the aspects that actually ran.
+    return {
+      aspect_scores,
+      findings,
+      blocking_issues,
+      verdict: "incomplete",
+      missing_aspects,
+      partial_verdict: ranScores.length > 0 ? scoreVerdict : null,
+    };
+  }
+  return { aspect_scores, findings, blocking_issues, verdict: scoreVerdict };
 }
