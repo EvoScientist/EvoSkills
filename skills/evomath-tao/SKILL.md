@@ -48,10 +48,10 @@ Every phase below is a concrete operationalization of one or more of these princ
 - Use TodoWrite to drive the workflow. Each step is one todo; you cannot mark a
   todo completed unless the corresponding `.md` file passes its validator.
 
-If filesystem access is available, create a Markdown workspace with:
+If filesystem access is available, create a Markdown workspace with (script paths are relative to this skill's directory):
 
 ```bash
-python skills/evomath-tao/scripts/evomath_workspace.py init --dir .evomath/current
+python scripts/evomath_workspace.py init --dir .evomath/current
 ```
 
 If filesystem access is not available, keep the same Markdown sections inline in
@@ -99,7 +99,7 @@ For each step in order:
 4. Run the validator before marking the todo completed:
 
    ```bash
-   python skills/evomath-tao/scripts/evomath_workspace.py validate-phase <N> --dir .evomath/current
+   python scripts/evomath_workspace.py validate-phase <N> --dir .evomath/current
    ```
 
 5. If validation FAILS, the todo stays `in_progress`. Revise the `.md` file
@@ -111,7 +111,7 @@ For each step in order:
 If your final-status is `PROVED`, you MUST additionally run:
 
 ```bash
-python skills/evomath-tao/scripts/evomath_workspace.py validate-proved --dir .evomath/current
+python scripts/evomath_workspace.py validate-proved --dir .evomath/current
 ```
 
 This verifies that the 10-item PROVED Self-Check Checklist (see

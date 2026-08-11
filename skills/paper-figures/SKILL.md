@@ -153,10 +153,10 @@ See [references/publication-style.md](references/publication-style.md) for size,
 - Confirm the PNG was produced.
 - If the script errors, fix and re-run before reporting completion.
 
-When `scripts/validate_figure.py` is available, run it after rendering:
+When `scripts/validate_figure.py` is available, run it after rendering (the script path is relative to this skill's directory):
 
 ```bash
-uv run python <skill-dir>/scripts/validate_figure.py --output-dir <output-dir> --spec <output-dir>/figure-spec.md
+uv run python scripts/validate_figure.py --output-dir <output-dir> --spec <output-dir>/figure-spec.md
 ```
 
 If `uv` is not available in the environment, use the Python interpreter available to the current workspace, but still run the same validator script.
