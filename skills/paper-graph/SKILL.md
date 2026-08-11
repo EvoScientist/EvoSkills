@@ -95,7 +95,7 @@ Filenames are agent-chosen — these are recommendations to match what the runbo
 
 ## Runbook
 
-Each step is either a **CLI** call (`uv run python EvoScientist/skills/paper-graph/scripts/cli.py <subcmd> …`) or an **LLM** call (the host agent reads a template from `references/`, substitutes the placeholders, and calls its model). Run sequentially; the detail step (step 10) and the audit step (step 11) can fan out per-solution / per-edge if the host supports concurrent tool calls.
+Each step is either a **CLI** call (`python scripts/cli.py <subcmd> …`) or an **LLM** call (the host agent reads a template from `references/`, substitutes the placeholders, and calls its model). All script and reference paths are relative to this skill's directory. CLI dependencies: `pip install deepxiv-sdk httpx python-dotenv` (also listed in `requirements.txt` at the skill root) — install into the environment the user is working in. Run sequentially; the detail step (step 10) and the audit step (step 11) can fan out per-solution / per-edge if the host supports concurrent tool calls.
 
 **Placeholder syntax in `references/*.md`.** Single-brace `{name}` is a template slot the host must substitute. Double-brace `{{...}}` is an escaped literal brace — it appears in the prompt body when the example JSON the LLM is asked to emit contains braces. Substitute only single-brace slots; leave `{{` and `}}` alone (they're for the LLM to read as `{` and `}` in its output).
 
@@ -106,7 +106,7 @@ Write the user's verbatim query to `<workdir>/query.txt`. Do not paraphrase. Mul
 ### Step 2 — `resolve_seed_papers` (CLI, deterministic)
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py resolve_seed_papers \
+python scripts/cli.py resolve_seed_papers \
     --query-file <workdir>/query.txt \
     --out <workdir>/seed.json
 ```
@@ -116,7 +116,7 @@ Outputs a JSON array of S2-shape paper records for any arxiv IDs detected in the
 ### Step 3 — `format_seed_block` (CLI, deterministic)
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py format_seed_block \
+python scripts/cli.py format_seed_block \
     --seed <workdir>/seed.json \
     --out <workdir>/seed_block.txt
 ```
@@ -125,7 +125,7 @@ Renders the seed papers into the `{seed_block}` prompt fragment used in step 4. 
 
 ### Step 4 — `parse_query` (LLM)
 
-Read `EvoScientist/skills/paper-graph/references/parse_query.md`. Substitute `{seed_block}` with the contents of `<workdir>/seed_block.txt` and `{query}` with the contents of `<workdir>/query.txt`. Call the LLM (low temperature, ~0.1).
+Read `references/parse_query.md`. Substitute `{seed_block}` with the contents of `<workdir>/seed_block.txt` and `{query}` with the contents of `<workdir>/query.txt`. Call the LLM (low temperature, ~0.1).
 
 Parse the response as JSON with this exact shape:
 
@@ -144,7 +144,7 @@ Save the validated JSON to `<workdir>/parsed_query.json`.
 ### Step 5 — `fetch_papers` (CLI, deterministic)
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py fetch_papers \
+python scripts/cli.py fetch_papers \
     --parsed-query <workdir>/parsed_query.json \
     --seed <workdir>/seed.json \
     --n 10 \
@@ -158,7 +158,7 @@ Uses S2 multi-search (one S2 query per `searches[]` entry) with DeepXiv fallback
 First build the full `{papers_input}` block:
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py format_papers \
+python scripts/cli.py format_papers \
     --papers <workdir>/papers.json \
     --out <workdir>/papers_input.txt
 ```
@@ -179,7 +179,7 @@ Save the raw response verbatim to `<workdir>/classify_raw.json`. Expected shape:
 Then merge into papers.json via the CLI (validates shape + applies failure-soft fallback to every-CORE if validation fails):
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py merge_classifications \
+python scripts/cli.py merge_classifications \
     --classifications <workdir>/classify_raw.json \
     --papers <workdir>/papers.json \
     --out <workdir>/papers.json
@@ -190,7 +190,7 @@ uv run python EvoScientist/skills/paper-graph/scripts/cli.py merge_classificatio
 ### Step 7 — `prefetch_sections` (CLI, deterministic, best-effort)
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py prefetch_sections \
+python scripts/cli.py prefetch_sections \
     --in <workdir>/papers.json \
     --out <workdir>/papers.json
 ```
@@ -204,11 +204,11 @@ After this step, any subsequent `format_papers` call automatically embeds each p
 Materialize the two prompt fragments that recur from here on — `goal_block` (the `{goal}` substitution) and `core_filter` (the CORE-only filter + its `{allowed_numbers}` sidecar) — as files on disk. Steps 10 and 11 read these files back, so the agent never has to carry them as conversation state.
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py build_goal_block \
+python scripts/cli.py build_goal_block \
     --parsed-query <workdir>/parsed_query.json \
     --out <workdir>/goal_block.txt
 
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py compute_core_filter \
+python scripts/cli.py compute_core_filter \
     --papers <workdir>/papers.json \
     --out <workdir>/core_filter.json
 ```
@@ -218,7 +218,7 @@ uv run python EvoScientist/skills/paper-graph/scripts/cli.py compute_core_filter
 Build the CORE-only `{papers_input}` (also emits a sibling `.allowed.txt`, redundant here but consistent with Step 10):
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py format_papers \
+python scripts/cli.py format_papers \
     --papers <workdir>/papers.json \
     --filter <workdir>/core_filter.json \
     --out <workdir>/papers_input_core.txt
@@ -234,7 +234,7 @@ Call the LLM (low temperature, ~0.2; allow ~8000 max tokens). Strip any leading/
 ### Step 9 — `parse_outline` (CLI, deterministic)
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py parse_outline \
+python scripts/cli.py parse_outline \
     --raw <workdir>/outline_raw.md \
     --papers <workdir>/papers.json \
     --out <workdir>/outline.json \
@@ -270,7 +270,7 @@ For each `<workdir>/solutions/<key>.json` produced in step 9:
 (a) Build the per-solution `{papers_input}`. `format_papers --filter` accepts a solution context file directly (it reads the `allowed` array out of it); the matching `{allowed_numbers}` string lands in the `.allowed.txt` sibling.
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py format_papers \
+python scripts/cli.py format_papers \
     --papers <workdir>/papers.json \
     --filter <workdir>/solutions/<key>.json \
     --out <workdir>/details/<key>_input.txt
@@ -288,7 +288,7 @@ Call the LLM (temperature ~0.2; allow ~12000 max tokens to fit scratchpad + tree
 (c) Parse it (output goes to a sibling `parsed/` dir, not `details/`, so step 13's `assemble_report` doesn't pick up parse outputs as render outputs):
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py parse_detail \
+python scripts/cli.py parse_detail \
     --raw <workdir>/details/<key>_raw.md \
     --context <workdir>/solutions/<key>.json \
     --out <workdir>/parsed/<key>.json
@@ -341,7 +341,7 @@ Collect all per-solution verdicts into `<workdir>/verdicts/<key>.json` as a flat
 ### Step 12 — `render_outline_mermaid` + `render_detail_mermaid` (CLI, deterministic)
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py render_outline_mermaid \
+python scripts/cli.py render_outline_mermaid \
     --raw <workdir>/outline_raw.md \
     --papers <workdir>/papers.json \
     --out <workdir>/outline_mermaid.json \
@@ -351,7 +351,7 @@ uv run python EvoScientist/skills/paper-graph/scripts/cli.py render_outline_merm
 For each solution:
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py render_detail_mermaid \
+python scripts/cli.py render_detail_mermaid \
     --raw <workdir>/details/<key>_raw.md \
     --context <workdir>/solutions/<key>.json \
     --papers <workdir>/papers.json \
@@ -363,7 +363,7 @@ uv run python EvoScientist/skills/paper-graph/scripts/cli.py render_detail_merma
 ### Step 13 — `assemble_report` (CLI, deterministic)
 
 ```bash
-uv run python EvoScientist/skills/paper-graph/scripts/cli.py assemble_report \
+python scripts/cli.py assemble_report \
     --parsed-query <workdir>/parsed_query.json \
     --outline <workdir>/outline_mermaid.json \
     --details-dir <workdir>/details \
