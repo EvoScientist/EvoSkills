@@ -26,7 +26,7 @@ Use `find_code.py` and `sota.py` to gather these signals.
 
 ## Disambiguation Report
 
-Used in Branch 1 (POINT) when the query is ambiguous. Full structure in `disambiguation.md`. Short form:
+Used in POINT when the query is ambiguous. Full structure in `disambiguation.md`. Short form:
 
 ```
 🔍 Disambiguation: "<query>"
@@ -38,7 +38,7 @@ Used in Branch 1 (POINT) when the query is ambiguous. Full structure in `disambi
 
 ## Reading Notes
 
-When the user asks to read a paper (Branch 1, URL input), use the template at `assets/paper-summary-template.md`. Save to `artifacts/paper-notes/<paper-id>.md`.
+When the user asks to read a paper (POINT, URL input), use the template at `assets/paper-summary-template.md`. Save to `artifacts/paper-notes/<paper-id>.md`.
 
 Reading depth:
 

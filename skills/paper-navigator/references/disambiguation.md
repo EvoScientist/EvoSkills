@@ -26,9 +26,9 @@ Read this when the user's query looks ambiguous — a project name, codename, mo
    - GitHub repo URL (if any)
 
 4. **Re-enter the appropriate branch:**
-   - If now have a specific paper → Branch 1 (POINT)
-   - If now have a topic + several related papers → Branch 2 (LIST)
-   - If user wants a survey of all related work → Branch 3 (ITERATIVE)
+   - If now have a specific paper → POINT
+   - If now have a topic + several related papers → LIST
+   - If user wants a survey of all related work → ITERATIVE
 
 ## Output: Disambiguation Report
 

@@ -1,6 +1,6 @@
 ---
 name: paper-navigator
-description: "Find and read academic papers (S2 + arXiv). Disambiguate ambiguous queries, search by keyword + citation graph + recommendations + snippets, judge by author-graded rubric, and read with L1/L2/L3 strategy. Trigger phrases: find papers, search papers, related work, citation analysis, recent advances, read this paper, baseline with code. Do NOT use for: survey reports (research-survey), idea generation (research-ideation), Related Work sections (paper-writing)."
+description: "Find and read academic papers (S2 + arXiv). Disambiguate ambiguous queries, search by keyword + citation graph + recommendations + snippets, judge relevance against an authored rubric, and read with L1/L2/L3 strategy. Trigger phrases: find papers, search papers, related work, citation analysis, recent advances, read this paper, baseline with code. Do NOT use for: survey reports (research-survey), idea generation (research-ideation), Related Work sections (paper-writing)."
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
@@ -64,6 +64,8 @@ Full env-var list: `references/env-vars.md`.
 
 **Default to LIST when unsure.** Don't add `survey` / `review` to LIST queries — it down-ranks the canonical research papers the user wants.
 
+**Output format follows the caller:** the Output column above is the structured form (skill callers). Direct user calls default to **Narrative** — see Step 6 "Output mode".
+
 Ambiguous query (project nickname, codename, single capitalized word with zero hits) → run `scholar_search` exact + web/GitHub search first to resolve identifiers, then re-route.
 
 ---
@@ -108,7 +110,7 @@ Criteria (2–4, atomic; mark each [core] or [secondary]):
   C3 [secondary] <...>
 Named entities to preserve verbatim: [<ent1>, <ent2>, ...]
 Angle tags (3–5 sub-topic axes): [<tag1>, <tag2>, <tag3>]
-Recency signal: [none | 最新/近年/近期/近两年/前沿/SOTA/latest/recent/state-of-the-art]
+Recency signal: [none | recency cue — defined in Step 3]
 Disqualifiers: [<auto-reject if abstract shows this>]
 ```
 
@@ -169,37 +171,42 @@ python scripts/scholar_search.py --query "<Q-narrow>" --limit 15 --sort-by relev
 
 **Without `S2_API_KEY`:** swap `scholar_search` for `arxiv_monitor --keywords "<variant>" --match-mode flexible --days 3650`.
 
-**Citation expansion** (ITERATIVE, or LIST after ≥3 strong seeds):
+**Citation expansion** (ITERATIVE, or LIST after ≥3 All-core/Partial seeds):
 ```bash
 python scripts/citation_traverse.py --paper-id <SEED> --direction co-citation --limit 15 --output /tmp/pool.jsonl --append
 python scripts/citation_traverse.py --paper-id <SEED> --direction forward --limit 20 --min-citations 20 --year-min 2022 --output /tmp/pool.jsonl --append
 python scripts/recommend.py --positive <SEED1>,<SEED2> --limit 15 --output /tmp/pool.jsonl --append
 ```
 
-### Step 4: Triage — Relevant / Partial / Irrelevant
+### Step 4: Triage — All-core / Partial / Irrelevant
 
-After every round, classify each new paper by relevance to the RUBRIC — **no numeric scoring**. Emit a `think_tool` block:
+After every round, classify each new paper and stamp a **per-criterion mask** (✓ / ~ / ✗) over the RUBRIC — **no numeric scoring**. The mask is what makes conjunctive queries ("papers satisfying A and B") terminate correctly: only a paper with `✓` on **every [core] criterion** is `All-core`. Emit a `think_tool` block:
 
 ```
 TRIAGE round=<n>  query="<q>"
-  Relevant   (k): <paperId> "<title-≤60>" Y=<year>
-                evidence: "<≤80-char quote>"  (supports a [core] criterion)
-  Partial    (k): <paperId> "<title>" Y=<year>
-                evidence: "<≤80-char quote>"  (supports a [secondary] criterion only, or partial)
-  Irrelevant (k): <paperId> "<title>"  (drop from later rounds)
+  All-core   (k): <paperId> "<title-≤60>" Y=<year> · [C1✓ C2✓ (C3~)]   every [core] ✓
+                 C1: "<≤80-char quote>"
+                 C2: "<≤80-char quote>"
+  Partial    (k): <paperId> "<title>" Y=<year> · [C1✓ C2✗]              some [core] ✓
+                 C1: "<≤80-char quote>"
+  Irrelevant (k): <paperId> "<title>"                                   no [core] ✓, or trips disqualifier — drop
 ```
 
-| Tier | Meaning |
-|---|---|
-| `Relevant` | a [core] criterion is clearly supported by the abstract/tldr (≤80-char quote) |
-| `Partial` | only a [secondary] criterion, or partial / inferable support |
-| `Irrelevant` | no support, off-topic, or trips a disqualifier — drop |
+| Tier | Mask | Quotes |
+|---|---|---|
+| `All-core` | every [core] criterion `✓` (no `✗` on any [core]) | one ≤80-char quote per [core] criterion |
+| `Partial` | at least one [core] `✓`, but some [core] `✗`/`~`; or only [secondary] support | one quote per `✓` [core] criterion |
+| `Irrelevant` | no [core] `✓`, or trips a disqualifier | none — drop from later rounds |
+
+`✓` = abstract/tldr clearly supports. `~` = partial / inferable. `✗` = no support or contradicts. [secondary] criteria don't set the tier but still get a mask symbol.
 
 Rules:
-1. **Dedup across rounds** by `paperId` first, then normalised title.
+1. **Dedup across rounds** by `paperId` first, then normalised title. Keep the stronger mask.
 2. **Disqualifier check** beats all other matches → Irrelevant.
-3. **Re-diagnose gaps:** note any [core] criterion with 0 Relevant papers, and any angle tag with 0 Relevant/Partial → that's the next refine target (feeds the Step 3 gap→strategy map).
-4. **No fabrication:** missing abstract → mark Partial, do not infer from training data.
+3. **Re-diagnose gaps:** note any [core] criterion with 0 `✓` across All-core+Partial, and any angle tag with 0 All-core/Partial → that's the next refine target (feeds the Step 3 gap→strategy map).
+4. **No fabrication:** missing abstract → stamp `~`, do not infer from training data.
+
+The per-criterion quotes collected here are exactly what the Step 6 Rank-1 bar and the structured LIST template cite — do not skip them.
 
 **Snippet upgrade** for borderline papers (abstract silent on a [core] criterion): batch-fetch real body text:
 ```bash
@@ -209,32 +216,34 @@ python scripts/snippet_search.py --query "<criterion phrase>" \
 
 ### Step 5: Saturation Gate
 
-After each round, decide CONTINUE vs STOP by **whether key gaps remain** — not by counting tiers. (Probe is a prerequisite; it is not gated.)
+After **Probe and each round**, decide CONTINUE vs STOP by **whether key gaps remain** — not by counting papers.
 
-**CONTINUE to the next round (R3 / R4) if any of these hold:**
-- A [core] criterion still has 0 Relevant papers.
-- An angle tag still has 0 Relevant/Partial papers.
-- A key claim rests on a single source.
+**Early exit after Probe (or any round):** if an `All-core` paper already covers every [core] criterion, **STOP** without running further rounds. This is deliberate — it preserves the fast path where one probe hit settles a POINT-like query (≈2 queries), which matters under keyless S2 rate limits.
 
-**STOP when:**
-- Every [core] criterion has ≥1 Relevant paper, AND
-- every angle tag has ≥1 Relevant/Partial paper, AND
-- no key claim relies on a single source,
+**STOP when ALL hold:**
+- ≥1 `All-core` paper exists — a *single* paper with `✓` on every [core] criterion. This is required so conjunctive queries like "papers satisfying A **and** B" can't pass on two different papers that each cover only one side, AND
+- every angle tag has ≥1 All-core/Partial paper, AND
+- no key claim rests on a single source,
 - OR further rounds stop surfacing anything new (empty recall / all duplicates).
 
-**Re-decompose** (rubric is wrong) if R2 returns 0 Relevant across the board: report the strongest Partial candidate(s) + ask the user to relax a criterion.
+**CONTINUE to the next round (R3 / R4) otherwise**, driven by the gap→strategy map:
+- 0 `All-core` papers → fill the [core] criterion still `✗`.
+- An angle tag has 0 All-core/Partial → open that angle.
+- A key claim rests on a single source → multi-source corroboration.
+
+**Re-decompose** (rubric is wrong) if R2 returns 0 All-core AND 0 Partial across the board: report the strongest Partial candidate(s) + ask the user to relax a criterion.
 
 **Round caps:** LIST and ITERATIVE up to 3 paper rounds (R2/R3/R4). POINT is a single fetch (no multi-round). If still not saturated at the cap, go to Step 6 and report which criteria / angle tags were not covered.
 
-**The gate is mechanical about gaps** — do not skip rounds because "the results look right", and do not run extra rounds once the gaps are closed.
+**The gate is mechanical about gaps** — do not skip rounds because "the results look right", and do not run extra rounds once an All-core paper covers every [core] criterion.
 
 ### Step 6: Rank and Output
 
-**Gather:** every Relevant and Partial paper from across all rounds (dedup by `paperId`). Drop Irrelevant.
+**Gather:** every All-core and Partial paper from across all rounds (dedup by `paperId`). Drop Irrelevant.
 
-**Rank by relevance — the model judges, no numeric score.** Order the gathered papers by how directly each answers the user's question: Relevant before Partial; a paper satisfying a [core] criterion ranks above one satisfying only [secondary]. This is a judgment call, not a formula — **do not compute a weighted_total**.
+**Rank by relevance — the model judges, no numeric score.** Order the gathered papers by how directly each answers the user's question: All-core before Partial; a paper satisfying every [core] criterion ranks above one satisfying only some. This is a judgment call, not a formula — **do not compute a weighted_total**.
 
-**Recency-aware tie-break.** When the RUBRIC flagged a recency signal (最新 / 近年 / 近期 / 近两年 / 前沿 / SOTA / latest / recent / state-of-the-art), break ties / near-ties in favor of the more recent paper (`year` DESC), applied **after** relevance. Recency rides behind relevance, never ahead of it.
+**Recency-aware tie-break.** When the RUBRIC flagged a recency signal (cues defined in Step 3), break ties / near-ties in favor of the more recent paper (`year` DESC), applied **after** relevance. Recency rides behind relevance, never ahead of it.
 
 **K (soft ceiling — prevents pool-dumping):**
 
@@ -247,9 +256,9 @@ After each round, decide CONTINUE vs STOP by **whether key gaps remain** — not
 
 K is a soft guide, not a formula. For broad "survey / categorize the field" queries the dominant failure mode is dumping the whole accumulated pool (often 30–50 papers, most off-criterion) into the output, burying the few on-criterion papers. Rank by relevance, keep the top K, and move the rest to an **"Also relevant (not ranked)"** list — never pad the ranked list with weak papers to reach a count.
 
-**Rank-1 quality bar.** For single-recommendation queries ("is there a paper that …?", "recommend a paper", "what's the canonical X") the bolded top-1 must clearly satisfy every [core] criterion with a quote. Rank 1 carries disproportionate weight in user perception; fronting a paper that misses a [core] criterion reads as a confident wrong answer. If no paper clears the bar, lead with "No fully-matching paper found" and present the strongest near-miss honestly with its gaps.
+**Rank-1 quality bar.** For single-recommendation queries ("is there a paper that …?", "recommend a paper", "what's the canonical X") the bolded top-1 must be an **All-core** paper — clearly satisfying every [core] criterion with a quote. Rank 1 carries disproportionate weight in user perception; fronting a Partial paper at top-1 reads as a confident wrong answer. If no paper clears the bar, lead with "No fully-matching paper found" and present the strongest near-miss honestly with its gaps.
 
-If no Relevant paper survives after the round cap, report "no fully-matching paper found", list strongest Partial candidates + their gaps, stop.
+If no All-core paper survives after the round cap, report "no fully-matching paper found", list strongest Partial candidates + their gaps, stop.
 
 **Output mode (caller inference).** Pick the format by what the request demands, not by an explicit flag:
 - **Structured** (formats below) — when the request demands machine-consumable output: a ranked list/table, per-criterion evidence, or hand-off to a downstream skill. Default for skill callers (`research-survey`, `research-ideation`, `paper-writing`, `experiment-pipeline`).
@@ -280,7 +289,7 @@ POINT: Paper Card (above).
 
 **Narrative output (direct user callers).**
 
-Deliver structured knowledge, not a search trace. Strip process words before output (`Probe`, `R2/R3/R4`, `Relevant/Partial`, "rounds done") unless the user explicitly asks for a trace.
+Deliver structured knowledge, not a search trace. Strip process words before output (`Probe`, `R2/R3/R4`, `All-core/Partial`, "rounds done") unless the user explicitly asks for a trace.
 
 - **Information-first, not list-first.** Unless the user only wants a paper list, do not collapse the answer into "title + one-line contribution". Build the cognitive structure the user needs (timeline / topic grouping / comparison / mechanism breakdown / evidence verification / reading path), then place papers into it as evidence nodes.
 - **One main form + 2–3 auxiliary forms.** The main form carries the answer's logic (timeline, topic grouping, comparison, mechanism breakdown, evidence grading, reading path, mini-survey); 2–3 auxiliary forms (paper card, table, evidence grading, annotated bibliography, reader payoff) aid readability. Do not stack every form.
@@ -292,12 +301,12 @@ Deliver structured knowledge, not a search trace. Strip process words before out
 **Pre-output checklist (mandatory).** Before emitting the answer, verify each box.
 
 - [ ] **Pool gathered** from every round's triage, deduped by `paperId`, Irrelevant excluded.
-- [ ] **Ranked by relevance** (judgment, not a numeric score) — Relevant before Partial, [core] before [secondary].
+- [ ] **Ranked by relevance** (judgment, not a numeric score) — All-core before Partial.
 - [ ] **Recency tie-break applied** when a recency signal is present (`year` DESC after relevance).
 - [ ] **Rank-1 clears the bar** for single-recommendation queries (clearly satisfies every [core] criterion with a quote) — or you've reported "No fully-matching paper found".
 - [ ] **Every cited paper has ≥1 supporting quote** for the claim it's used for (quote-or-zero, Red Line 5 — anti-hallucination).
 - [ ] **Output ≤ K** (soft cap); surplus relevant papers sit in "Also relevant (not ranked)", not the ranked list.
-- [ ] **Narrative mode only** — every cited paper appears in the end-of-answer numbered reference list in **IEEE style with authors + citation count** (`[N] A. Author et al., "Title," Venue, Year, cited by N. [Online]. Available: URL`), and the body strips process words (`Probe` / `R2` / `Relevant/Partial`).
+- [ ] **Narrative mode only** — every cited paper appears in the end-of-answer numbered reference list in **IEEE style with authors + citation count** (`[N] A. Author et al., "Title," Venue, Year, cited by N. [Online]. Available: URL`), and the body strips process words (`Probe` / `R2` / `All-core/Partial`).
 
 If any box is unchecked, return to Step 6 — do not output.
 
