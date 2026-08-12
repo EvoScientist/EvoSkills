@@ -141,7 +141,7 @@ python scripts/scholar_search.py --query "<Q-narrow>" --limit 15 --sort-by relev
 - **angle gaps** (Step-2 tags not seen),
 - vocabulary from **adjacent communities**.
 
-**R2 — Breadth (mandatory, 2–3 parallel queries).** Broad academic queries on the core object + canonical terms lifted from Probe. The main axis is the user's core object + canonical mapping; Probe only supplies high-confidence supplements.
+**R2 — Breadth (default — skipped only via the Step 5 early exit; 2–3 parallel queries).** Broad academic queries on the core object + canonical terms lifted from Probe. The main axis is the user's core object + canonical mapping; Probe only supplies high-confidence supplements.
 
 **R3 — Targeted deepening (optional, when Step 5 gate says CONTINUE, 2–3 parallel queries).** Driven by the gap→strategy map below — fill the specific gap Step 4 triage exposed.
 
@@ -218,7 +218,7 @@ python scripts/snippet_search.py --query "<criterion phrase>" \
 
 After **Probe and each round**, decide CONTINUE vs STOP by **whether key gaps remain** — not by counting papers.
 
-**Early exit after Probe (or any round):** if an `All-core` paper already covers every [core] criterion, **STOP** without running further rounds. This is deliberate — it preserves the fast path where one probe hit settles a POINT-like query (≈2 queries), which matters under keyless S2 rate limits.
+**Early exit after Probe (single-recommendation / conjunctive queries only, K=1–2):** for "is there a paper that …?", "recommend a paper", "what's the canonical X", or conjunctive "papers satisfying A **and** B" queries, if an `All-core` paper already covers every [core] criterion, **STOP** without running further rounds. This preserves the fast path where one probe hit settles a POINT-like query (≈2 queries), which matters under keyless S2 rate limits. For broader question shapes ("find papers about …" K=3–5, or 30+-paper ITERATIVE), do **not** use this early exit — apply the full STOP conditions below.
 
 **STOP when ALL hold:**
 - ≥1 `All-core` paper exists — a *single* paper with `✓` on every [core] criterion. This is required so conjunctive queries like "papers satisfying A **and** B" can't pass on two different papers that each cover only one side, AND
@@ -235,7 +235,7 @@ After **Probe and each round**, decide CONTINUE vs STOP by **whether key gaps re
 
 **Round caps:** LIST and ITERATIVE up to 3 paper rounds (R2/R3/R4). POINT is a single fetch (no multi-round). If still not saturated at the cap, go to Step 6 and report which criteria / angle tags were not covered.
 
-**The gate is mechanical about gaps** — do not skip rounds because "the results look right", and do not run extra rounds once an All-core paper covers every [core] criterion.
+**The gate is mechanical about gaps** — do not skip rounds because "the results look right"; do not run extra rounds once the STOP conditions hold. The single-All-core-suffices shortcut applies only to the K=1–2 early exit above, not to broader queries.
 
 ### Step 6: Rank and Output
 
@@ -356,6 +356,7 @@ Without `S2_API_KEY`: use `scholar_search` (arXiv fallback) + `arxiv_monitor`. S
 |---|---|
 | `references/env-vars.md` | Setting environment variables |
 | `references/search-principles.md` | Per-query rules, gap diagnosis, rate-limit recovery |
+| `references/iterative-collection.md` | ITERATIVE corpus collection (30+ papers): phase mapping, citation expansion, escape hatches |
 | `references/disambiguation.md` | Query is a project nickname / codename |
 | `references/reading-strategy.md` | L1 / L2 / L3 reading framework |
 | `references/api-reference.md` | S2 / arXiv / Jina / HF / GitHub endpoint details |
