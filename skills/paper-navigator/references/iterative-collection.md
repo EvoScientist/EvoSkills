@@ -1,74 +1,108 @@
-# Iterative Collection (Branch 3 State Machine)
+# Iterative Collection (ITERATIVE branch)
 
-Read this only when the user wants **30+ papers** for a survey, ideation, or comprehensive corpus. For one-shot "find me papers about X", stay in SKILL.md Branch 2.
+Read this only when the user wants **30+ papers** for a survey, ideation, or comprehensive corpus. For one-shot "find me papers about X", stay in SKILL.md LIST.
+
+ITERATIVE shares the same flow shape as LIST — **Probe + up to 3 paper rounds (R2 breadth / R3 deepen / R4 close)**, the same RUBRIC / TRIAGE blocks, and the same Step 5 saturation gate. The differences are scale (≥30 papers), intent (caller is usually `research-survey` / `research-ideation`), and a heavier citation-expansion step. **Round cap is 3 paper rounds; there is no R5.**
 
 ## Why a state machine
 
-Collection is iterative: each search round informs the next (which gaps to fill, which seeds to expand). Without explicit states, agents either stop too early (under-collection) or loop forever (over-collection). The five states below have explicit exit conditions.
+Collection is iterative: each search round informs the next (which gaps to fill, which seeds to expand). Without explicit states, agents either stop too early (under-collection) or run extra rounds past saturation (over-collection). The four phases below map onto the SKILL.md rounds and have explicit exit conditions driven by the Step 5 gate.
 
-## States
+## Phases → SKILL.md round mapping
 
 ```
-S1 DECOMPOSE → S2 MULTI_SEARCH → S3 CITATION_EXPAND → S4 GAP_CHECK → S5 FINALIZE
-                     ↑                                       │
-                     └───── (gap found, targeted search) ────┘
+Probe (prerequisite, 2 queries)
+   │
+   ▼
+R2 BREADTH  ── (Step 5 gate: CONTINUE?) ──┐
+   │                                      │
+   ▼                                      │
+R3 DEEPEN + CITATION EXPAND  ─ (gate) ──┤   loop back only when a
+   │                                      │   [core] criterion or angle tag
+   ▼                                      │   still has 0 papers (R4 fills it)
+R4 CLOSE (final gap fill)
+   │
+   ▼
+FINALIZE — rank, filter, hand off
 ```
 
-**Setup:** Before entering S1, create a TodoWrite list with these 5 items so progress is visible to the user.
+**Setup:** Before Probe, create a TodoWrite list with these items so progress is visible to the user.
 
 ---
 
-## S1 — DECOMPOSE
+## Probe — prerequisite (NOT counted in the 3 rounds)
 
-**Goal:** Identify 3-5 sub-topics within the user's query, generate 4-6 variant queries covering them.
+**Goal:** Establish a comprehensive understanding of the need and lift named entities / angle gaps before authoring R2 queries.
+
+**Action (2 parallel queries):**
+- `Q-broad` — canonical phrasing of the topic (angle: `general`)
+- `Q-narrow` — a specific mechanism / sub-question / method (angle: tagged)
+
+```bash
+python scripts/scholar_search.py --query "<Q-broad>"  --limit 15 --sort-by relevance --output /tmp/pool.jsonl --append
+python scripts/scholar_search.py --query "<Q-narrow>" --limit 15 --sort-by relevance --output /tmp/pool.jsonl --append
+```
+
+From Probe titles + tldrs, lift: recurring **named entities** (algorithm / benchmark / dataset / model names), **angle gaps** (Step-2 rubric tags not seen), and vocabulary from **adjacent communities**.
+
+**Output:** `subtopics[]`, named-entity list, angle-gap list (stored in the TodoWrite todo or scratchpad).
+
+**Exit:** 2 probe queries returned ≥3 sensible results → author RUBRIC and proceed to R2. If probe is empty, switch terminology or see `disambiguation.md`.
+
+---
+
+## R2 — BREADTH (mandatory, 2–3 parallel queries)
+
+**Goal:** Identify 3-5 sub-topics within the user's query, run broad academic queries on the core object + canonical terms lifted from Probe. Build the initial pool (~60 candidates for ideation, ~20-30 for survey).
 
 **Why:** Different research communities use different terms for the same idea. A single query misses 50%+ of relevant work. Cross-community recall is the bottleneck.
 
 **Action:**
-1. List sub-topics along these axes (pick what fits):
-   - Empirical vs. theoretical
-   - Mechanism vs. condition
-   - Method-keyword variants ("data pruning" / "data selection" / "data filtering")
-   - Adjacent formulations ("in-context learning" / "few-shot")
-2. Write 4-6 queries, at least one per sub-topic.
-
-**Output:** `subtopics[]`, `queries[]` (stored in the TodoWrite todo or scratchpad).
-
-**Exit:** ≥3 sub-topics named AND ≥4 queries written → S2.
-
-**Example (topic: "data pruning for LLM pretraining"):**
-- Subtopics: (a) selection methods, (b) quality metrics, (c) scaling effects
-- Queries: `"data pruning pretraining LLM"`, `"data selection language model"`, `"training data curation quality"`, `"perplexity-based filtering pretraining"`
-
----
-
-## S2 — MULTI_SEARCH
-
-**Goal:** Run searches across ≥2 sources to build the initial pool (~60 candidates for ideation, ~20-30 for survey).
-
-**Why:** S2 alone misses recent arXiv preprints; arXiv alone lacks citation signal. Combined recall is 1.5-2× single-source.
-
-**Action:**
-1. For each query from S1:
-   - `scholar_search --query "<q>" --limit 20 --sort-by relevance`
+1. Write 2-3 queries covering different sub-topics / angles from the rubric. At least one query per sub-topic.
+2. For each query:
+   - `scholar_search --query "<q>" --limit 20 --sort-by relevance --output /tmp/pool.jsonl --append`
    - If `S2_API_KEY` is set → parallel OK; if not → run sequentially (parallel S2 without key exhausts rate limit and falls back to lower-quality arXiv search; check with `echo $S2_API_KEY`).
-2. In parallel with the above, run `arxiv_monitor --keywords "<v1,v2,v3>" --match-mode flexible --days 365`. The scripts use a shared arXiv pacer, so concurrent agents will queue arXiv API requests instead of bursting.
-3. Deduplicate by normalized title and arXiv ID.
-4. Filter by title + abstract relevance. Reject if abstract < 20 words or off-topic.
+3. In parallel with the above, run `arxiv_monitor --keywords "<v1,v2,v3>" --match-mode flexible --days 365`. The scripts use a shared arXiv pacer, so concurrent agents will queue arXiv API requests instead of bursting.
+4. Deduplicate by `paperId` first, then normalised title (`--output --append` auto-dedupes by `paperId`).
+5. Filter by title + abstract relevance. Reject if abstract < 20 words or off-topic.
+
+**Per-query rules (from SKILL.md Step 3):**
+- 3-6 words, English academic terms.
+- **Do NOT add `survey` / `review` / `tutorial` terms** — they bias toward review papers and crowd out the research papers the user wants. Only use them when the user explicitly asks for a survey/review.
+- Bare entity names; no `paper` / `pdf` / `arxiv` / `original`.
+- Split comparisons / multi-property; if short of 2-3 queries, fill with upper-topic or representative method.
+- Time intent goes into `--year-min/max`, never year words in the query.
+- Forbidden: `"..."`, `(...)`, `OR`, `AND`, `|`, `site:`, `filetype:`.
+- No two queries in one round may share >60% of content tokens.
+
+**Recency trigger:** If the user query contains 最新 / 近年 / 近期 / 近两年 / 前沿 / SOTA / latest / recent / state-of-the-art, set `--year-min` to last 2 years from R2 onward.
 
 **Output:** `pool[]` of ~40-60 candidates with `{title, authors, year, venue, citations, id, abstract}`.
 
-**Exit:** ≥3 strongly relevant seeds in pool → S3. If <3, run 1-2 more targeted queries before giving up.
+**Exit (Step 5 gate):** Triage with the TRIAGE block. Proceed to R3 if any [core] criterion has 0 All-core papers, any angle tag has 0 All-core/Partial, or a key claim rests on a single source. If every [core] criterion and angle tag is covered and no claim rests on a single source → STOP, go to FINALIZE.
+
+**Example (topic: "data pruning for LLM pretraining"):**
+- Subtopics: (a) selection methods, (b) quality metrics, (c) scaling effects
+- R2 queries: `data pruning pretraining LLM`, `data selection language model`, `training data curation quality`
 
 ---
 
-## S3 — CITATION_EXPAND
+## R3 — DEEPEN + CITATION EXPAND (optional, when the Step 5 gate says CONTINUE)
 
-**Goal:** Use the citation graph to find papers keyword search cannot reach. This is where iterative collection earns its cost.
+**Goal:** Use targeted queries + the citation graph to fill the specific gaps Step 4 triage exposed. This is where iterative collection earns its cost.
 
 **Why:** Co-citation is the single strongest signal for finding related work using different terminology. Forward citations find follow-ups. Backward finds foundations.
 
-**Action:** Rank pool by **relevance to the user's query** (semantic match on title + abstract); use citation count only as a tiebreaker among comparably-relevant candidates. Pick top 3 as seeds, prefer seeds from *different sub-topics* (from S1) for diversity. Citation count alone selects locally-famous but topically-distant papers, which then bias co-citation traversal away from the actual query.
+**Action — Part A: targeted deepen queries (2-3 parallel).** Driven by the Step 4 gap→strategy map (SKILL.md):
+| Gap surfaced by triage | R3 strategy |
+|---|---|
+| Foundational work drowned by recent papers | `--year-max`, search the original mechanism / early terminology |
+| User wants SOTA / frontier, or R2 skewed old | `--year-min` last 2 years |
+| Thin single-source evidence | swap terminology / team / benchmark for multi-source corroboration |
+| Incomplete A-vs-B comparison | separately fill A, B, and an upper-topic query (no `survey`/`review` terms) |
+| Contradictory findings | verification query, prefer authoritative venue / high-cite / direct experiment |
+
+**Action — Part B: citation expansion.** Rank pool by **relevance to the user's query** (semantic match on title + abstract); use citation count only as a tiebreaker among comparably-relevant candidates. Pick top 3 as seeds, prefer seeds from *different sub-topics* (from the rubric) for diversity. Citation count alone selects locally-famous but topically-distant papers, which then bias co-citation traversal away from the actual query.
 
 1. **Co-citation** on the most-relevant seed:
    `citation_traverse --paper-id <seed1> --direction co-citation --limit 15`
@@ -84,46 +118,41 @@ If no `S2_API_KEY`: space these calls ≥5s apart. Reduce `--limit` if 429 appea
 
 **Output:** `pool[]` expanded by 30-60 new papers, still deduplicated.
 
-**Exit:** All 4 traversal calls completed (or rate-limited fallback used) → S4.
+**Exit (Step 5 gate):** Proceed to R4 if a [core] criterion or angle tag is still uncovered. Otherwise STOP, go to FINALIZE. If R2 returned 0 All-core across the board → re-decompose the rubric (see SKILL.md Step 5).
 
 ---
 
-## S4 — GAP_CHECK
+## R4 — CLOSE (optional, final gap fill)
 
-**Goal:** Audit coverage against the sub-topics from S1. Catch systematic blind spots.
+**Goal:** Fill whatever key gap remains after R3 — a missing representative work, a strong baseline, a counter-example, or an uncovered sub-direction.
 
-**Why:** Even with citation expansion, an entire research perspective can be missing if all initial queries shared a bias. This step is lightweight (1-2 calls), high ROI.
+**Action (2-3 parallel queries):** One targeted `scholar_search` per remaining gap, diagnosed via the Step 4 gap→strategy map. For cross-discipline gaps (e.g., topic spans CS and neuroscience), consult the terminology drift tables in `search-principles.md` to pick the right community's vocabulary. If the gap is "dead end" (2 rounds returned nothing on that angle), switch keyword angle entirely; do NOT just try synonyms.
 
-**Action:**
-1. Count papers in `pool[]` per sub-topic from S1.
-2. For each sub-topic with **0-1 papers**, diagnose which gap type applies (see `search-principles.md` § "Gap Diagnosis") — usually "multi-source verification" (different community's term) or "dead end" (need a completely different angle).
-3. Run one targeted `scholar_search` for the gap. If gap type is "dead end", switch keyword angle entirely; do NOT just try synonyms.
-4. If the targeted search returns ≥2 new relevant papers → optionally one more `recommend` or `citation_traverse` on the new finds.
-
-For cross-discipline gaps (e.g., topic spans CS and neuroscience), consult the terminology drift tables in `search-principles.md` to pick the right community's vocabulary.
+If a targeted search returns ≥2 new relevant papers, optionally one more `recommend` or `citation_traverse` on the new finds.
 
 **Output:** Final `pool[]`.
 
-**Exit:** Every sub-topic from S1 has ≥2 papers, OR you ran one targeted search per gap and accepted the remainder → S5.
+**Exit:** This is the last round — the cap is 3 paper rounds (R2/R3/R4), no R5. After R4, go to FINALIZE regardless. If still not saturated, report which criteria / angle tags are under-covered in the FINALIZE output.
 
 ---
 
-## S5 — FINALIZE
+## FINALIZE
 
-**Goal:** Apply quality filter, take top N, return.
+**Goal:** Apply quality filter, rank by relevance, take top N, return.
 
 **Action:**
-1. Sort by relevance (semantic match to user goal, judged by title + abstract).
-2. Apply profile-specific filter:
+1. **Rank by relevance (model-judged, no numeric score).** Order papers by how directly each answers the user's question; All-core before Partial; [core] before [secondary]. This is a judgment call, not a formula — **do not compute a weighted_total**.
+2. **Recency tie-break.** When the RUBRIC flagged a recency signal, break ties / near-ties in favor of the more recent paper (`year` DESC), applied after relevance.
+3. Apply profile-specific filter:
 
 | Profile | Recency | Venue | Target N |
 |---|---|---|---|
 | **Survey** | include foundational older work | moderate (top venues preferred) | 30-80 |
-| **Ideation** | strong bias toward 2020+ | top-tier only | 30-50 |
+| **Ideation** | strong bias toward recent (via `--year-min`, not query words) | top-tier only | 30-50 |
 | **User-specified N** | match user request | match user signals | user-specified |
 
-3. Output as a Paper Table (see SKILL.md output format).
-4. Hand off to the next skill based on user intent:
+4. Output as a ranked Paper Table (see SKILL.md output format). K is a soft cap (≤10 for ITERATIVE) — surplus relevant papers sit in an "Also relevant (not ranked)" list, never pad the ranked list.
+5. Hand off to the next skill based on user intent:
    - Survey report → `research-survey`
    - Idea generation → `research-ideation`
    - User just wanted a list → done.
@@ -136,19 +165,19 @@ For cross-discipline gaps (e.g., topic spans CS and neuroscience), consult the t
 
 - **API completely down (429 + arXiv fallback also failing):** stop iteration, return what's in `pool[]` with a warning, suggest user retry later.
 - **All searches return <3 results:** the topic may be too narrow or use non-standard terms. Drop to `references/disambiguation.md` and consider web search for blog posts / GitHub repos that reference papers.
-- **Pool > 200 candidates after S3:** you over-searched. Tighten relevance filter, prefer top-venue + recent papers, advance to S5.
+- **Pool > 200 candidates after R3:** you over-searched. Tighten relevance filter, prefer top-venue + recent papers, advance to FINALIZE.
 
 ---
 
 ## TodoWrite integration
 
-Before entering S1, create:
+Before Probe, create:
 ```
-- [ ] S1: Decompose topic into 3-5 subtopics + 4-6 queries
-- [ ] S2: Multi-source search (S2 + arXiv) and filter to ~40-60 candidates
-- [ ] S3: Citation expansion (co-citation + forward + backward + recommend)
-- [ ] S4: Gap check against subtopics
-- [ ] S5: Finalize, output table, hand off
+- [ ] Probe: 2 queries (Q-broad + Q-narrow), lift named entities + angle gaps
+- [ ] R2 Breadth: 2-3 queries across sub-topics, build pool to ~40-60 candidates
+- [ ] R3 Deepen + Citation expand: targeted gap-fill + co-citation/forward/backward/recommend
+- [ ] R4 Close: final gap fill (only if Step 5 gate says CONTINUE)
+- [ ] Finalize: rank by relevance, filter, output table, hand off
 ```
 
-Mark each completed before advancing. This makes the state visible to the user and prevents accidentally skipping S4 (the most commonly-skipped step).
+Mark each completed before advancing. This makes the state visible to the user and prevents accidentally skipping the saturation gate (the most commonly-skipped step).
