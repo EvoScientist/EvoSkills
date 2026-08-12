@@ -21,9 +21,6 @@ optimization/
 workspace/
 *CLAUDE.md
 *AGENTS.md
-# Exception: AGENTS.md inside a skill directory is a SHIPPED contract file
-# (actor definition, agent-teams v2), not local agent instructions.
-!skills/*/AGENTS.md
 
 # Local skill version backups (kept locally for rollback, not committed)
 skills/*.bak.*/

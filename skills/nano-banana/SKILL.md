@@ -30,9 +30,11 @@ Generate high-quality presentation slides as images using Gemini's image generat
 
 ## Before You Start: Prerequisites
 
-Before proceeding with any slide generation, verify these prerequisites:
+Before proceeding with any slide generation, verify these prerequisites. Script and style paths in this document are relative to this skill's directory.
 
-1. **API Key**: Check that a Google API key is available. Run:
+1. **Dependencies**: `pip install pillow google-genai python-pptx python-dotenv` (also listed in `requirements.txt` at the skill root). Install into the environment the user is working in.
+
+2. **API Key**: Check that a Google API key is available. Run:
    ```bash
    echo $GOOGLE_API_KEY
    ```
@@ -41,7 +43,7 @@ Before proceeding with any slide generation, verify these prerequisites:
    - Provide it directly (pass via `--api-key` argument)
    - If the user provides the key in conversation, pass it to scripts with `--api-key`
 
-2. **Language**: Ask the user what language the slide content should be in. This affects the content you write in `slides_plan.json`, not the style template.
+3. **Language**: Ask the user what language the slide content should be in. This affects the content you write in `slides_plan.json`, not the style template.
 
 ---
 
@@ -182,9 +184,9 @@ For first-time generation, recommend `gemini-3.1-flash-image-preview` (fast iter
 ### Generate Command
 
 ```bash
-python /skills/nano-banana/scripts/generate_ppt.py \
+python scripts/generate_ppt.py \
   --plan slides_plan.json \
-  --style /skills/nano-banana/styles/lineal-color.md \
+  --style styles/lineal-color.md \
   --model gemini-3.1-flash-image-preview \
   --output ppt_output
 ```
@@ -216,7 +218,7 @@ ppt_output/
 Start the interactive review server so the user can review slides and write feedback:
 
 ```bash
-python /skills/nano-banana/scripts/serve_viewer.py \
+python scripts/serve_viewer.py \
   --dir ppt_output \
   --plan slides_plan.json \
   --port 8080 \
@@ -237,7 +239,7 @@ Wait for the user to confirm they have saved their feedback before proceeding.
 Read `slides_plan.json` and find all slides with a non-empty `feedback` field. For each one, run the edit script:
 
 ```bash
-python /skills/nano-banana/scripts/edit_slide.py \
+python scripts/edit_slide.py \
   --input ppt_output/images/slide-{NUMBER}.png \
   --instruction "{FEEDBACK_TEXT}" \
   --output ppt_output/images/slide-{NUMBER}.png \
@@ -262,7 +264,7 @@ If the user has more feedback, repeat Phase 4-5. This review-edit cycle continue
 Once the user approves all slides, ask for the desired filename and package them:
 
 ```bash
-python /skills/nano-banana/scripts/package_pptx.py \
+python scripts/package_pptx.py \
   --dir ppt_output/images \
   --output presentation.pptx \
   --kill-server .viewer.pid
