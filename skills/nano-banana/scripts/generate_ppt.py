@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Nano Banana - Generate presentation slide images using Google Gemini API.
+Nano Banana - Generate presentation slide images using Gemini or Atlas Cloud.
 
 This script generates presentation slide images based on a slide plan and style template,
 then creates an HTML viewer for playback.
@@ -21,8 +21,10 @@ from dotenv import load_dotenv
 # Constants
 # =============================================================================
 
+DEFAULT_PROVIDER = "gemini"
 DEFAULT_RESOLUTION = "2K"
 DEFAULT_MODEL = "gemini-3-pro-image-preview"
+ATLAS_MODEL = "google/nano-banana-2-lite/text-to-image"
 OUTPUT_BASE_DIR = "ppt_output"
 
 SUPPORTED_MODELS = [
@@ -30,6 +32,29 @@ SUPPORTED_MODELS = [
     "gemini-3.1-flash-image-preview",  # Fast, good quality
     "gemini-2.5-flash-image",  # Fastest, basic quality
 ]
+
+
+def resolve_provider_options(
+    provider: str, model: Optional[str], resolution: Optional[str]
+) -> tuple[str, str]:
+    """Resolve provider-specific defaults and reject incompatible options."""
+    if provider == "atlas":
+        selected_model = model or ATLAS_MODEL
+        selected_resolution = resolution or "1K"
+        if selected_model != ATLAS_MODEL:
+            raise ValueError(f"Atlas provider requires model {ATLAS_MODEL}")
+        if selected_resolution != "1K":
+            raise ValueError("Atlas provider currently supports only 1K resolution")
+        return selected_model, selected_resolution
+
+    selected_model = model or DEFAULT_MODEL
+    selected_resolution = resolution or DEFAULT_RESOLUTION
+    if selected_model not in SUPPORTED_MODELS:
+        raise ValueError(f"Unsupported Gemini model: {selected_model}")
+    if selected_resolution not in ("2K", "4K"):
+        raise ValueError("Gemini provider supports 2K or 4K resolution")
+    return selected_model, selected_resolution
+
 
 # Skill root directory (nano-banana/)
 SKILL_ROOT = Path(__file__).resolve().parent.parent
@@ -260,28 +285,39 @@ def generate_slide(
     slide_number: int,
     total_slides: int,
     output_dir: str,
-    resolution: str = DEFAULT_RESOLUTION,
+    resolution: Optional[str] = None,
     api_key: Optional[str] = None,
-    model: str = DEFAULT_MODEL,
+    model: Optional[str] = None,
+    provider: str = DEFAULT_PROVIDER,
 ) -> Optional[str]:
     """
-    Generate a single PPT slide image using Gemini API.
+    Generate a single PPT slide image using the selected provider.
 
     Args:
         prompt: The generation prompt.
         slide_number: Slide number for filename.
         total_slides: Total number of slides (for progress display).
         output_dir: Output directory path.
-        resolution: Image resolution (2K or 4K).
+        resolution: Provider-specific image resolution.
         api_key: Explicit API key (optional).
-        model: Gemini model name.
+        model: Provider model name.
+        provider: Image provider (gemini or atlas).
 
     Returns:
         Path to saved image, or None if generation failed.
     """
-    from google.genai import types
-
     try:
+        model, resolution = resolve_provider_options(provider, model, resolution)
+        image_path = os.path.join(output_dir, "images", f"slide-{slide_number:02d}.png")
+        if provider == "atlas":
+            from atlas_image import generate_image
+
+            generate_image(prompt, image_path, model, api_key=api_key)
+            print(f"[{slide_number}/{total_slides}] OK: {image_path}")
+            return image_path
+
+        from google.genai import types
+
         client = get_gemini_client(api_key)
         response = client.models.generate_content(
             model=model,
@@ -299,9 +335,6 @@ def generate_slide(
             if part.inline_data is not None:
                 from PIL import Image
 
-                image_path = os.path.join(
-                    output_dir, "images", f"slide-{slide_number:02d}.png"
-                )
                 # Save raw image first, then re-save as true PNG
                 tmp_path = image_path + ".tmp"
                 part.as_image().save(tmp_path)
@@ -389,7 +422,7 @@ def save_prompts(output_dir: str, prompts_data: Dict[str, Any]) -> str:
 def create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure argument parser."""
     parser = argparse.ArgumentParser(
-        description="Nano Banana - Generate slide images using Gemini API",
+        description="Nano Banana - Generate slide images using Gemini or Atlas Cloud",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Example usage:
@@ -401,6 +434,7 @@ Example usage:
 Environment variables (checked in order):
   GOOGLE_API_KEY: Google AI API key (set by EvoScientist config)
   GEMINI_API_KEY: Fallback for standalone usage
+  ATLASCLOUD_API_KEY: Atlas Cloud API key when --provider atlas is selected
 """,
     )
 
@@ -416,19 +450,22 @@ Environment variables (checked in order):
     )
     parser.add_argument(
         "--api-key",
-        help="Google API key (overrides GOOGLE_API_KEY env var)",
+        help="Provider API key (overrides the provider environment variable)",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=["gemini", "atlas"],
+        default=DEFAULT_PROVIDER,
+        help=f"Image provider (default: {DEFAULT_PROVIDER})",
     )
     parser.add_argument(
         "--model",
-        choices=SUPPORTED_MODELS,
-        default=DEFAULT_MODEL,
-        help=f"Image generation model (default: {DEFAULT_MODEL})",
+        help="Image generation model (default depends on provider)",
     )
     parser.add_argument(
         "--resolution",
-        choices=["2K", "4K"],
-        default=DEFAULT_RESOLUTION,
-        help=f"Image resolution (default: {DEFAULT_RESOLUTION})",
+        choices=["1K", "2K", "4K"],
+        help="Image resolution (default: Gemini 2K, Atlas 1K)",
     )
     parser.add_argument(
         "--output",
@@ -457,6 +494,12 @@ def main() -> None:
     # Parse arguments
     parser = create_argument_parser()
     args = parser.parse_args()
+    try:
+        args.model, args.resolution = resolve_provider_options(
+            args.provider, args.model, args.resolution
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
 
     # Load slides plan
     with open(args.plan, "r", encoding="utf-8") as f:
@@ -483,6 +526,8 @@ def main() -> None:
         "metadata": {
             "title": slides_plan.get("title", "Untitled Presentation"),
             "total_slides": total_slides,
+            "provider": args.provider,
+            "model": args.model,
             "resolution": args.resolution,
             "style": args.style,
             "generated_at": datetime.now().isoformat(),
@@ -531,6 +576,7 @@ def main() -> None:
                     args.resolution,
                     args.api_key,
                     args.model,
+                    args.provider,
                 ): task["slide_number"]
                 for task in slide_tasks
             }
@@ -547,6 +593,7 @@ def main() -> None:
                 args.resolution,
                 args.api_key,
                 args.model,
+                args.provider,
             )
 
     # Record prompt data (in slide order)

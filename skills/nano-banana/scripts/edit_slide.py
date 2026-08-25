@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Slide Editor - Edit existing PPT slide images using Google Gemini API.
+Slide Editor - Edit existing PPT slide images using Gemini or Atlas Cloud.
 
 Takes an existing slide image and a text instruction, generates an edited
-version using Gemini's image editing (text + image -> image) capability.
+version using the selected provider's image editing capability.
 """
 
 import argparse
@@ -18,13 +18,29 @@ from dotenv import load_dotenv
 # Constants
 # =============================================================================
 
+DEFAULT_PROVIDER = "gemini"
 DEFAULT_MODEL = "gemini-3-pro-image-preview"
+ATLAS_MODEL = "google/nano-banana-2-lite/edit"
 
 SUPPORTED_MODELS = [
     "gemini-3-pro-image-preview",
     "gemini-3.1-flash-image-preview",
     "gemini-2.5-flash-image",
 ]
+
+
+def resolve_model(provider: str, model: Optional[str]) -> str:
+    """Resolve a provider-specific model and reject incompatible choices."""
+    if provider == "atlas":
+        selected_model = model or ATLAS_MODEL
+        if selected_model != ATLAS_MODEL:
+            raise ValueError(f"Atlas provider requires model {ATLAS_MODEL}")
+        return selected_model
+
+    selected_model = model or DEFAULT_MODEL
+    if selected_model not in SUPPORTED_MODELS:
+        raise ValueError(f"Unsupported Gemini model: {selected_model}")
+    return selected_model
 
 
 # =============================================================================
@@ -61,8 +77,9 @@ def edit_slide(
     input_path: str,
     instruction: str,
     output_path: str,
-    model: str = DEFAULT_MODEL,
+    model: Optional[str] = None,
     api_key: Optional[str] = None,
+    provider: str = DEFAULT_PROVIDER,
 ) -> Optional[str]:
     """
     Edit a slide image based on text instruction.
@@ -71,16 +88,31 @@ def edit_slide(
         input_path: Path to the original slide image.
         instruction: Text instruction describing the edit.
         output_path: Path to save the edited image.
-        model: Gemini model name.
+        model: Provider model name.
         api_key: Explicit API key (optional).
+        provider: Image provider (gemini or atlas).
 
     Returns:
         Path to saved edited image, or None if failed.
     """
-    from google.genai import types
-    from PIL import Image
-
     try:
+        model = resolve_model(provider, model)
+        if provider == "atlas":
+            from atlas_image import generate_image
+
+            result = generate_image(
+                instruction,
+                output_path,
+                model,
+                input_path=input_path,
+                api_key=api_key,
+            )
+            print(f"OK: {result}")
+            return result
+
+        from google.genai import types
+        from PIL import Image
+
         client = get_gemini_client(api_key)
         original = Image.open(input_path)
 
@@ -122,7 +154,7 @@ def edit_slide(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Edit PPT slide images using Gemini API",
+        description="Edit PPT slide images using Gemini or Atlas Cloud",
         epilog="""
 Example usage:
   python skills/nano-banana/scripts/edit_slide.py \\
@@ -134,14 +166,32 @@ Example usage:
     parser.add_argument("--input", required=True, help="Path to original slide image")
     parser.add_argument("--instruction", required=True, help="Edit instruction text")
     parser.add_argument("--output", help="Output path (default: overwrite input)")
-    parser.add_argument("--model", choices=SUPPORTED_MODELS, default=DEFAULT_MODEL)
-    parser.add_argument("--api-key", help="Google API key")
+    parser.add_argument(
+        "--provider",
+        choices=["gemini", "atlas"],
+        default=DEFAULT_PROVIDER,
+    )
+    parser.add_argument(
+        "--model", help="Image editing model (default depends on provider)"
+    )
+    parser.add_argument("--api-key", help="Provider API key")
 
     args = parser.parse_args()
     load_dotenv(override=True)
+    try:
+        args.model = resolve_model(args.provider, args.model)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     output = args.output or args.input
-    edit_slide(args.input, args.instruction, output, args.model, args.api_key)
+    edit_slide(
+        args.input,
+        args.instruction,
+        output,
+        args.model,
+        args.api_key,
+        args.provider,
+    )
 
 
 if __name__ == "__main__":
