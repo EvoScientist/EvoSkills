@@ -10,13 +10,27 @@ and produce a high-level taxonomy in Markdown.
 *(A numbered list. You MUST use the numbers (1), (2), ... for citation.)*
 
 --- Your Task ---
-1. Identify 3–5 core research challenges addressed in the papers.
-2. For each challenge, identify 2–3 distinct solution strategies.
+1. Identify 2–5 core research challenges at the natural conceptual joints of
+   this paper pool. Do not force symmetry.
+2. For each challenge, identify 1–4 genuinely distinct solution strategies.
 3. Map the relevant papers to each solution branch using the paper numbers.
 
 --- Grouping & Coverage Rules ---
-- Aim to categorize EVERY paper provided into at least one solution.
-- Size limits: Aim for 2–5 papers per solution. Solutions with only 1 paper disrupt downstream comparison, and solutions with 6+ papers are too broad. Rebalance your taxonomy to avoid these extremes where possible.
+- Researcher utility comes first: carve the field at meaningful technical
+  joints, even when branches are uneven.
+- Give each paper at most ONE primary solution placement. Do not duplicate a
+  foundational paper across later solution branches merely to imply ancestry.
+- A one-paper solution is valid when the paper represents a distinct approach
+  in this pool. Conversely, split a large bucket when it combines mechanisms a
+  researcher would want to distinguish.
+- Foundational papers, surveys, diagnostic analyses, and derivative
+  applications may be omitted from solution membership when forcing them into
+  a solution would misstate their role. They remain available to the appendix
+  and later evidence analysis. The detail stage may reuse an omitted or
+  differently placed foundational paper as lineage context; that does not
+  create a second primary taxonomy placement.
+- Coverage is secondary to accurate placement. Do not create catch-all buckets
+  or forced symmetry to include every paper.
 - Abstention: If a paper is wildly off-topic (e.g., a search error from a different domain), DO NOT force it into the taxonomy. Simply leave its number out of the final output.
 
 --- Strict Grounding Rules ---

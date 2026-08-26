@@ -19,6 +19,15 @@ from the paper's own discussion / conclusion / limitations / future-work
 section — when present, treat it as the authoritative source for
 unresolved problems the authors acknowledge.)*
 
+--- Primary Taxonomy Members ---
+{primary_numbers}
+
+The primary members define this solution branch. The larger relevant-paper
+pool also contains context. You may include a contextual paper only when it is
+a canonical predecessor or successor needed to explain the primary members'
+lineage. Do not turn surveys, diagnostics, or merely related papers into chain
+nodes.
+
 --- Core Grounding Rules ---
 1. ALLOWED NUMBERS ONLY: The ONLY paper numbers you may use or reference are: {allowed_numbers}. Any other number is a hallucination and will crash the renderer.
 2. NO EXTERNAL DATA: Do not introduce ANY paper, author, or concept not present in the abstracts above.
@@ -29,10 +38,19 @@ Determine if the provided papers form a chronological lineage (A builds on B) or
 - You MUST mark at least one paper as `- Evolution from: (none - initial work)`.
 - A flat list of independent papers (all marked `none - initial work`) is perfectly expected and preferred over a forced, fabricated chain.
 
+For every primary member, actively test whether the supplied context contains
+a canonical earlier method that it concretely extends, or a major successor
+that concretely extends it. Do not silently drop the field's main spine merely
+because the papers belong to different primary taxonomy branches.
+
 To emit an edge `(M) -> (N)`, you must pass this strict test:
-- The Source (M)'s abstract must explicitly lack or struggle with X.
-- The Target (N)'s abstract must explicitly introduce the mechanism to fix X.
-- If (N) is just generally related to (M) but does not build on its specific mechanism, do NOT link them. Make (N) an initial work.
+- The Source (M)'s abstract or excerpt establishes mechanism or limitation X.
+- The Target (N)'s abstract or excerpt introduces a concrete change that
+  addresses X or extends that mechanism.
+- Explicitly naming or citing (M) is strongest but not mandatory when the two
+  evidence spans establish the same specific mechanism or limitation. Shared
+  topic, chronology, or generic improvement language is not enough.
+- If (N) is merely related to (M), make (N) an initial work.
 
 --- Phase 1: Scratchpad Analysis ---
 Before generating the Markdown, write a `<scratchpad>` block.
