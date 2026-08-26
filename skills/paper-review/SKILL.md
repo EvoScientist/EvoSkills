@@ -4,7 +4,7 @@ description: "Guides self-review of YOUR OWN academic paper before submission wi
 allowed-tools: "read_file edit_file write_file think_tool"
 metadata:
   author: EvoScientist
-  version: '1.1.0'
+  version: '1.2.0'
   type: [skill, expert]
   tags: [core, writing, academic-writing, peer-review]
 ---
