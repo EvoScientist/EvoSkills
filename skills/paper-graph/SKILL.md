@@ -1,10 +1,10 @@
 ---
 name: paper-graph
-description: "Use this skill to map the **genealogical lineage and historical progression** of a research field. It is designed to visualize the **evolutionary path of ideas**, showing how technical challenges in earlier works were addressed by subsequent research improvements. The final deliverable is a Markdown file with embedded Mermaid diagrams the user can paste into a viewer or commit to their repo. Trigger this when the user needs to understand the **developmental trajectory of a topic**, the 'family tree' of a model, or how a research line matured over multiple years. Do NOT trigger for queries seeking **inventories of specific artifacts**, such as lists of common datasets, benchmarks, or libraries. Avoid this for finding a single 'latest' paper, performing simple keyword search, or conducting head-to-head technical comparisons between specific models. This skill is meant for synthesizing a **chronological narrative of improvement** across multiple works, not for cataloging currently available resources or one-off paper retrieval."
+description: "Map the genealogical lineage and historical progression of a research field. Visualize how earlier technical challenges led to later approaches and improvements, producing a Markdown report with embedded Mermaid diagrams. Trigger when the user asks for a topic's developmental trajectory, a model's family tree, significant predecessors or follow-ups to a seed paper, or how a research line matured over time. Do not trigger for inventories of datasets, benchmarks, libraries, or other artifacts; finding one latest paper; simple keyword search; one-paper summaries; or head-to-head comparisons. Use this skill for chronological synthesis across multiple works, not for bibliography cataloging or one-off retrieval."
 allowed-tools: "write_file edit_file read_file execute"
 metadata:
   author: EvoScientist
-  version: '0.1.1'
+  version: '0.1.2'
   tags: [research, literature-review, graph, mermaid]
 ---
 
@@ -13,6 +13,15 @@ metadata:
 Build a Markdown report with embedded Mermaid diagrams showing how research on a user-specified topic (or paper) evolved — clustered into challenges → solutions and traced as per-solution evolution paths.
 
 The skill has no outbound LLM dependency. The host agent provides all LLM calls; the skill provides deterministic data fetchers (S2 / DeepXiv), prompt templates, markdown parsers, and Mermaid renderers. Run the runbook below step-by-step.
+
+**Execution requirement.** When the caller already provides `input/parsed_query.json`,
+`input/seed.json`, and `input/papers.json`, treat steps 1–5 as complete and start at
+step 6. Still run every deterministic CLI step from classify through assemble; do not
+replace parsing, edge audit, rendering, or assembly with hand-authored Mermaid. Before
+finishing, verify that every parsed solution has a detail render and an audit verdict
+file, even when that file is an empty JSON list. Treat `assemble_report` as the only
+final-report writer: do not edit or append hand-authored edges afterward, even when a
+caller asks to display uncertain relationships. Preserve uncertainty in verdict JSON.
 
 ## When to Use This Skill
 
@@ -250,12 +259,18 @@ Writes the outline summary plus one `solutions/<key>.json` context file per solu
   "solution_key": [1, 1],
   "solution_key_str": "1.1",
   "solution_name": "Optimization of the BEST-RQ pre-training objective",
-  "paper_nums": [1, 3, 99],
-  "allowed": [1, 3]
+  "paper_nums": [1, 3],
+  "allowed": [1, 2, 3, 4]
 }
 ```
 
-`paper_nums` is the verbatim LLM-emitted set; `allowed` is the same set filtered to keep only valid CORE indices (note above: `99` was an LLM hallucination, dropped from `allowed`), with a fallback to **all** CORE indices when filtering would otherwise empty the list. `format_papers --filter <solutions/key.json>` and `parse_detail --context <solutions/key.json>` both read `allowed` out of this file automatically — never `paper_nums`.
+`paper_nums` is the valid, de-duplicated primary taxonomy membership; when
+the outline repeats a paper, its first placement wins. `allowed` contains all
+CORE papers so detail generation can recover a canonical predecessor or
+successor without duplicating its primary taxonomy placement. `format_papers
+--filter <solutions/key.json>` and `parse_detail --context
+<solutions/key.json>` both read `allowed` automatically. Use `paper_nums`
+only for the `{primary_numbers}` prompt field.
 
 Exits with code 4 and a stderr diagnostic if the outline contained no parseable `## Challenge N:` headers. Re-prompt step 8 once; on second failure, lower `--n` in step 5 or sharpen the query.
 
@@ -280,6 +295,8 @@ python scripts/cli.py format_papers \
 - `{goal}` — contents of `<workdir>/goal_block.txt` (the file built in Step 8).
 - `{challenge_name}` — from the solution context (`challenge_name`).
 - `{solution_name}` — from the solution context (`solution_name`).
+- `{primary_numbers}` — comma-separated `(N)` values from the solution
+  context's `paper_nums`; use `(none)` only when the list is empty.
 - `{papers_input}` — from `<workdir>/details/<key>_input.txt`.
 - `{allowed_numbers}` — from `<workdir>/details/<key>_input.txt.allowed.txt`.
 
@@ -315,19 +332,29 @@ For each `<workdir>/parsed/<key>.json`'s `edges` list, audit each edge against t
 
 For every `{source_n, target_n, gap}` edge in the solution:
 - Look up source paper = `papers[source_n - 1]` and target = `papers[target_n - 1]` from `<workdir>/papers.json`.
-- Substitute the placeholders in `references/audit_edge.md`: `{m_n}`, `{m_title}`, `{m_abstract}` (truncated to 1500 chars), `{m_excerpt}` (the `_conclusion_section` or `(no excerpt)`, truncated to 1500 chars), `{n_n}`, `{n_title}`, `{n_abstract}`, `{n_excerpt}`, `{gap_text}`.
+- Substitute the placeholders in `references/audit_edge.md`: `{m_n}`, `{m_title}`,
+  `{m_year}`, `{m_abstract}` (truncated to 1500 chars), `{m_excerpt}` (the
+  `_conclusion_section` or `(no excerpt)`, truncated to 1500 chars), `{n_n}`,
+  `{n_title}`, `{n_year}`, `{n_abstract}`, `{n_excerpt}`, `{gap_text}`.
 - Call the LLM (low temperature ~0.1, reasoning off, ~600 max tokens). Parse the response:
 
 ```json
 {"verdict": "SUPPORTED_BY_ABSTRACT" | "SUPPORTED_BY_SECTION" | "INFERRED" | "REJECT",
+ "source_quote": "<verbatim source evidence or NONE>",
+ "target_quote": "<verbatim target evidence or NONE>",
  "reason": "<one sentence>"}
 ```
 
-On parse failure, default the verdict to `INFERRED` (the edge survives rendering but is visibly marked).
+On parse failure, default the verdict to `REJECT`. Only `SUPPORTED_BY_ABSTRACT` and
+`SUPPORTED_BY_SECTION` become directed evolution edges. `INFERRED` records a possible
+relationship for the audit trail but is not rendered as a directed lineage claim.
 
 **Fan-out task brief (when delegating per edge or per solution to subagents).** Same discipline as step 10: do **not** point the subagent at SKILL.md, do **not** instruct it to "run paper-graph audit," and do **not** give it any CLI invocation. The orchestrator does the substitution itself and hands the subagent only:
-- The fully-substituted prompt string (already with `{m_n}`, `{m_title}`, `{m_abstract}`, `{m_excerpt}`, `{n_n}`, `{n_title}`, `{n_abstract}`, `{n_excerpt}`, `{gap_text}` filled in).
-- The expected response shape: a JSON object `{"verdict": "...", "reason": "..."}`.
+- The fully-substituted prompt string (already with `{m_n}`, `{m_title}`, `{m_year}`,
+  `{m_abstract}`, `{m_excerpt}`, `{n_n}`, `{n_title}`, `{n_year}`, `{n_abstract}`,
+  `{n_excerpt}`, `{gap_text}` filled in).
+- The expected response shape: a JSON object with `verdict`, `source_quote`,
+  `target_quote`, and `reason`.
 - An explicit instruction: *"Call your LLM with the prompt below and return only the JSON verdict object. Do not read any other file, do not run any shell command, do not invoke any other skill."*
 
 The subagent returns the verdict JSON; the orchestrator aggregates per-solution lists into `<workdir>/verdicts/<key>.json`. A subagent given a prompt that references SKILL.md will restart the workflow from step 1 — keep the brief bounded.
@@ -335,8 +362,13 @@ The subagent returns the verdict JSON; the orchestrator aggregates per-solution 
 Collect all per-solution verdicts into `<workdir>/verdicts/<key>.json` as a flat list:
 
 ```json
-[{"source_n": 1, "target_n": 3, "verdict": "SUPPORTED_BY_ABSTRACT"}, ...]
+[{"source_n": 1, "target_n": 3, "verdict": "SUPPORTED_BY_ABSTRACT",
+  "source_quote": "<verbatim source evidence>",
+  "target_quote": "<verbatim target evidence>", "reason": "..."}, ...]
 ```
+
+The renderer verifies chronology and both quotes against `papers.json`. A missing,
+unverified, or unaudited edge is fail-closed and is not rendered as directed lineage.
 
 ### Step 12 — `render_outline_mermaid` + `render_detail_mermaid` (CLI, deterministic)
 

@@ -127,6 +127,8 @@ def parse_outline_markdown(
     current_c: int | None = None
     current_s: tuple[int, int] | None = None
     dropped: list[int] = []
+    seen_papers: set[int] = set()
+    duplicate_placements: list[int] = []
 
     for raw in markdown_text.strip().splitlines():
         line = raw.strip()
@@ -159,16 +161,26 @@ def parse_outline_markdown(
             if allowed is not None and paper_num not in allowed:
                 dropped.append(paper_num)
                 continue
+            if paper_num in seen_papers:
+                duplicate_placements.append(paper_num)
+                continue
             sols = challenge_solutions[current_c]
             if sols:
                 s_major, s_minor, sol_name, paper_nums = sols[-1]
                 if (s_major, s_minor) == current_s:
                     paper_nums.append(paper_num)
+                    seen_papers.add(paper_num)
                     sols[-1] = (s_major, s_minor, sol_name, paper_nums)
             continue
 
     if logger is not None and dropped:
         logger.event("outline_dropped_paper_nums", dropped=dropped)
+    if logger is not None and duplicate_placements:
+        logger.event(
+            "outline_dropped_duplicate_placements",
+            dropped=duplicate_placements,
+            policy="first_primary_placement_wins",
+        )
     return root_title, challenges, challenge_solutions
 
 
@@ -648,13 +660,14 @@ def detail_to_mermaid(
             return f"{head}<br/>{url}"
         return head
 
-    # Apply audit verdicts: REJECT edges are dropped (target reverts to
-    # initial work); INFERRED edges keep their evolution_from but render
-    # dotted; SUPPORTED_* and unaudited edges render solid.
-    if edge_verdicts:
+    # Apply audit verdicts: only explicitly SUPPORTED edges become directed
+    # lineage claims. REJECT and INFERRED both revert the target to initial
+    # work; INFERRED remains available in the verdict artifact for prose/audit.
+    if edge_verdicts is not None:
         for pn, info in papers.items():
             ef = info.get("evolution_from")
-            if ef and edge_verdicts.get((ef, pn)) == "REJECT":
+            verdict = edge_verdicts.get((ef, pn)) if ef else None
+            if ef and verdict not in {"SUPPORTED_BY_ABSTRACT", "SUPPORTED_BY_SECTION"}:
                 info["evolution_from"] = None
 
     # Collect full text for any label that exceeds LABEL_CAP; each one is
@@ -680,19 +693,10 @@ def detail_to_mermaid(
         ef = info.get("evolution_from")
         if ef and ef in papers:
             gap = _capped_label(info.get("gap") or "Evolution", footnotes)
-            verdict = (edge_verdicts or {}).get((ef, pn))
-            if verdict == "INFERRED":
-                # Dotted edge + visible marker so the reader sees that the
-                # source/target textual evidence didn't fully attest the gap.
-                _emit_edge(
-                    f"    {prefix}_P{ef} -.->|Gap #40;inferred#41;: {gap}| {prefix}_P{pn}",
-                    dotted=True,
-                )
-            else:
-                _emit_edge(
-                    f"    {prefix}_P{ef} -->|Gap: {gap}| {prefix}_P{pn}",
-                    dotted=False,
-                )
+            _emit_edge(
+                f"    {prefix}_P{ef} -->|Gap: {gap}| {prefix}_P{pn}",
+                dotted=False,
+            )
 
     orphaned_eps: list[int] = []
     orphaned_ocs: list[int] = []
