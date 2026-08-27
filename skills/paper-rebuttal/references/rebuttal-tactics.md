@@ -19,13 +19,13 @@ Write "Clarifying statistical significance" not "Is the improvement significant?
 ## Content Rules
 
 **5. Do, don't promise.**
-Provide the experiment, explanation, or revised text inline. "We will add in the revision" is the weakest possible response. If you ran a new experiment, show the table now. Actions speak louder than promises.
+Provide the experiment, explanation, or revised text inline. "We will add in the revision" is the weakest possible response. If you ran a new experiment, show the table now. Actions speak louder than promises. If a promise is truly unavoidable, scope it — name the experiment, the dataset, and the delivery date; one scoped promise is credible, a pile of "we will explore" is not.
 
 **6. If it's already in the paper, cite the exact location AND restate it.**
 Never say "as discussed in Section 3.2" and leave it at that. The AC likely won't re-read Section 3.2 during the discussion phase. Quote or summarize the relevant content in the rebuttal itself.
 
-**7. Use data over argumentation.**
-One new experiment table beats three paragraphs of explanation. Reviewers trust numbers, not rhetoric. If you can run a quick experiment during the rebuttal period, do it.
+**7. Use data over argumentation — and existing data over new.**
+One experiment table beats three paragraphs of explanation; reviewers trust numbers, not rhetoric. But search the submitted paper (including the appendix) first: a quoted existing result is even stronger than a new one, because the AC can verify it in the PDF they already have. If nothing in the paper answers the concern and you can run a quick experiment during the rebuttal period, do it and show the table inline.
 
 **8. Stay self-contained.**
 The AC may not re-read your paper during the discussion. Reintroduce acronyms, method names, and key setup details in the rebuttal. Don't assume familiarity.
