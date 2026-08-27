@@ -592,9 +592,7 @@ def _cmd_parse_outline(args: argparse.Namespace) -> None:
             # full CORE pool as lineage context so a foundational predecessor
             # or major successor can connect branches without a duplicate
             # primary placement in the taxonomy.
-            valid = [
-                n for n in paper_nums if 1 <= n <= len(papers) and n in core_set
-            ]
+            valid = [n for n in paper_nums if 1 <= n <= len(papers) and n in core_set]
             allowed = core_indices
             solution_key_str = f"{s_major}.{s_minor}"
             ctx_path = solutions_dir / f"{solution_key_str}.json"
@@ -846,22 +844,32 @@ def _cmd_render_detail_mermaid(args: argparse.Namespace) -> None:
                 )
                 source_year = source.get("year")
                 target_year = target.get("year")
-                if (source_year and target_year and int(source_year) > int(target_year)):
+                if source_year and target_year and int(source_year) > int(target_year):
                     verdict = "REJECT"
                     reason = "backwards chronology"
-                elif (not source_quote or source_quote == "NONE"
-                      or source_quote not in source_text):
+                elif (
+                    not source_quote
+                    or source_quote == "NONE"
+                    or source_quote not in source_text
+                ):
                     verdict = "REJECT"
                     reason = "source_quote not verified"
-                elif (not target_quote or target_quote == "NONE"
-                      or target_quote not in target_text):
+                elif (
+                    not target_quote
+                    or target_quote == "NONE"
+                    or target_quote not in target_text
+                ):
                     verdict = "REJECT"
                     reason = "target_quote not verified"
             edge_verdicts[(source_n, target_n)] = verdict
             if reason:
-                audit_downgrades.append({
-                    "source_n": source_n, "target_n": target_n, "reason": reason,
-                })
+                audit_downgrades.append(
+                    {
+                        "source_n": source_n,
+                        "target_n": target_n,
+                        "reason": reason,
+                    }
+                )
 
     # Derive per-node URLs + labels from papers.json (matches the standalone
     # generate_graph.py logic — labels come from canonical metadata, never
