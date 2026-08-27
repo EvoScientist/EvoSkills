@@ -588,10 +588,12 @@ def _cmd_parse_outline(args: argparse.Namespace) -> None:
         for s_major, s_minor, sol_name, paper_nums in challenge_solutions.get(
             c_num, []
         ):
-            valid = sorted(
-                {n for n in paper_nums if 1 <= n <= len(papers) and n in core_set}
-            )
-            allowed = valid if valid else core_indices
+            # ``paper_nums`` is primary taxonomy membership. Detail gets the
+            # full CORE pool as lineage context so a foundational predecessor
+            # or major successor can connect branches without a duplicate
+            # primary placement in the taxonomy.
+            valid = [n for n in paper_nums if 1 <= n <= len(papers) and n in core_set]
+            allowed = core_indices
             solution_key_str = f"{s_major}.{s_minor}"
             ctx_path = solutions_dir / f"{solution_key_str}.json"
             ctx = {
@@ -600,7 +602,7 @@ def _cmd_parse_outline(args: argparse.Namespace) -> None:
                 "solution_key": [s_major, s_minor],
                 "solution_key_str": solution_key_str,
                 "solution_name": sol_name,
-                "paper_nums": paper_nums,
+                "paper_nums": valid,
                 "allowed": allowed,
             }
             _write_json(ctx_path, ctx)
@@ -609,7 +611,7 @@ def _cmd_parse_outline(args: argparse.Namespace) -> None:
                     "challenge_idx": c_num,
                     "solution_key": solution_key_str,
                     "name": sol_name,
-                    "paper_nums": paper_nums,
+                    "paper_nums": valid,
                     "context_path": str(ctx_path),
                 }
             )
@@ -804,6 +806,7 @@ def _cmd_render_detail_mermaid(args: argparse.Namespace) -> None:
     solution_key_str = ctx.get("solution_key_str") or f"{sk_list[0]}.{sk_list[1]}"
 
     edge_verdicts: dict[tuple[int, int], str] | None = None
+    audit_downgrades: list[dict[str, Any]] = []
     if args.verdicts:
         records = _read_json(Path(args.verdicts))
         if not isinstance(records, list):
@@ -813,9 +816,60 @@ def _cmd_render_detail_mermaid(args: argparse.Namespace) -> None:
                 file=sys.stderr,
             )
             sys.exit(2)
-        edge_verdicts = {
-            (int(r["source_n"]), int(r["target_n"])): str(r["verdict"]) for r in records
-        }
+        edge_verdicts = {}
+        supported = {"SUPPORTED_BY_ABSTRACT", "SUPPORTED_BY_SECTION"}
+        valid_labels = supported | {"INFERRED", "REJECT"}
+        for record in records:
+            source_n = int(record["source_n"])
+            target_n = int(record["target_n"])
+            verdict = str(record.get("verdict") or "REJECT")
+            if verdict not in valid_labels:
+                verdict = "REJECT"
+            reason = None
+            if not (1 <= source_n <= len(papers) and 1 <= target_n <= len(papers)):
+                verdict = "REJECT"
+                reason = "paper number outside papers.json"
+            elif verdict in supported:
+                source = papers[source_n - 1]
+                target = papers[target_n - 1]
+                source_quote = str(record.get("source_quote") or "")
+                target_quote = str(record.get("target_quote") or "")
+                source_text = "\n".join(
+                    str(source.get(key) or "")
+                    for key in ("abstract", "_conclusion_section")
+                )
+                target_text = "\n".join(
+                    str(target.get(key) or "")
+                    for key in ("abstract", "_conclusion_section")
+                )
+                source_year = source.get("year")
+                target_year = target.get("year")
+                if source_year and target_year and int(source_year) > int(target_year):
+                    verdict = "REJECT"
+                    reason = "backwards chronology"
+                elif (
+                    not source_quote
+                    or source_quote == "NONE"
+                    or source_quote not in source_text
+                ):
+                    verdict = "REJECT"
+                    reason = "source_quote not verified"
+                elif (
+                    not target_quote
+                    or target_quote == "NONE"
+                    or target_quote not in target_text
+                ):
+                    verdict = "REJECT"
+                    reason = "target_quote not verified"
+            edge_verdicts[(source_n, target_n)] = verdict
+            if reason:
+                audit_downgrades.append(
+                    {
+                        "source_n": source_n,
+                        "target_n": target_n,
+                        "reason": reason,
+                    }
+                )
 
     # Derive per-node URLs + labels from papers.json (matches the standalone
     # generate_graph.py logic — labels come from canonical metadata, never
@@ -860,6 +914,7 @@ def _cmd_render_detail_mermaid(args: argparse.Namespace) -> None:
         mermaid_chars=len(mermaid_body),
         footnotes_chars=len(footnotes_md),
         verdicts_applied=len(edge_verdicts) if edge_verdicts else 0,
+        audit_downgrades=audit_downgrades,
     )
     logger.close()
     print(
