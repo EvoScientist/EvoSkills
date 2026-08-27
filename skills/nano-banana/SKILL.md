@@ -32,9 +32,9 @@ Generate high-quality presentation slides as images using Gemini's image generat
 
 Before proceeding with any slide generation, verify these prerequisites. Script and style paths in this document are relative to this skill's directory.
 
-1. **Dependencies**: `pip install pillow google-genai python-pptx python-dotenv` (also listed in `requirements.txt` at the skill root). Install into the environment the user is working in.
+1. **Dependencies**: `pip install pillow google-genai python-pptx python-dotenv` (also listed in `requirements.txt` at the skill root). Install into the environment the user is working in. Atlas Cloud uses the same dependencies and does not require an additional SDK.
 
-2. **API Key**: Check that a Google API key is available. Run:
+2. **Provider and API Key**: Gemini is the default provider. Check that its API key is available:
    ```bash
    echo $GOOGLE_API_KEY
    ```
@@ -42,6 +42,8 @@ Before proceeding with any slide generation, verify these prerequisites. Script 
    - Set it via config: `EvoSci config set google_api_key <key>`
    - Provide it directly (pass via `--api-key` argument)
    - If the user provides the key in conversation, pass it to scripts with `--api-key`
+
+   To use Atlas Cloud instead, set `ATLASCLOUD_API_KEY` and pass `--provider atlas`. Atlas Cloud is opt-in and does not change the default Gemini workflow.
 
 3. **Language**: Ask the user what language the slide content should be in. This affects the content you write in `slides_plan.json`, not the style template.
 
@@ -178,6 +180,8 @@ Present the styles to the user and let them choose. If unsure, recommend Lineal 
 | `gemini-3-pro-image-preview` | Moderate | Best | Final version, important presentations |
 | `gemini-3.1-flash-image-preview` | Fast | Good | Drafts, rapid iteration, large decks |
 | `gemini-2.5-flash-image` | Fastest | Basic | Quick prototypes, bulk generation |
+| `google/nano-banana-2-lite/text-to-image` | Fast | Good | Atlas Cloud slide generation at 1K |
+| `google/nano-banana-2-lite/edit` | Fast | Good | Atlas Cloud slide editing at 1K |
 
 For first-time generation, recommend `gemini-3.1-flash-image-preview` (fast iteration). Switch to `gemini-3-pro-image-preview` for the final version.
 
@@ -191,13 +195,24 @@ python scripts/generate_ppt.py \
   --output ppt_output
 ```
 
+Atlas Cloud is available as an optional provider:
+
+```bash
+python scripts/generate_ppt.py \
+  --plan slides_plan.json \
+  --style styles/lineal-color.md \
+  --provider atlas \
+  --output ppt_output
+```
+
 **Arguments:**
 - `--plan` (required): Path to slides_plan.json
 - `--style` (required): Path to style template
-- `--model`: Image generation model (default: `gemini-3-pro-image-preview`)
-- `--resolution`: `2K` (default) or `4K`
+- `--provider`: `gemini` (default) or `atlas`
+- `--model`: Image generation model (default depends on provider)
+- `--resolution`: Gemini supports `2K` (default) or `4K`; Atlas uses `1K`
 - `--output`: Output directory (default: `ppt_output/TIMESTAMP`)
-- `--api-key`: Google API key (if not in environment)
+- `--api-key`: Provider API key (if not in the provider environment variable)
 - `--workers`: Number of parallel workers (default: 1, recommended: 3-5 for large decks)
 
 Output structure:
@@ -246,12 +261,25 @@ python scripts/edit_slide.py \
   --model gemini-3.1-flash-image-preview
 ```
 
+To edit through Atlas Cloud, the script uploads the local source image for temporary generation use before submitting the edit task:
+
+```bash
+python scripts/edit_slide.py \
+  --input ppt_output/images/slide-01.png \
+  --instruction "Remove the footer text at the bottom" \
+  --output ppt_output/images/slide-01.png \
+  --provider atlas
+```
+
 **Arguments:**
 - `--input` (required): Path to the original slide image
 - `--instruction` (required): The edit instruction (from feedback field)
 - `--output`: Output path (default: overwrite input)
-- `--model`: Image generation model
-- `--api-key`: Google API key (if not in environment)
+- `--provider`: `gemini` (default) or `atlas`
+- `--model`: Image generation model (default depends on provider)
+- `--api-key`: Provider API key (if not in the provider environment variable)
+
+Atlas generation POST requests are submitted once and are never retried. Only prediction GET requests use bounded polling.
 
 After editing all slides with feedback, clear the `feedback` fields from `slides_plan.json` and tell the user to refresh the browser to see updated slides.
 
@@ -309,8 +337,9 @@ python scripts/package_pptx.py \
 
 | Script | Purpose | Key Arguments |
 |--------|---------|---------------|
-| `scripts/generate_ppt.py` | Batch generate all slides from plan | `--plan`, `--style`, `--model`, `--output`, `--resolution`, `--api-key`, `--workers` |
-| `scripts/edit_slide.py` | Edit a single slide based on instruction | `--input`, `--instruction`, `--output`, `--model`, `--api-key` |
+| `scripts/generate_ppt.py` | Batch generate all slides from plan | `--plan`, `--style`, `--provider`, `--model`, `--output`, `--resolution`, `--api-key`, `--workers` |
+| `scripts/edit_slide.py` | Edit a single slide based on instruction | `--input`, `--instruction`, `--output`, `--provider`, `--model`, `--api-key` |
+| `scripts/atlas_image.py` | Submit and poll optional Atlas Cloud image tasks | Used by generation and editing scripts |
 | `scripts/serve_viewer.py` | Local review server with feedback | `--dir`, `--plan`, `--port`, `--no-open`, `--pid-file` |
 | `scripts/package_pptx.py` | Package slide images into .pptx | `--dir`, `--output`, `--kill-server` |
 
