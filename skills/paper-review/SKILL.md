@@ -1,17 +1,17 @@
 ---
 name: paper-review
-description: "Guides self-review of YOUR OWN academic paper before submission with adversarial stress-testing. Core method: 5-aspect checklist (contribution sufficiency, writing clarity, results quality, testing completeness, method design), counterintuitive protocol (reject-first simulation, delete unsupported claims, score trust, promote limitations, attack novelty), reverse-outlining, and figure/table quality checks. Use when: user wants to self-review or self-check their own paper draft before submission, stress-test their claims, prepare for reviewer criticism, or mentions 'self-review', 'check my draft', 'is my paper ready'. Do NOT use for writing a peer review of someone else's paper, and do NOT use after receiving actual reviews (use paper-rebuttal instead). Also runs as a background expert: dispatch it async with a draft path and it reviews end-to-end while you keep working."
-allowed-tools: "read_file edit_file write_file think_tool"
+description: "Guides self-review of YOUR OWN academic paper before submission with adversarial stress-testing. Core method: three-pass protocol (adversarial deep read, then 5-aspect checklist — contribution sufficiency, writing clarity, results quality, testing completeness, method design — then mechanical consistency scans), experimental protocol audit (data flow, assumptions, leakage), counterintuitive protocol (reject-first simulation, delete unsupported claims, score trust, promote limitations, attack novelty), reverse-outlining, and figure/table quality checks. Use when: user wants to self-review or self-check their own paper draft before submission, stress-test their claims, prepare for reviewer criticism, or mentions 'self-review', 'check my draft', 'is my paper ready'. Do NOT use for writing a peer review of someone else's paper, and do NOT use after receiving actual reviews (use paper-rebuttal instead). Also runs as a background expert: dispatch it async with a draft path and it reviews end-to-end while you keep working."
+allowed-tools: "read_file edit_file write_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '1.2.0'
+  version: '1.3.0'
   type: [skill, expert]
   tags: [core, writing, academic-writing, peer-review]
 ---
 
 # Paper Review
 
-A systematic approach to self-reviewing academic papers before submission. Covers a 5-aspect review checklist, reverse-outlining for structural clarity, figure/table quality checks, and rebuttal preparation.
+A systematic approach to self-reviewing academic papers before submission, run as **three passes**: an adversarial deep read, a checklist sweep (5 aspects, reverse-outlining, figure/table quality), and mechanical consistency scans plus an experimental protocol audit. Ends with rebuttal preparation.
 
 ## When to Use This Skill
 
@@ -25,6 +25,44 @@ A systematic approach to self-reviewing academic papers before submission. Cover
 ## Prerequisites
 
 Before starting review, confirm the `paper-writing` handoff checklist is satisfied: all sections drafted, claims anchored to evidence, limitation section present, figures finalized, and no unresolved `\todo{}` markers. If any item is incomplete, finish writing before reviewing.
+
+---
+
+## How to Run the Review: Three Passes
+
+Run the review as three separate passes, in this order, and merge findings only at the end. Do **not** start from the checklists: a checklist primes you to see only what it names, and the flaws that kill papers in review are often the ones no checklist question points at.
+
+### Pass 1 — Adversarial deep read (checklists closed)
+
+Read the paper end-to-end as a skeptical expert reviewer, *before* consulting any checklist in this skill. Chase cross-section threads as you read:
+
+- Does the evidence actually support each claim at the place it is made?
+- Does an assumption stated in the setup ever get revisited — or quietly violated — later?
+- Do the numbers quoted in prose match the tables? Does the conclusion deliver what the abstract promised?
+- Would this method survive outside the paper's exact setting?
+
+Write down **every** suspicion with its location, including ones you cannot yet prove — see Calibrated Suspicion below for how to phrase and mark them. This pass is where hidden, cross-section flaws surface; no checklist replaces it.
+
+### Pass 2 — Checklist sweep
+
+Now work through the structured materials: the 5-aspect checklist, the counterintuitive protocol, reverse-outlining, and the figure/table and conclusion checks. This pass buys breadth and catches the known, frequent failure patterns.
+
+### Pass 3 — Mechanical scans and protocol audit
+
+Execute the **Experimental Protocol Audit** and the **Mechanical Consistency Scans** (both below) explicitly, using search/cross-referencing over the source files. These checks need no judgment and have a high hit rate — and "reading carefully" never triggers them on its own.
+
+### Merge
+
+Union the findings of all three passes and deduplicate. A Pass-1 suspicion that no checklist item names still ships, under the confidence rules below — deduplication removes repeats, not doubts.
+
+## Reporting Findings: Calibrated Suspicion
+
+A review finding contains two kinds of statements, with different rules:
+
+- **Factual assertions about the paper** — what a table contains, what a section says, whether something is present or absent. These must be verifiable: check the text before asserting, and anchor the finding to an exact location or short quote. Never state that the paper says something it does not — one fabricated criticism costs more credibility than ten valid ones buy.
+- **Suspicions and judgments** — "these gains may be within seed noise", "this assumption looks unrealistic in deployment". These are allowed and *encouraged*, including at low confidence. Phrase them as what they are: state the suspicion, mark the confidence, and name what evidence would settle it ("no variance is reported; 3 seeds would settle this").
+
+Do not suppress a suspicion because you cannot prove it. In self-review, a hidden flaw that survives to the real reviewers costs far more than a raised-and-then-cleared suspicion. Precision discipline applies to *facts*, not to *doubts*.
 
 ---
 
@@ -113,6 +151,17 @@ Ask these questions to evaluate whether the contribution is sufficient:
 
 ---
 
+## Experimental Protocol Audit
+
+The most damaging experimental flaws hide in single sentences of the setup — stated once, never revisited. Audit the experimental section line by line as a hostile auditor, not a reader:
+
+1. **Reconstruct the data flow.** From the text alone, write out: what was trained on what, tuned on what, evaluated on what. Any overlap between test data and training/tuning data — including a phrase like "hyperparameters tuned on the test split" buried in the setup — is a major finding. If split hygiene cannot be reconstructed from the text at all, that is itself a finding.
+2. **List every assumption.** Search the method and setup for "we assume", "assuming", "provided that", "given access to". For each: is it realistic at deployment time, and is its impact discussed anywhere downstream? A strong assumption stated once and never mentioned again is a major finding.
+3. **Check information availability.** Does the method consume anything at inference time that would not exist in practice — labels, oracle signals, future information, test-distribution statistics?
+4. **Check the comparison protocol.** Same data, same compute budget, same tuning effort for all baselines? Are baseline numbers reproduced under this paper's setup, or copied from papers with different setups?
+
+---
+
 ## Critical Reminder: Claims Must Have Support
 
 > Every claim in the paper (especially in the Abstract and Introduction) must be correct and supported by experiments. Some reviewers will reject a paper directly for unsupported claims.
@@ -171,9 +220,30 @@ Apply this to:
 
 - [ ] Conclusion summarizes contributions and key results
 - [ ] **Limitation section is present** (reviewers frequently flag its absence)
-- [ ] Limitations are about task/setting scope (like future work), not technical defects
-  > Rule: "If our method does not fall below SOTA metrics, it is not a technical defect"
+- [ ] Limitations are framed as task/setting scope (like future work) where that is honest
+  > Beating SOTA does not retire a technical defect. A leak, an unfair
+  > comparison, or an unsupported claim stays a defect at any metric level —
+  > record it as a finding, not as a limitation. Scope framing is for genuine
+  > boundaries of the work, not a place to file problems.
 - [ ] Limitations are honest but not self-defeating
+
+---
+
+## Mechanical Consistency Scans
+
+Pass 3 runs these against the source files (rationale under Pass 3 above):
+
+1. **Promise–delivery alignment.** List the contributions promised in the abstract and introduction (especially numbered contribution lists). For each, find the section/experiment that delivers it *and* its echo in the conclusion. A contribution promised up front that silently disappears by the conclusion is a finding.
+2. **Claimed-but-missing comparisons.** Any method the paper itself calls "directly comparable", "closest prior work", or state-of-the-art must appear in the results tables — or the paper must say why not. Admitted in related work but absent from experiments is a finding.
+3. **Numeric consistency.** Every number quoted in the abstract, introduction, or conclusion must match its source table. Recompute claimed improvements ("X% better", "reduces Y by Z"). Prose interpretation must match the table — "substantially better" backed by a 0.1-point gap is a finding.
+
+Four more scans belong to this pass but their criteria already live elsewhere
+in this file — run them here as searches rather than restating them:
+**citation integrity** and **leftover markers** (criteria in Pre-Submission
+Final Checks below), **module motivation** (criterion in Aspect 2), and the
+mechanical half of the **table/figure** checks (criteria in the Figure/Table
+section above — here, additionally verify the bolded "best" value actually
+**is** the best in each column and that arrows match metric direction).
 
 ---
 
@@ -215,3 +285,9 @@ five aspects as parallel sub-reviews with typed results (score, findings,
 blocking issues per aspect) and a synthesized verdict. Prefer it over
 re-deriving the fan-out in prose; fall back to the sequential checklist above
 only if the interpreter is unavailable.
+
+Pass 3's mechanical scans are search problems, not comprehension problems —
+collecting every citation key, sweeping `\todo`/`TODO`/`FIXME` across paper,
+appendix and bib, recomputing claimed improvements. Run them through the
+interpreter; if it is unavailable, say so in the review rather than implying
+full coverage.

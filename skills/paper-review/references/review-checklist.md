@@ -2,11 +2,22 @@
 
 This is an expanded version of the 5-aspect checklist from SKILL.md with additional detail and reviewer-perspective questions.
 
-## Quick Review vs Full Review
+## How this file is used
 
-**Quick Review (~15 min)**: Check only items marked with **(Q)** below — these are the highest-risk items that catch the most common rejection reasons.
+This checklist is **Pass 2** of the SKILL.md protocol, not an entry point.
+Pass 1 — an adversarial end-to-end read with no checklist in hand — comes
+first, because a checklist run first anchors you to its own categories and
+the suspicions it does not name never surface. Do not start here.
 
-**Full Review (~60+ min)**: Work through every item in all five aspects. Use this before final submission.
+**Within Pass 2**, items marked **(Q)** are the highest-risk ones: they catch
+the most common rejection reasons, and are the ones to cover first when the
+whole list will not fit. Working through every item in all five aspects is
+the norm before final submission.
+
+There is no time budget attached to either. The old "~15 min / ~60+ min"
+estimates described the checklist as the whole review; under the three-pass
+protocol they would have described only this middle pass, and would have
+understated it.
 
 ---
 
