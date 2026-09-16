@@ -28,9 +28,26 @@ Once installed, the server is available to all agents in future EvoScientist ses
 | [`deepwiki`](deepwiki.yaml) | Search & read GitHub repo documentation | streamable_http |
 | [`docs-langchain`](docs-langchain.yaml) | Documentation for building agents with LangChain | streamable_http |
 | [`exa`](exa.yaml) | Neural web search and content retrieval | http |
+| [`parallel-search`](parallel-search.yaml) | Web search and page extraction, no API key required | streamable_http |
 | [`perplexity`](perplexity.yaml) | AI-powered web search via Perplexity | stdio |
 | [`sequential-thinking`](sequential-thinking.yaml) | Chain-of-thought reasoning with sequential thinking steps | stdio |
 | [`ssh`](ssh.yaml) | Remote command execution and file transfer over SSH | stdio |
+
+## Parallel Search
+
+Install it with `EvoSci mcp install parallel-search`, or select **Parallel Search**
+in the MCP browser's `web-search` category. It connects to
+[Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp) over
+Streamable HTTP without an account or API key. Anonymous access is free and rate
+limited.
+
+After installation, `web_search` and `web_fetch` are available to agents in future
+sessions. Queries, requested URLs, and any supplied objectives or context are
+sent to Parallel when these tools run. The entry sends `EvoScientist` as its
+`User-Agent` so Parallel can measure aggregate usage from the application.
+Installing it adds tools; it doesn't replace EvoScientist's existing search
+provider or change other configured servers. Remove it with
+`EvoSci mcp remove parallel-search`.
 
 ## Contributing an MCP Server
 

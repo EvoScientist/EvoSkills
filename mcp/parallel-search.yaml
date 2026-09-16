@@ -1,0 +1,9 @@
+name: parallel-search
+label: "Parallel Search  (web search and page extraction, no API key required)"
+description: "Search the web and extract page content via Parallel"
+tags: [web-search]
+transport: streamable_http
+url: "https://search.parallel.ai/mcp"
+# Identify the calling application for aggregate Parallel MCP usage measurement.
+headers:
+  User-Agent: "EvoScientist"
