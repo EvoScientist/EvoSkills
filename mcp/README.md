@@ -31,6 +31,23 @@ Once installed, the server is available to all agents in future EvoScientist ses
 | [`perplexity`](perplexity.yaml) | AI-powered web search via Perplexity | stdio |
 | [`sequential-thinking`](sequential-thinking.yaml) | Chain-of-thought reasoning with sequential thinking steps | stdio |
 | [`ssh`](ssh.yaml) | Remote command execution and file transfer over SSH | stdio |
+| [`youcom-search`](youcom-search.yaml) | Web search with cited results via You.com — free tier, no API key required | streamable_http |
+
+## You.com Search
+
+Install it with `EvoSci mcp install youcom-search`, or select **You.com Search**
+in the MCP browser's `web-search` category. It connects to the
+[You.com MCP server](https://you.com/docs) over Streamable HTTP. The endpoint
+uses the keyless free tier — no account or API key is required. Access is
+anonymous and rate-limited.
+
+After installation, the `you-search` tool (web search) and the `you-discover`
+tool (AI-agent / MCP-server discovery) are available to agents in future
+sessions. The entry sends `youdotcom-integration/EvoScientist-EvoSkills` as its
+`User-Agent` so You.com can measure aggregate usage from the application.
+Installing it adds tools; it doesn't replace EvoScientist's existing search
+providers or change other configured servers. Remove it with
+`EvoSci mcp remove youcom-search`.
 
 ## Contributing an MCP Server
 

@@ -1,0 +1,8 @@
+name: youcom-search
+label: "You.com Search  (web search with cited results, no API key required)"
+description: "Web search and result extraction via the You.com MCP server"
+tags: [web-search]
+transport: streamable_http
+url: "https://api.you.com/mcp?profile=free"
+headers:
+  User-Agent: "youdotcom-integration/EvoScientist-EvoSkills"
