@@ -46,7 +46,7 @@ Step 3: Design slide structure (section breakdown)
 Step 4: Create individual slides (one idea per slide)
 Step 5: Build the .pptx file (layouts, figures, charts, QA)
 Step 6: Rehearse and time
-Step 7: Prepare backup / Q&A slides
+Step 7: Prepare backup slides (for Q&A)
 ```
 
 ### Step 1: Define Scope and Audience
