@@ -4,7 +4,7 @@ description: "Use this skill for creating or refining an academic slide deck and
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '1.0.0'
+  version: '1.0.1'
   tags: [core, writing, presentation, academic-writing]
 ---
 
@@ -75,6 +75,8 @@ One idea per slide. Follow the 10 design rules in [slide-design.md](references/s
 ### Step 5: Build the .pptx File
 
 Use [slide-creation.md](references/slide-creation.md) for practical `.pptx` creation — color palettes, layout code, charts, tables, figures, and QA workflow.
+
+**Dependencies**: `pip install "markitdown[pptx]" pillow` (also listed in `requirements.txt` at the skill root) for text extraction and QA, plus the Node packages named in the Setup section of slide-creation.md. Install into the environment the user is working in.
 
 ### Step 6: Rehearse and Time
 
