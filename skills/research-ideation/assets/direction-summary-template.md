@@ -3,8 +3,8 @@
 ## Tournament Info
 
 - **Seed Direction**: [Original research direction from research-ideation]
-- **Total Candidates**: [Number of leaf nodes in idea tree]
-- **Tournament Rounds**: [Number of rounds completed]
+- **Candidates**: 3 track champions (one per research direction)
+- **Matches**: 3 (round-robin)
 - **Date**: [YYYY-MM-DD]
 
 ## Top-3 Directions

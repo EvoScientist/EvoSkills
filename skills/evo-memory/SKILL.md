@@ -4,7 +4,7 @@ description: "Manages persistent research memory across ideation and experimenta
 allowed-tools: "write_file edit_file read_file think_tool"
 metadata:
   author: EvoScientist
-  version: '1.0.0'
+  version: '1.0.1'
   tags: [core, meta-learning]
 ---
 
@@ -43,7 +43,7 @@ Records what you've learned about research DIRECTIONS — which areas are promis
 
 **Each entry records**: Direction name, one-sentence summary, evidence (which cycle, what results), classification (feasible / implementation failure / fundamental failure), date.
 
-**How it's used**: `research-ideation` reads M_I at the start of Step 0. The paper uses embedding-based retrieval with cosine similarity, selecting the top-k_I most similar items (k_I=2 in experiments). Feasible directions from prior cycles can seed new tree branches. Unsuccessful directions are used during pruning — fundamental failures are pruned; implementation failures may be retried.
+**How it's used**: `research-ideation` reads M_I at the start of Step 0. The paper uses embedding-based retrieval with cosine similarity, selecting the top-k_I most similar items (k_I=2 in experiments). Feasible directions from prior cycles are offered as candidate research directions in Step 3. Unsuccessful directions are used during refinement in Step 4 — ideas matching a fundamental failure are pruned; implementation failures may be retried.
 
 See [assets/ideation-memory-template.md](assets/ideation-memory-template.md) for the template.
 
@@ -151,7 +151,7 @@ When starting a new research cycle (loading `research-ideation` or `experiment-p
 
 1. Read `/memory/ideation-memory.md` and `/memory/experiment-memory.md`
 2. Summarize relevant entries to inject into the current context
-3. For `research-ideation`: Use M_I feasible directions to seed tree branches. Use M_I unsuccessful directions (fundamental failures only) during pruning.
+3. For `research-ideation`: Offer M_I feasible directions as candidate research directions in Step 3. Use M_I unsuccessful directions (fundamental failures only) to prune ideas during Step 4 refinement.
 4. For `experiment-pipeline`: Use M_E strategies to inform hyperparameter ranges, training schedules, and debugging approaches.
 
 **Don't blindly apply old strategies.** Context matters. A strategy that worked for image classification may not work for text generation. Always check the recorded context against the current problem.
@@ -162,8 +162,8 @@ When starting a new research cycle (loading `research-ideation` or `experiment-p
 
 1. Read `/memory/ideation-memory.md`
 2. Select the top-k_I=2 entries most relevant to the user's current goal. Compare the user's goal statement against each entry's Summary and Retrieval Tags for semantic similarity.
-3. For each selected feasible direction: incorporate it as a seed branch at Level 1 of the idea tree. Example injection: *"Prior cycle found 'Modality-aware model compression' promising (Elo 1548, cycle 3). Use as a Level 1 branch alongside new technique variants."*
-4. For each unsuccessful direction with `Failure Classification: Fundamental`: flag for pruning. Example injection: *"Prior cycle confirmed 'Autoregressive real-time video generation' is a fundamental failure (O(n) latency). Prune any tree branch matching this pattern."*
+3. For each selected feasible direction: offer it as a candidate when Step 3 chooses its 3 research directions (the total stays at 3). Example injection: *"Prior cycle found 'Modality-aware model compression' promising (Elo 1500, cycle 3). Consider it as one of the 3 research directions alongside new ones."*
+4. For each unsuccessful direction with `Failure Classification: Fundamental`: flag for pruning. Example injection: *"Prior cycle confirmed 'Autoregressive real-time video generation' is a fundamental failure (O(n) latency). Prune any idea matching this pattern."*
 
 ### For experiment-pipeline (inject M_E)
 
