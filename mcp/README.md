@@ -173,4 +173,5 @@ Before submitting a PR:
 - [ ] Transport-specific fields are correct (`command`/`args` for stdio, `url` for http)
 - [ ] If an API key is needed, `env`, `env_key`, and `env_hint` are set
 - [ ] The YAML is valid (no syntax errors)
+- [ ] `python .github/scripts/validate_mcp.py` passes (needs `pip install pyyaml`; CI runs it on every PR that touches `mcp/`)
 - [ ] You've tested that the server connects and responds

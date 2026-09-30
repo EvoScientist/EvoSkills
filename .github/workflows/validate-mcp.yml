@@ -1,0 +1,28 @@
+name: Validate MCP
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "mcp/**"
+      - ".github/scripts/validate_mcp.py"
+      - ".github/workflows/validate-mcp.yml"
+  pull_request:
+    paths:
+      - "mcp/**"
+      - ".github/scripts/validate_mcp.py"
+      - ".github/workflows/validate-mcp.yml"
+
+jobs:
+  validate-servers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Validate MCP server definitions
+        run: python .github/scripts/validate_mcp.py
