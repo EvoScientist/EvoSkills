@@ -123,7 +123,7 @@ The starting point of the research pipeline. It now covers the full path from li
 
 - **Load Prior Knowledge** — Read `evo-memory` first to reuse feasible directions and avoid known dead ends
 - **Literature Grounding** — Use `paper-navigator` to collect and analyze papers before generating ideas
-- **Multi-Track Ideation + Refinement** — Generate candidates across multiple personas, then iteratively strengthen them
+- **Multi-Track Ideation + Refinement** — Generate one idea per research direction, then refine each in its own track with three personas (innovator, pragmatist, critic)
 - **Elo Tournament** — Rank the three track champions on novelty, feasibility, relevance, and clarity; present all three, ranked
 - **Proposal Extension** — Expand the selected winner into a manuscript-quality research proposal
 
@@ -245,22 +245,24 @@ Read by `research-ideation` and `experiment-pipeline` at cycle start; updated af
 
 ### 📚 `paper-navigator` — Academic Paper Discovery & Reading
 
-Focused paper workflow in four stages — from query to evaluated reading list:
+Finds and reads academic papers, routing by intent and judging by relevance:
 
-- **Disambiguate** — Analyze user intent, resolve ambiguous terms (project names, module names) to actual paper titles
-- **Discover** — 7 discovery paths: keyword search, citation traversal, recommendations, author tracking, arXiv monitoring, trending detection, GitHub search
-- **Evaluate** — Quick assessment via TLDR, citations, code availability (HuggingFace + GitHub), and top models by task
+- **Router** — A known paper (title, URL, or ID) takes the single-call POINT branch and returns a Paper Card; "find papers about X" and survey-scale requests take the LIST / ITERATIVE branch
+- **Rubric First** — On the LIST / ITERATIVE branch, the agent writes a rubric of core (must-have) and secondary criteria before any search; every later step checks papers against it
+- **Probe + Up to 3 Rounds** — A two-query probe, then up to three keyword-search rounds (breadth, deepen, close). With a Semantic Scholar API key, citation traversal and recommendations widen the search for survey-scale requests, or once at least three papers have passed triage. A saturation gate after the probe and after each round decides whether key gaps remain
+- **Triage Without Scores** — Each paper is marked All-core / Partial / Irrelevant against the rubric, with a quoted span as evidence for every criterion it is said to meet; when an abstract is silent on a core criterion, body-text snippets can settle it (Semantic Scholar API key required). No LLM-as-judge, no numeric scoring
 - **Read** — Full-text retrieval via Jina Reader with 3-level reading strategy (Technical, Analytical, Contextual)
-Includes Python scripts powered by Semantic Scholar, HuggingFace, GitHub, arXiv, and Jina Reader APIs.
+
+Includes Python scripts powered by Semantic Scholar, arXiv (via the DeepXiv SDK), HuggingFace, GitHub, and Jina Reader.
 
 ### 🌳 `paper-graph` — Lineage Map of a Research Field via Mermaid Diagrams
 
 A skill that turns a research topic or seed paper into a Markdown report tracing how a field evolved — challenges, solutions, and per-solution citation lineage, all rendered as embedded Mermaid diagrams:
 
 - **Two Graph Layers** — High-level taxonomy (root → challenges → solutions → papers) plus one per-solution evolution path tracing paper-to-paper "evolution from" edges and open challenges
-- **Agent-Driven LLM Calls** — The skill ships deterministic data fetchers (Semantic Scholar / DeepXiv), prompt templates, and Mermaid renderers; the host agent runs every LLM stage, so no outbound model dependency or API key
+- **Agent-Driven LLM Calls** — The skill ships deterministic data fetchers (Semantic Scholar / DeepXiv), prompt templates, and Mermaid renderers; the host agent runs every LLM stage, so the skill needs no model API key of its own (a Semantic Scholar API key is required for fetching papers)
 - **Edge Audit Pass** — Every claimed "evolution from" edge between two papers is verified by a separate LLM audit step before it lands in the final graph
-- **Renders Anywhere** — Mermaid in fenced Markdown blocks views directly in GitHub, Obsidian, VS Code, and other Markdown viewers — no external rendering pipeline
+- **Renders Anywhere** — Mermaid in fenced Markdown blocks views directly in GitHub, Obsidian, VS Code (with a Mermaid extension), and other Markdown viewers — no external rendering pipeline
 - **Use Cases** — "History of <topic>", "What did <paper> build on?", "Lineage of ideas in <field>", "Citation tree of <paper>"
 
 ### 🍌 `nano-banana` — AI-Generated Slides & Illustrations

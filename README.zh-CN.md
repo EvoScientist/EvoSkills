@@ -128,7 +128,7 @@ flowchart LR
 
 - **加载先验知识** — 先读取 `evo-memory`，复用可行方向并避开已知死胡同
 - **文献锚定** — 在生成想法前，使用 `paper-navigator` 收集并分析论文
-- **多轨道构思 + 精炼** — 以多种研究者角色生成候选想法，再迭代强化
+- **多轨道构思 + 精炼** — 每个研究方向生成一个想法，再各自在一条轨道上由三种角色（创新者、务实者、批判者）迭代精炼
 - **Elo 锦标赛** — 按新颖性、可行性、相关性与清晰度为三个轨道冠军排名，按名次呈现全部三个
 - **提案扩展** — 将胜出的想法扩展为达到稿件质量的研究提案
 
@@ -250,22 +250,24 @@ flowchart LR
 
 ### 📚 `paper-navigator` — 学术论文发现与阅读
 
-四阶段的论文专注工作流——从查询到评估完毕的阅读清单：
+查找并阅读学术论文，按意图路由、按相关性判断：
 
-- **消歧** — 分析用户意图，将模糊术语（项目名、模块名）解析为真实论文标题
-- **发现** — 7 条发现路径：关键词搜索、引用遍历、论文推荐、作者追踪、arXiv 监控、热点检测、GitHub 搜索
-- **评估** — 通过 TLDR、引用数、代码可用性（HuggingFace + GitHub）与任务榜单模型快速评估
+- **路由** — 已知论文（标题、URL 或 ID）走单次调用的 POINT 分支并返回论文卡片；“找关于 X 的论文”和综述规模的请求走 LIST / ITERATIVE 分支
+- **先写评判标准** — 在 LIST / ITERATIVE 分支上，智能体在搜索之前先写下一份评判标准，分为核心条件（必须满足）与次要条件；之后每一步都对照它核对论文
+- **探测 + 最多 3 轮** — 先做两条查询的探测，再进行最多三轮关键词搜索（广度、加深、收尾）。配置了 Semantic Scholar API key 时，对综述规模的请求，或已有至少三篇论文通过分拣之后，再通过引用遍历与论文推荐扩展搜索。探测之后和每轮之后，都由饱和度闸门判断是否还有关键缺口
+- **不打分的分拣** — 每篇论文对照标准标记为 All-core / Partial / Irrelevant，凡声称满足的条件都附上原文引用作为证据；当摘要没有提及某条核心条件时，可抓取正文片段来确认（需要 Semantic Scholar API key）。不调用 LLM 裁判，也不做数值打分
 - **阅读** — 通过 Jina Reader 获取全文，配三级阅读策略（技术型、分析型、语境型）
-包含由 Semantic Scholar、HuggingFace、GitHub、arXiv 与 Jina Reader API 驱动的 Python 脚本。
+
+包含由 Semantic Scholar、arXiv（通过 DeepXiv SDK）、HuggingFace、GitHub 与 Jina Reader 驱动的 Python 脚本。
 
 ### 🌳 `paper-graph` — 用 Mermaid 图谱绘制研究领域脉络
 
 将一个研究主题或种子论文转化为 Markdown 报告，追溯领域的演化历程——挑战、解决方案与每条方案的引用脉络，全部渲染为内嵌 Mermaid 图：
 
 - **双层图谱** — 高层分类体系（根 → 挑战 → 解决方案 → 论文），外加每条解决方案的演化路径，追踪论文之间的 “evolution from” 边与开放挑战
-- **智能体驱动的 LLM 调用** — 技能内置确定性数据抓取器（Semantic Scholar / DeepXiv）、提示词模板与 Mermaid 渲染器；所有 LLM 步骤由宿主智能体执行，因此无外部模型依赖、无需 API key
+- **智能体驱动的 LLM 调用** — 技能内置确定性数据抓取器（Semantic Scholar / DeepXiv）、提示词模板与 Mermaid 渲染器；所有 LLM 步骤由宿主智能体执行，因此技能本身不需要模型 API key（抓取论文需要 Semantic Scholar API key）
 - **边审计环节** — 两篇论文之间每条声称的 “evolution from” 边，都会经由独立的 LLM 审计步骤验证后才进入最终图谱
-- **随处可渲染** — Mermaid 置于 Markdown 围栏代码块中，可直接在 GitHub、Obsidian、VS Code 等 Markdown 查看器中显示——无需外部渲染管线
+- **随处可渲染** — Mermaid 置于 Markdown 围栏代码块中，可直接在 GitHub、Obsidian、VS Code（需 Mermaid 扩展）等 Markdown 查看器中显示——无需外部渲染管线
 - **适用场景** — “某主题的发展史”、“某论文建立在哪些工作之上？”、“某领域的思想脉络”、“某论文的引用树”
 
 ### 🍌 `nano-banana` — AI 生成幻灯片与插图
