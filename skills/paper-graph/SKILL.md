@@ -4,7 +4,7 @@ description: "Map the genealogical lineage and historical progression of a resea
 allowed-tools: "write_file edit_file read_file execute"
 metadata:
   author: EvoScientist
-  version: '0.1.2'
+  version: '0.1.3'
   tags: [research, literature-review, graph, mermaid]
 ---
 
@@ -84,7 +84,7 @@ Suggested layout (assuming final report goes to `<output>`):
 ├── solutions/<key>.json     per-solution context (one file per solution)
 ├── parsed/<key>.json        parse_detail output (used by step 11 audit)
 ├── details/
-│   ├── <key>_input.txt      format_papers (per-solution allowed set; + .allowed.txt sibling)
+│   ├── <key>_input.txt      format_papers (optional: same content as papers_input_core.txt; + .allowed.txt sibling)
 │   ├── <key>_raw.md         LLM: detail output
 │   └── <key>.json           render_detail_mermaid (consumed by assemble)
 ├── verdicts/<key>.json      [{source_n, target_n, verdict, source_quote, target_quote, reason}] from audit ([] when no edges)
@@ -215,7 +215,7 @@ python scripts/cli.py compute_core_filter \
     --out <workdir>/core_filter.json
 ```
 
-`compute_core_filter` writes the index JSON to `--out` and the matching `(N), (N), ...` `{allowed_numbers}` form to a sibling `<out>.allowed.txt`. On a no-CORE classifier outcome it falls back to every paper and prints `(FALLBACK: …)` — the run continues.
+`compute_core_filter` writes the index JSON to `--out` and the matching `(N), (N), ...` `{allowed_numbers}` form to a sibling `<out>.allowed.txt`. A paper without a classification counts as CORE, as everywhere else in this skill. On a no-CORE classifier outcome it falls back to every paper and prints `(FALLBACK: …)` — the run continues.
 
 Build the CORE-only `{papers_input}` (also emits a sibling `.allowed.txt`, redundant here but consistent with Step 10):
 
@@ -271,22 +271,15 @@ Read `references/detail.md` **once** at the start of this step; substitute per-s
 
 For each `<workdir>/solutions/<key>.json` produced in step 9:
 
-(a) Build the per-solution `{papers_input}`. `format_papers --filter` accepts a solution context file directly (it reads the `allowed` array out of it); the matching `{allowed_numbers}` string lands in the `.allowed.txt` sibling.
-
-```bash
-python scripts/cli.py format_papers \
-    --papers <workdir>/papers.json \
-    --filter <workdir>/solutions/<key>.json \
-    --out <workdir>/details/<key>_input.txt
-```
+(a) The per-solution `{papers_input}` is the CORE pool: every solution context's `allowed` is the full CORE set, so the block is the same for every solution and identical to `<workdir>/papers_input_core.txt` from Step 8 (with its `.allowed.txt` sibling). Reuse those two files. Running `format_papers --filter <workdir>/solutions/<key>.json --out <workdir>/details/<key>_input.txt` per solution still works and writes the same content; it is only needed if Step 8's files are gone.
 
 (b) Substitute into `references/detail.md`:
 - `{goal}` — contents of `<workdir>/goal_block.txt` (the file built in Step 8).
 - `{challenge_name}` — from the solution context (`challenge_name`).
 - `{solution_name}` — from the solution context (`solution_name`).
 - `{primary_numbers}` — comma-separated `(N)` values from the solution context's `paper_nums`.
-- `{papers_input}` — from `<workdir>/details/<key>_input.txt`.
-- `{allowed_numbers}` — from `<workdir>/details/<key>_input.txt.allowed.txt`.
+- `{papers_input}` — contents of `<workdir>/papers_input_core.txt` (or the per-solution copy).
+- `{allowed_numbers}` — contents of `<workdir>/papers_input_core.txt.allowed.txt`.
 
 Call the LLM (temperature ~0.2; allow ~12000 max tokens to fit scratchpad + tree). Save the raw response to `<workdir>/details/<key>_raw.md`.
 
@@ -418,5 +411,6 @@ If any of those fail, the most likely cause is the outline LLM (step 8) returnin
 - **`references/seed_paper_block.md` is an internal template fragment** consumed by `format_seed_block`; the runtime agent never substitutes its placeholders directly. The other five `references/*.md` files are the agent-facing templates the runbook references.
 - **Themed Mermaid**: `mermaid.py` defines `LIGHT_THEME` and `DARK_THEME`. The renderer subcommands resolve the theme by name (CLI arg) → `MERMAID_THEME` env → `"light"`. Each render emits a self-contained Mermaid graph (init directive + classDefs + linkStyle).
 - **JSONL logging is default-on**: every subcommand writes `<out>.log.jsonl` next to its output unless `--log none` is passed. These logs are for the human developer iterating on the skill — the runtime agent should not read them back.
+- **`papers.json` is checked once per subcommand**: every step that reads it exits with code 2 and the offending entry numbers when the file is not an array of paper objects, instead of failing later on a missing field.
 - **Failure mode preference**: loud over silent. Missing keys, malformed LLM output, zero papers from search — all abort with a printed reason rather than producing a degraded artifact.
 - **English-only**: the upstream `paper-graph` prompts emitted bilingual labels; this skill strips Chinese and keeps English only.

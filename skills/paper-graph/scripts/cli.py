@@ -68,6 +68,32 @@ def _read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _read_papers(path: Path, flag: str = "--papers") -> list[dict[str, Any]]:
+    """Load a papers JSON array, or exit 2 saying what is wrong with it.
+
+    Every later step indexes papers by position and reads their fields, so
+    an entry that is not an object would otherwise surface as a traceback
+    far from its cause.
+    """
+    papers = _read_json(path)
+    if not isinstance(papers, list):
+        print(
+            f"ERROR: {flag} must point to a JSON array of paper objects "
+            f"(got {type(papers).__name__}).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    bad = [i for i, p in enumerate(papers, start=1) if not isinstance(p, dict)]
+    if bad:
+        print(
+            f"ERROR: {flag} must contain only paper objects; "
+            f"entries that are not (1-based): {', '.join(str(i) for i in bad)}.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    return papers
+
+
 # ---------------------------------------------------------------------------
 # resolve_seed_papers
 # ---------------------------------------------------------------------------
@@ -183,13 +209,7 @@ def _cmd_prefetch_sections(args: argparse.Namespace) -> None:
     one for the optimization to kick in, but it's not required: with no
     classification present every paper is treated as CORE and fetched.
     """
-    papers = _read_json(Path(args.in_path))
-    if not isinstance(papers, list):
-        print(
-            f"ERROR: --in must point to a JSON array of paper dicts (got {type(papers).__name__}).",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+    papers = _read_papers(Path(args.in_path), "--in")
     logger = _make_logger(args.log, Path(args.out))
 
     async def _run() -> None:
@@ -254,13 +274,7 @@ def _cmd_format_papers(args: argparse.Namespace) -> None:
     papers are emitted; original numbering is preserved so the LLM's
     references remain stable across stages.
     """
-    papers = _read_json(Path(args.papers))
-    if not isinstance(papers, list):
-        print(
-            f"ERROR: --papers must point to a JSON array (got {type(papers).__name__}).",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+    papers = _read_papers(Path(args.papers))
 
     if args.filter:
         raw_filt = _read_json(Path(args.filter))
@@ -327,23 +341,16 @@ def _cmd_compute_core_filter(args: argparse.Namespace) -> None:
 
     Consumed by Step 8: ``--out`` plugs straight into ``format_papers --filter``,
     and ``<out>.allowed.txt`` plugs into the ``{allowed_numbers}`` placeholder in
-    ``references/outline.md``. Falls back to every paper when no paper is
-    labeled CORE (e.g. all-REJECT classifier or a classify fallback).
+    ``references/outline.md``. A paper without a classification counts as
+    CORE, as in parse_outline. Falls back to every paper when no paper is
+    CORE (e.g. an all-REJECT classifier outcome).
     """
-    papers = _read_json(Path(args.papers))
-    if not isinstance(papers, list):
-        print(
-            f"ERROR: --papers must point to a JSON array (got {type(papers).__name__}).",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+    papers = _read_papers(Path(args.papers))
 
+    # Same definition of CORE as parse_outline and the renderers: a paper
+    # without a label counts as CORE.
     indices = [
-        i + 1
-        for i, p in enumerate(papers)
-        if isinstance(p, dict)
-        and isinstance(p.get("_classification"), dict)
-        and p["_classification"].get("label") == "CORE"
+        i for i, p in enumerate(papers, start=1) if pipeline._label_of(p) == "CORE"
     ]
     fallback = False
     if not indices:
@@ -448,13 +455,7 @@ def _cmd_merge_classifications(args: argparse.Namespace) -> None:
     surfaced in stdout so the host can decide whether to re-prompt.
     """
     raw = _read_json(Path(args.classifications))
-    papers = _read_json(Path(args.papers))
-    if not isinstance(papers, list):
-        print(
-            f"ERROR: --papers must point to a JSON array (got {type(papers).__name__}).",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+    papers = _read_papers(Path(args.papers))
 
     logger = _make_logger(args.log, Path(args.out))
 
@@ -540,13 +541,7 @@ def _cmd_parse_outline(args: argparse.Namespace) -> None:
     is left with a valid paper.
     """
     raw = Path(args.raw).read_text(encoding="utf-8")
-    papers = _read_json(Path(args.papers))
-    if not isinstance(papers, list):
-        print(
-            f"ERROR: --papers must point to a JSON array (got {type(papers).__name__}).",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+    papers = _read_papers(Path(args.papers))
 
     core_indices = [
         i for i, p in enumerate(papers, start=1) if pipeline._label_of(p) == "CORE"
@@ -749,13 +744,7 @@ def _cmd_render_outline_mermaid(args: argparse.Namespace) -> None:
     palette per the selected theme, ready to drop into a fenced block.
     """
     raw = Path(args.raw).read_text(encoding="utf-8")
-    papers = _read_json(Path(args.papers))
-    if not isinstance(papers, list):
-        print(
-            f"ERROR: --papers must point to a JSON array (got {type(papers).__name__}).",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+    papers = _read_papers(Path(args.papers))
 
     core_indices = [
         i for i, p in enumerate(papers, start=1) if pipeline._label_of(p) == "CORE"
@@ -834,13 +823,7 @@ def _cmd_render_detail_mermaid(args: argparse.Namespace) -> None:
     """
     raw = Path(args.raw).read_text(encoding="utf-8")
     ctx = _read_json(Path(args.context))
-    papers = _read_json(Path(args.papers))
-    if not isinstance(papers, list):
-        print(
-            f"ERROR: --papers must point to a JSON array (got {type(papers).__name__}).",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+    papers = _read_papers(Path(args.papers))
 
     challenge_idx = ctx["challenge_idx"]
     sk_list = ctx["solution_key"]
@@ -1016,13 +999,7 @@ def _cmd_assemble_report(args: argparse.Namespace) -> None:
     root_title = outline_render.get("root_title")
     outline_mermaid = outline_render.get("mermaid", "")
 
-    papers = _read_json(Path(args.papers))
-    if not isinstance(papers, list):
-        print(
-            f"ERROR: --papers must point to a JSON array (got {type(papers).__name__}).",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+    papers = _read_papers(Path(args.papers))
 
     details_dir = Path(args.details_dir)
     if not details_dir.is_dir():
