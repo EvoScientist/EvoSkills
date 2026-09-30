@@ -4,7 +4,7 @@ description: "Generate professional presentation slides and high-quality illustr
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '1.0.0'
+  version: '1.0.1'
   tags: [core, presentation, image-generation]
 ---
 
@@ -210,6 +210,8 @@ ppt_output/
 ├── prompts.json    # All prompts used (for debugging)
 └── index.html      # Browser viewer
 ```
+
+**Exit code.** `0` means every slide was generated. `2` means a partial deck was written: the last line on stderr lists the missing slide numbers (`Failed slides: 3, 7`), and each failure is printed as `[n/total] FAIL: <reason>`. Re-running the command regenerates the whole deck, so when the failures share one reason (quota, key, model name) fix that first. `1` means no slide was generated (or the API key / library is missing); there is nothing to review yet.
 
 ---
 

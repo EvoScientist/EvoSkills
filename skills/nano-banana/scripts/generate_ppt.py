@@ -393,9 +393,9 @@ def create_argument_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Example usage:
-  python skills/nano-banana/scripts/generate_ppt.py \\
+  python scripts/generate_ppt.py \\
     --plan slides_plan.json \\
-    --style skills/nano-banana/styles/lineal-color.md \\
+    --style styles/lineal-color.md \\
     --output ppt_output
 
 Environment variables (checked in order):
@@ -567,10 +567,19 @@ def main() -> None:
     # Generate viewer HTML
     generate_viewer_html(output_dir, total_slides, args.template)
 
-    failed = sum(1 for s in prompts_data["slides"] if s["image_path"] is None)
-    print(
-        f"Done. {total_slides - failed}/{total_slides} slides generated. Output: {output_dir}/"
-    )
+    failed = [
+        s["slide_number"] for s in prompts_data["slides"] if s["image_path"] is None
+    ]
+    generated = total_slides - len(failed)
+    print(f"Done. {generated}/{total_slides} slides generated. Output: {output_dir}/")
+    if failed:
+        # The exit code is all a caller may look at: 1 = no slide came out,
+        # 2 = a partial deck was written and the listed slides are missing.
+        print(
+            "Failed slides: " + ", ".join(str(n) for n in failed),
+            file=sys.stderr,
+        )
+        sys.exit(1 if generated == 0 else 2)
 
 
 if __name__ == "__main__":
