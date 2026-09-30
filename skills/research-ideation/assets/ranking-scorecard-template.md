@@ -2,8 +2,7 @@
 
 ## Match Info
 
-- **Round**: [N]
-- **Match**: [M]
+- **Match**: [1-3]
 - **Date**: [YYYY-MM-DD]
 
 ## Competitors

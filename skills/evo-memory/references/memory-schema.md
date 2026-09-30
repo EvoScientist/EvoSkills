@@ -109,7 +109,7 @@ Total Cycles: [N]
 - **Validation Plan**: 1) Apply uniform pruning as control. 2) Apply
   modality-specific ratios (2:1 vision:language). 3) Compare accuracy-latency
   trade-offs. 4) Verify on a second VL architecture.
-- **Evidence**: Cycle 3 tournament — ranked #2 (Elo 1548); Cycle 5 — produced
+- **Evidence**: Cycle 3 tournament — ranked #2 (Elo 1500); Cycle 5 — produced
   successful experiment pipeline. Top-performing variant: asymmetric pruning
   ratios for VL models.
 - **Status**: feasible
