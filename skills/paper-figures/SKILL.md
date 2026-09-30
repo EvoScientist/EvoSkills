@@ -4,7 +4,7 @@ description: "Use this skill to produce standalone, publication-ready PNG graphi
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '0.1.0'
+  version: '0.1.1'
   tags: [core, figures, visualization, academic-writing]
 ---
 

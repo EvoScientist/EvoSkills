@@ -43,10 +43,27 @@ def png_size(path: Path) -> tuple[int, int]:
     return width, height
 
 
+def indent_width(line: str) -> int:
+    expanded = line.expandtabs()
+    return len(expanded) - len(expanded.lstrip())
+
+
 def extract_axis_block(spec: str, axis_name: str) -> str:
-    pattern = rf"(?ims)^\s*-\s*{re.escape(axis_name)}\s*:\s*(.*?)(?=^\s*-\s*[a-zA-Z0-9_]+:\s*|\Z)"
-    match = re.search(pattern, spec)
-    return match.group(1) if match else ""
+    """Return the axis item's inline value plus the lines nested under it."""
+    lines = spec.splitlines()
+    key = re.compile(rf"(?i)^\s*-\s*{re.escape(axis_name)}\s*:(.*)$")
+    for index, line in enumerate(lines):
+        match = key.match(line)
+        if not match:
+            continue
+        indent = indent_width(line)
+        block = [match.group(1).strip()]
+        for nested in lines[index + 1 :]:
+            if nested.strip() and indent_width(nested) <= indent:
+                break
+            block.append(nested)
+        return "\n".join(block).strip("\n")
+    return ""
 
 
 def axis_requires_log(spec: str, axis_name: str) -> bool:

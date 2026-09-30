@@ -21,7 +21,7 @@ Welcome! EvoSkills is the community-driven skill repository for [EvoScientist](h
 
 ```
 EvoSkills/
-  skills/                    # 10 skills (one directory each)
+  skills/                    # one directory per skill
     paper-planning/
     paper-writing/
     research-ideation/
