@@ -4,7 +4,7 @@ description: "End-to-end research ideation pipeline: literature grounding → mu
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '2.1.1'
+  version: '2.1.2'
   tags: [core, research, ideation, tournament, proposal]
 ---
 
@@ -276,7 +276,7 @@ Run experiments on representative data. If the approach fails, return to Step 3 
 2. **Pursue new failure cases, not incremental improvements**: Find settings where existing methods break
 3. **If a well-established solution exists, switch problems**: Improvement space is too small
 4. **Technology is creative combination, not concatenation**: Simple A→B pipelines are not contributions
-5. **Quantity before quality in generation**: Generate many candidates before evaluating any
+5. **Quantity before quality in generation**: In every refinement round all three personas write their version before any of them is evaluated — 27 versions across the three tracks for 3 champions
 6. **Feasibility is not optional**: Brilliant but infeasible ideas waste research cycles
 7. **The tournament finds surprises**: Trust rankings over gut feeling
 
