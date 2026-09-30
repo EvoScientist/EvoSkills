@@ -1,6 +1,6 @@
 ---
 name: paper-review
-description: "Guides self-review of YOUR OWN academic paper before submission with adversarial stress-testing. Core method: three-pass protocol (adversarial deep read, then 5-aspect checklist — contribution sufficiency, writing clarity, results quality, testing completeness, method design — then mechanical consistency scans), experimental protocol audit (data flow, assumptions, leakage), counterintuitive protocol (reject-first simulation, delete unsupported claims, score trust, promote limitations, attack novelty), reverse-outlining, and figure/table quality checks. Use when: user wants to self-review or self-check their own paper draft before submission, stress-test their claims, prepare for reviewer criticism, or mentions 'self-review', 'check my draft', 'is my paper ready'. Do NOT use for writing a peer review of someone else's paper, and do NOT use after receiving actual reviews (use paper-rebuttal instead). Also runs as a background expert: dispatch it async with a draft path and it reviews end-to-end while you keep working."
+description: "Guides self-review of YOUR OWN academic paper before submission with adversarial stress-testing. Core method: three passes (adversarial deep read; 5-aspect checklist — contribution sufficiency, writing clarity, results quality, testing completeness, method design; mechanical consistency scans and experimental protocol audit of data flow, assumptions, leakage), counterintuitive protocol (reject-first simulation, delete unsupported claims, score trust, promote limitations, attack novelty), reverse-outlining, and figure/table quality checks. Use when: user wants to self-review or self-check their own paper draft before submission, stress-test their claims, prepare for reviewer criticism, or mentions 'self-review', 'check my draft', 'is my paper ready'. Do NOT use for writing a peer review of someone else's paper, and do NOT use after receiving actual reviews (use paper-rebuttal instead). Also runs as a background expert: dispatch it async with a draft path and it reviews end-to-end while you keep working."
 allowed-tools: "read_file edit_file write_file think_tool execute"
 metadata:
   author: EvoScientist
@@ -49,7 +49,7 @@ Now work through the structured materials: the 5-aspect checklist, the counterin
 
 ### Pass 3 — Mechanical scans and protocol audit
 
-Execute the **Experimental Protocol Audit** and the **Mechanical Consistency Scans** (both below) explicitly, using search/cross-referencing over the source files. These checks need no judgment and have a high hit rate — and "reading carefully" never triggers them on its own.
+Execute the **Experimental Protocol Audit** and the **Mechanical Consistency Scans** (both below) explicitly, using search/cross-referencing over the source files. The scans are search problems and the audit is a line-by-line reconstruction of the setup; both have a high hit rate — and "reading carefully" never triggers them on its own.
 
 ### Merge
 
@@ -237,13 +237,7 @@ Pass 3 runs these against the source files (rationale under Pass 3 above):
 2. **Claimed-but-missing comparisons.** Any method the paper itself calls "directly comparable", "closest prior work", or state-of-the-art must appear in the results tables — or the paper must say why not. Admitted in related work but absent from experiments is a finding.
 3. **Numeric consistency.** Every number quoted in the abstract, introduction, or conclusion must match its source table. Recompute claimed improvements ("X% better", "reduces Y by Z"). Prose interpretation must match the table — "substantially better" backed by a 0.1-point gap is a finding.
 
-Four more scans belong to this pass but their criteria already live elsewhere
-in this file — run them here as searches rather than restating them:
-**citation integrity** and **leftover markers** (criteria in Pre-Submission
-Final Checks below), **module motivation** (criterion in Aspect 2), and the
-mechanical half of the **table/figure** checks (criteria in the Figure/Table
-section above — here, additionally verify the bolded "best" value actually
-**is** the best in each column and that arrows match metric direction).
+Four more scans belong to this pass but their criteria already live elsewhere in this file — run them here as searches rather than restating them: **citation integrity** and **leftover markers** (criteria in Pre-Submission Final Checks below), **module motivation** (criterion in Aspect 2), and the mechanical half of the **table/figure** checks (criteria in the Figure/Table section above — here, additionally verify the bolded "best" value actually **is** the best in each column and that arrows match metric direction). Pass 2 may already have flagged some of these by reading; this pass settles them by search, so report each problem once.
 
 ---
 

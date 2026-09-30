@@ -29,7 +29,8 @@ material. Run the protocol audit and the mechanical scans yourself after the
 script returns; do not assume the script covered them.
 
 Write ONE review artifact to the output path. Structure: `# Self-Review` /
-`## Verdict` / `## Pass-1 Suspicions` (each marked resolved or still open) /
+`## Verdict` / `## Pass-1 Suspicions` (each with its location, confidence,
+the evidence that would settle it, and whether it is resolved or still open) /
 `## 5-Aspect Findings` (one subsection per aspect, each with a 1-5 score) /
 `## Protocol Audit & Mechanical Scans` / `## Blocking Issues` /
 `## Prebuttal Notes`.

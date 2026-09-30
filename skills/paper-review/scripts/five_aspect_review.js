@@ -48,7 +48,7 @@ const CHECKLISTS = {
     "- Technical flaws? Theoretical or conceptual weaknesses in the method?\n" +
     "- Not robust? Does the method require per-scene/per-task hyperparameter tuning?\n" +
     "- Benefit < limitation? Does a new module introduce limitations that outweigh its benefits?\n" +
-    "- Conclusion and limitations: conclusion summarizes contributions and key results; a Limitation section is PRESENT (reviewers frequently flag its absence); limitations are about task/setting scope rather than technical defects, honest but not self-defeating.\n" +
+    "- Conclusion and limitations: conclusion summarizes contributions and key results; a Limitation section is PRESENT (reviewers frequently flag its absence); limitations are framed as task/setting scope where that is honest, and are honest but not self-defeating; beating SOTA does not retire a technical defect - a leak, an unfair comparison, or an unsupported claim is a finding, not a limitation.\n" +
     "Red flag: if the method needs significant per-scenario tuning, robustness experiments or an acknowledged limitation are needed.",
 };
 
