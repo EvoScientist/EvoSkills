@@ -214,7 +214,7 @@ Dedicated rebuttal skill for responding to reviewer feedback after peer review:
 
 A spec-first workflow that turns CSVs and natural-language descriptions into standalone PNGs and reproducible matplotlib scripts:
 
-- **6-Step Protocol** — Plan Figure → Inspect Data → Write `figure-spec.md` → Pick matplotlib idiom → Render → Audit, with `plot.py` + `plot.png` as the always-paired output
+- **7-Step Protocol** — Plan Figure → Inspect Data → Write `figure-spec.md` → Pick matplotlib idiom → Apply publication style → Write and run the script → Audit, with `plot.py` + `plot.png` as the always-paired output
 - **Spec-First Discipline** — Every figure is preceded by a compact `figure-spec.md` contract (axes, scales, series, forbidden elements, assumptions) that the audit checks against
 - **4 Honest Status Labels** — `PASSED` / `PASSED_WITH_WARNINGS` / `REPAIRED` / `FAILED_NEEDS_HANDOFF`. The script executing is not proof the figure matches the request
 - **Structural Audit, Not Visual** — Verifies title, axis labels, series ordering, colors, annotations, and axis bounds against the description (LLM visual inspection of PNGs is unreliable)
