@@ -4,7 +4,7 @@ description: "End-to-end research ideation pipeline: literature grounding → mu
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '2.1.0'
+  version: '2.1.1'
   tags: [core, research, ideation, tournament, proposal]
 ---
 
@@ -55,7 +55,7 @@ Step 8: Validate and Iterate
 
 1. Read M_I at `/memory/ideation-memory.md` (refer to `evo-memory` skill)
 2. Select the **top-2 entries** (k_I=2) most relevant to the user's current goal by comparing each entry's Summary and Retrieval Tags against the goal
-3. **Feasible directions** from prior cycles → use as seeds in Step 3 (incorporate as candidate research directions alongside new ones)
+3. **Feasible directions** from prior cycles → use as seeds in Step 3 (incorporate as candidate research directions alongside new ones; Step 3 still selects exactly 3 directions)
 4. **Unsuccessful directions** marked as fundamental failures → use during idea pruning in Step 4 (prune any idea that matches a fundamental failure pattern)
 5. If M_I doesn't exist yet (first cycle), skip this step
 
@@ -134,7 +134,7 @@ For each track:
     1. Evaluate current best idea (novelty, feasibility, impact, alignment)
     2. All 3 personas generate refined versions based on evaluation
     3. Pick the best refinement as seed for next iteration
-  Track champion = best idea across iterations
+  Track champion = the refinement picked in the final iteration
 ```
 
 ### 5 Evolution Strategies
@@ -154,7 +154,7 @@ For each track:
 
 ## Step 5: ELO Tournament → Present Top-3
 
-Rank all track champions through pairwise comparison, then **present the top-3 to the user for selection**.
+Rank the 3 track champions through pairwise comparison, then **present all three, ranked, to the user for selection**. The tournament orders the champions and records why; it does not eliminate any — each champion is a different research direction, and the user chooses between directions.
 
 ### Four Dimensions
 
@@ -168,7 +168,9 @@ Rank all track champions through pairwise comparison, then **present the top-3 t
 ### Tournament
 
 - **Starting Elo**: 1500 | **K-factor**: 32
-- Compare ideas pairwise → update Elo → sort by final score
+- Round-robin: every champion meets the other two once (3 matches)
+- Per match: score both ideas on the four dimensions → higher composite wins → update Elo
+- Sort by final Elo. If ratings are equal, or each champion won exactly one match, order by mean composite score instead, then by track order
 - See `references/elo-ranking-guide.md` for rubric and formula
 
 ### Present Top-3 to User
@@ -182,10 +184,12 @@ After the tournament, present the top-3 ideas with **both** a comparison table a
 
 | Rank | Title | Core Mechanism | Novelty | Feasibility | Relevance | Clarity | ELO |
 |------|-------|---------------|---------|-------------|-----------|---------|-----|
-| 1 | ... | ... | 9 | 7 | 8 | 8 | 1280 |
-| 2 | ... | ... | 7 | 9 | 8 | 7 | 1240 |
-| 3 | ... | ... | 8 | 6 | 9 | 7 | 1210 |
+| 1 | ... | ... | 9 | 7 | 8 | 8 | 1531 |
+| 2 | ... | ... | 7 | 9 | 8 | 7 | 1500 |
+| 3 | ... | ... | 8 | 6 | 9 | 7 | 1469 |
 ```
+
+Each dimension column is the idea's mean score across its two matches.
 
 #### Part 2: Full Refined Ideas
 
@@ -312,7 +316,6 @@ All paper discovery goes through `paper-navigator`. This skill does not search f
 | Literature tree construction | `references/literature-tree.md` |
 | Problem selection framework | `references/problem-selection.md` |
 | Solution design methodology | `references/solution-design.md` |
-| Tree expansion rules | `references/tree-search-protocol.md` |
 | ELO formula & rubric | `references/elo-ranking-guide.md` |
 | Proposal section guidance | `references/proposal-extension.md` |
 | Idea candidate template | `assets/idea-candidate-template.md` |

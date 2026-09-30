@@ -124,7 +124,7 @@ The starting point of the research pipeline. It now covers the full path from li
 - **Load Prior Knowledge** — Read `evo-memory` first to reuse feasible directions and avoid known dead ends
 - **Literature Grounding** — Use `paper-navigator` to collect and analyze papers before generating ideas
 - **Multi-Track Ideation + Refinement** — Generate candidates across multiple personas, then iteratively strengthen them
-- **Elo Tournament** — Rank refined ideas on novelty, feasibility, relevance, and clarity; present the top-3
+- **Elo Tournament** — Rank the three track champions on novelty, feasibility, relevance, and clarity; present all three, ranked
 - **Proposal Extension** — Expand the selected winner into a manuscript-quality research proposal
 
 ### 📝 `research-survey` — Literature Survey & Synthesis

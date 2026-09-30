@@ -1,10 +1,11 @@
 # Idea Candidate: [Name]
 
-## Tree Position
+## Lineage
 
-- **Parent Node**: [Parent idea name]
-- **Level**: [1: Technique | 2: Domain | 3: Formulation]
-- **Axis Varied**: [What changed from parent]
+- **Track**: [1-3: which research direction this idea belongs to]
+- **Iteration**: [0: initial idea | 1-3: refinement iteration]
+- **Persona**: [Innovator | Pragmatist | Critic]
+- **Changed From Seed**: [What this version changed, and which evolution strategy it used]
 
 ## Description
 
@@ -26,11 +27,11 @@
 - **Estimated Timeline**: [Rough estimate]
 - **Known Risks**: [What could go wrong]
 
-## Tournament Record
+## Tournament Record (track champions only)
 
 - **Initial Elo**: 1500
 - **Current Elo**: [Updated after matches]
-- **Matches Played**: [N]
+- **Matches Played**: [0-2]
 - **Wins / Draws / Losses**: [W / D / L]
 
 ## evo-memory Check

@@ -1,6 +1,6 @@
 # Elo Ranking Guide
 
-Detailed guide for running the pairwise Elo tournament in Step 5 of the `research-ideation` pipeline. Covers the formula, the 4-dimension rubric, Swiss-system pairing, and convergence criteria.
+Detailed guide for running the pairwise Elo tournament in Step 5 of the `research-ideation` pipeline. Covers the formula, the 4-dimension rubric, round-robin pairing, and tie handling.
 
 ## The Elo Rating System
 
@@ -24,7 +24,7 @@ Where:
 - `K` = 32 (K-factor; controls how much a single match affects ratings)
 - `S_A` = actual score: 1 (win), 0.5 (draw), 0 (loss)
 
-**Why K=32?** This is the standard K-factor for new players. It means a single match can move a rating by up to 32 points. For 4-5 rounds of matches with 15-21 candidates, this produces sufficient differentiation while remaining stable.
+**Why K=32?** This is the standard K-factor for new players. It means a single match can move a rating by up to 32 points. With three champions and one match per pair, that separates a champion that wins both matches from one that loses both by about 60 points, while a split result stays close.
 
 ### Understanding the Scale
 
@@ -89,34 +89,19 @@ Each pairwise match evaluates both ideas on four dimensions. Score each dimensio
 
 **Key question**: "Could I write the experiment plan for this idea right now?"
 
-## Swiss-System Pairing
+## Round-Robin Pairing
 
-Swiss-system is more efficient than round-robin (which requires N×(N-1)/2 matches). For 15-21 candidates, Swiss produces reliable rankings in 4-5 rounds.
+The tournament input is the 3 track champions from Step 4 — one per research direction. Every champion meets the other two once:
 
-### Pairing Algorithm
+1. Champion 1 vs Champion 2
+2. Champion 1 vs Champion 3
+3. Champion 2 vs Champion 3
 
-**Round 1**: Random pairing. If odd number of candidates, one gets a bye (automatic win against a phantom opponent with rating 1500).
+For each match, score both ideas on the four dimensions, take the composite (the mean of the four scores), and the higher composite wins. Update both ratings after every match, in the order above, before scoring the next one.
 
-**Round 2+**:
-1. Sort all candidates by current Elo rating (descending)
-2. Starting from the top, pair each candidate with the nearest-rated candidate they haven't faced yet
-3. If no valid pairing exists (all nearby candidates already faced), pair with the next available
-4. Continue until all candidates are paired (or one gets a bye)
+Three matches are the whole tournament: there are no byes and no further rounds. All three champions are presented to the user; the tournament decides their order and records the per-dimension reasons.
 
-### Number of Rounds
-
-| Candidates | Recommended Rounds | Rationale |
-|------------|-------------------|-----------|
-| 10-14 | 4 | Enough for top-3 to stabilize |
-| 15-21 | 5 | Standard for this range |
-| 22-30 | 5-6 | Additional round for larger fields |
-
-### Convergence Check
-
-After each round, check if the top-3 rankings have stabilized:
-- If the top-3 are the same as after the previous round → rankings are stable, can stop early
-- If there's significant movement in the top-5 → run another round
-- After 5 rounds, stop regardless — further rounds have diminishing returns
+**Why only the champions?** Entering every refined version from Step 4 (up to 27) into a larger tournament was tested. It costs about 50 comparisons instead of 3, tends to fill the top 3 with two versions of the same direction, and a blind judge preferred the three-champion shortlist.
 
 ## Structuring the Pairwise Comparison
 
@@ -127,8 +112,8 @@ Each match should follow this structured comparison format:
 ```
 Compare these two research ideas:
 
-**Idea A**: [Full description from idea tree]
-**Idea B**: [Full description from idea tree]
+**Idea A**: [Full refined idea of one track champion]
+**Idea B**: [Full refined idea of another track champion]
 
 Score each on four dimensions (1-10 scale):
 
@@ -168,16 +153,24 @@ Use the ranking scorecard template (see [../assets/ranking-scorecard-template.md
 
 After this single match, Idea A is rated 1516 and Idea B is rated 1484 — a 32-point gap.
 
+**Full round-robin**: suppose Idea A also beats a third champion, Idea C, and Idea B then beats Idea C.
+
+| Match | Result | Ratings after the match |
+|-------|--------|-------------------------|
+| A vs B | A wins (E_A = 0.500) | A 1516.0, B 1484.0, C 1500.0 |
+| A vs C | A wins (E_A = 0.523) | A 1531.3, B 1484.0, C 1484.7 |
+| B vs C | B wins (E_B = 0.499) | A 1531.3, B 1500.0, C 1468.7 |
+
+Final order: A (1531), B (1500), C (1469).
+
 ## Handling Edge Cases
 
 ### Ties
 
 If both ideas have identical composite scores, score the match as a draw (S = 0.5 for both). Ratings move less: each shifts by K × (0.5 - E) instead of K × (1 - E).
 
-### Close Ratings
+### Equal or Near-Equal Final Ratings
 
-If two ideas are within 50 Elo points of each other after 4+ rounds, they are effectively equivalent. Note this in the rankings — the direction summary should treat them as co-equal options.
+If two champions finish with the same rating, order them by their mean composite score across their two matches; if that is also equal, keep track order.
 
-### Suspiciously Dominant Ideas
-
-If one idea reaches 1700+ (200 points above start) after just 2-3 rounds, it's likely genuinely strong — but verify by checking its match quality. Did it face strong opponents (those with above-average ratings)? A high rating earned against weak opponents is less reliable.
+If each champion wins one match and loses one (A beats B, B beats C, C beats A), all three finish within a few points of 1500, and those few points come only from the order the matches were played in. The tournament has not separated them: ignore the rating differences, order them by mean composite score (then track order), and say in the direction summary that they are co-equal options.
