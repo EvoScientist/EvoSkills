@@ -86,7 +86,7 @@ EvoSci mcp install arxiv  # 按名称安装
   <img src="assets/framework.png" alt="EvoScientist Framework" width="100%" />
 </p>
 
-上图展示了完整的 EvoScientist 流水线。**Researcher Agent**（上方，蓝色）运行想法树搜索与 Elo 锦标赛排名，产出研究提案。**Engineer Agent**（下方，绿色）执行四阶段实验流水线。**Evolution Manager Agent**（右侧）管理三种记忆进化机制——IDE、IVE 与 ESE——将学到的知识回馈到 **Ideation Memory (M_I)** 与 **Experimentation Memory (M_E)**，供后续研究周期使用。
+上图展示了完整的 EvoScientist 流水线。**Researcher Agent**（上方，蓝色）运行想法树搜索与 Elo 锦标赛排名，产出研究提案（在本仓库中由 `research-ideation` skill 实现：三条由不同角色驱动的精炼轨道，各轨道的冠军方案再通过三场 Elo 循环赛排序）。**Engineer Agent**（下方，绿色）执行四阶段实验流水线。**Evolution Manager Agent**（右侧）管理三种记忆进化机制——IDE、IVE 与 ESE——将学到的知识回馈到 **Ideation Memory (M_I)** 与 **Experimentation Memory (M_E)**，供后续研究周期使用。
 
 #### 🎢 技能流水线
 

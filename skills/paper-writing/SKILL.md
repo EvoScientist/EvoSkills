@@ -4,7 +4,7 @@ description: "Guides writing academic papers section by section using an 11-step
 allowed-tools: "write_file edit_file read_file think_tool"
 metadata:
   author: EvoScientist
-  version: '1.0.1'
+  version: '1.0.2'
   tags: [core, research, writing, academic-writing, latex]
 ---
 
@@ -30,9 +30,9 @@ If you used upstream EvoSkills, pull these artifacts before writing:
 | `paper-planning` | Experiment plan (comparisons + ablations + demos) | Step 5 (Experiments section) |
 | `paper-planning` | Pipeline figure sketch | Steps 1, 6 (Method overview figure) |
 | `paper-planning` | Claim-to-experiment mapping | Steps 2, 5, 9 (Introduction, Experiments, Abstract) |
-| `paper-planning` | Fallback narrative (if planned) | Step 4 (Introduction pivot), Conclusion section |
+| `paper-planning` | Fallback narrative (if planned) | Step 4 (Introduction pivot), Step 9 (Conclusion) |
 | `experiment-pipeline` | Stage 1-4 results, ablation tables, trajectory logs | Step 5 (write experiments) |
-| `experiment-craft` | Failure analysis, implementation tricks | Step 3 (Method section / Supplementary), Conclusion section (limitations) |
+| `experiment-craft` | Failure analysis, implementation tricks | Step 3 (Method section / Supplementary), Step 9 (Conclusion limitations) |
 
 ## The 11-Step Writing Process
 
@@ -46,7 +46,7 @@ Follow these steps in order. Each step builds on the previous one.
 6. **Polish figures** — Finalize the pipeline figure. Create the teaser figure.
 7. **Write Related Work** — List related papers, group into topics, write paragraphs.
 8. **Review the paper** — Self-review Introduction, Method, and Experiments. Use the `paper-review` skill.
-9. **Write Abstract** — Organize the Abstract writing plan, then draft.
+9. **Write Abstract and Conclusion** — Organize the Abstract writing plan, then draft. Write the Conclusion with its Limitation section, so that every section exists before the final iterations.
 10. **Choose the title** — List important keywords, then compose an informative title.
 11. **Iterate** — Repeatedly review and revise the entire paper.
 
@@ -122,6 +122,7 @@ See [references/related-work-guide.md](references/related-work-guide.md)
 - Must include **Limitation** section (reviewers frequently cite "no limitation" as a weakness)
 - Limitation = task goal / setting limitations (like future work), NOT technical defects
 - Rule: "If our method does not fall below current SOTA metrics, it is not a technical defect"
+- That rule is about how to frame performance. A leak, an unfair comparison or an unsupported claim is a defect at any metric level: fix it rather than write it up as a limitation (`paper-review` records it as a finding)
 
 ### Supplementary Material
 

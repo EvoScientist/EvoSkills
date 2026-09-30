@@ -52,6 +52,10 @@ End with a final message that is EXACTLY one JSON object, no prose around it:
 {"status": "success", "output_path": "<the path you wrote>", "summary": "<one-paragraph verdict>", "metadata": {"aspect_scores": {"contribution": 0, "clarity": 0, "results": 0, "testing": 0, "method": 0}, "blocking_issues": 0, "verdict": "<ready | needs-work | major-rework | incomplete>"}}
 ```
 
+The `0`s in the example are placeholders. Each aspect score is the integer
+1-5 that aspect received, and `blocking_issues` is the number of blocking
+issues in the artifact.
+
 If any aspect is still missing after the retry round, the verdict is
 `incomplete` — never a score-based verdict: metadata then also carries
 `missing_aspects` (the aspects that never ran) and `partial_verdict` (the
