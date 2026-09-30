@@ -15,6 +15,6 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install test dependencies
-        run: pip install pytest pyyaml
+        run: pip install pytest pyyaml httpx python-dotenv
       - name: Run tests
         run: pytest tests -q

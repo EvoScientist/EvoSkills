@@ -266,7 +266,7 @@ flowchart LR
 
 - **双层图谱** — 高层分类体系（根 → 挑战 → 解决方案 → 论文），外加每条解决方案的演化路径，追踪论文之间的 “evolution from” 边与开放挑战
 - **智能体驱动的 LLM 调用** — 技能内置确定性数据抓取器（Semantic Scholar / DeepXiv）、提示词模板与 Mermaid 渲染器；所有 LLM 步骤由宿主智能体执行，因此技能本身不需要模型 API key（抓取论文需要 Semantic Scholar API key）
-- **边审计环节** — 两篇论文之间每条声称的 “evolution from” 边，都会经由独立的 LLM 审计步骤验证后才进入最终图谱
+- **边审计环节** — 每条声称的 “evolution from” 边先由独立的 LLM 步骤审计，再由渲染器复核：两篇论文各自的逐字引文必须能在原文中找到，已知的发表年份顺序必须正确，否则不画
 - **随处可渲染** — Mermaid 置于 Markdown 围栏代码块中，可直接在 GitHub、Obsidian、VS Code（需 Mermaid 扩展）等 Markdown 查看器中显示——无需外部渲染管线
 - **适用场景** — “某主题的发展史”、“某论文建立在哪些工作之上？”、“某领域的思想脉络”、“某论文的引用树”
 

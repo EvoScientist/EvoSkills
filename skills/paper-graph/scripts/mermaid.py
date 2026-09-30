@@ -15,9 +15,11 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from .audit import SUPPORTED_VERDICTS
     from .logger import Logger
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent))
+    from audit import SUPPORTED_VERDICTS  # type: ignore
     from logger import Logger  # type: ignore
 
 
@@ -108,6 +110,7 @@ def parse_outline_markdown(
     markdown_text: str,
     allowed: set[int] | None = None,
     logger: Logger | None = None,
+    report: dict[str, Any] | None = None,
 ) -> tuple[
     str | None,
     dict[int, str],
@@ -120,6 +123,12 @@ def parse_outline_markdown(
     If ``allowed`` is provided, any paper number `(N)` the LLM emitted that is
     NOT in this set is treated as a hallucination and dropped — keeps the
     final graph anchored on real input papers.
+
+    Each paper keeps one primary placement, the first solution that lists
+    it. A solution header that is restated reopens that solution rather than
+    starting a second one, and a solution left without any member is pruned.
+    When ``report`` is given it is filled with what was dropped
+    (``dropped``, ``duplicate_placements``, ``empty_solutions``).
     """
     root_title: str | None = None
     challenges: dict[int, str] = {}
@@ -127,6 +136,8 @@ def parse_outline_markdown(
     current_c: int | None = None
     current_s: tuple[int, int] | None = None
     dropped: list[int] = []
+    placed_in: dict[int, tuple[int, int, int]] = {}
+    duplicate_placements: list[int] = []
 
     for raw in markdown_text.strip().splitlines():
         line = raw.strip()
@@ -150,7 +161,9 @@ def parse_outline_markdown(
             s_major, s_minor = int(m.group(1)), int(m.group(2))
             sol_name = m.group(3).strip()
             current_s = (s_major, s_minor)
-            challenge_solutions[current_c].append((s_major, s_minor, sol_name, []))
+            sols = challenge_solutions[current_c]
+            if not any((a, b) == current_s for a, b, _, _ in sols):
+                sols.append((s_major, s_minor, sol_name, []))
             continue
 
         m = re.match(r"^-\s+(?:Paper:\s*)?\((\d+)\)", line)
@@ -159,16 +172,43 @@ def parse_outline_markdown(
             if allowed is not None and paper_num not in allowed:
                 dropped.append(paper_num)
                 continue
-            sols = challenge_solutions[current_c]
-            if sols:
-                s_major, s_minor, sol_name, paper_nums = sols[-1]
+            owner = (current_c, current_s[0], current_s[1])
+            if paper_num in placed_in:
+                # Listed again under the solution that already owns it (a
+                # restated header) is harmless; anywhere else it is a
+                # second placement and the first one wins.
+                if placed_in[paper_num] != owner:
+                    duplicate_placements.append(paper_num)
+                continue
+            for s_major, s_minor, _, paper_nums in challenge_solutions[current_c]:
                 if (s_major, s_minor) == current_s:
                     paper_nums.append(paper_num)
-                    sols[-1] = (s_major, s_minor, sol_name, paper_nums)
+                    placed_in[paper_num] = owner
+                    break
             continue
 
+    # A solution that owns no paper (every member was a hallucinated number,
+    # or already placed elsewhere) has nothing to draw and nothing to build
+    # a lineage from.
+    empty_solutions: list[str] = []
+    for c_num, sols in challenge_solutions.items():
+        empty_solutions.extend(f"{a}.{b}" for a, b, _, nums in sols if not nums)
+        challenge_solutions[c_num] = [s for s in sols if s[3]]
+
+    if report is not None:
+        report["dropped"] = dropped
+        report["duplicate_placements"] = duplicate_placements
+        report["empty_solutions"] = empty_solutions
+    if logger is not None and empty_solutions:
+        logger.event("outline_pruned_empty_solutions", solutions=empty_solutions)
     if logger is not None and dropped:
         logger.event("outline_dropped_paper_nums", dropped=dropped)
+    if logger is not None and duplicate_placements:
+        logger.event(
+            "outline_dropped_duplicate_placements",
+            dropped=duplicate_placements,
+            policy="first_primary_placement_wins",
+        )
     return root_title, challenges, challenge_solutions
 
 
@@ -504,7 +544,10 @@ def _parse_detail_markdown(
             m = re.search(r"\((\d+)\)", line)
             if m and current_paper is not None and current_paper in papers:
                 ef = int(m.group(1))
-                if _is_allowed(ef):
+                if ef == current_paper:
+                    # A paper cannot evolve from itself.
+                    dropped_edges.append((ef, current_paper))
+                elif _is_allowed(ef):
                     papers[current_paper]["evolution_from"] = ef
                 else:
                     dropped_edges.append((ef, current_paper))
@@ -648,14 +691,23 @@ def detail_to_mermaid(
             return f"{head}<br/>{url}"
         return head
 
-    # Apply audit verdicts: REJECT edges are dropped (target reverts to
-    # initial work); INFERRED edges keep their evolution_from but render
-    # dotted; SUPPORTED_* and unaudited edges render solid.
-    if edge_verdicts:
+    # Apply audit verdicts: only explicitly SUPPORTED edges become directed
+    # lineage claims. REJECT and INFERRED both revert the target to initial
+    # work; INFERRED remains available in the verdict artifact for prose/audit.
+    if edge_verdicts is not None:
         for pn, info in papers.items():
             ef = info.get("evolution_from")
-            if ef and edge_verdicts.get((ef, pn)) == "REJECT":
+            verdict = edge_verdicts.get((ef, pn)) if ef else None
+            if ef and verdict not in SUPPORTED_VERDICTS:
                 info["evolution_from"] = None
+
+    # An edge may start at a context paper that has no ``### Paper (N)``
+    # block of its own. Give that paper a node, so the edge is drawn and its
+    # target is not left without any connection.
+    for info in list(papers.values()):
+        ef = info.get("evolution_from")
+        if ef and ef not in papers:
+            papers[ef] = {"gap": None, "evolution_from": None}
 
     # Collect full text for any label that exceeds LABEL_CAP; each one is
     # replaced by a short prefix + `[note N]` marker in the diagram, with
@@ -680,19 +732,10 @@ def detail_to_mermaid(
         ef = info.get("evolution_from")
         if ef and ef in papers:
             gap = _capped_label(info.get("gap") or "Evolution", footnotes)
-            verdict = (edge_verdicts or {}).get((ef, pn))
-            if verdict == "INFERRED":
-                # Dotted edge + visible marker so the reader sees that the
-                # source/target textual evidence didn't fully attest the gap.
-                _emit_edge(
-                    f"    {prefix}_P{ef} -.->|Gap #40;inferred#41;: {gap}| {prefix}_P{pn}",
-                    dotted=True,
-                )
-            else:
-                _emit_edge(
-                    f"    {prefix}_P{ef} -->|Gap: {gap}| {prefix}_P{pn}",
-                    dotted=False,
-                )
+            _emit_edge(
+                f"    {prefix}_P{ef} -->|Gap: {gap}| {prefix}_P{pn}",
+                dotted=False,
+            )
 
     orphaned_eps: list[int] = []
     orphaned_ocs: list[int] = []

@@ -17,9 +17,6 @@ REPO = Path(os.environ.get("SKILLS_ROOT") or Path(__file__).resolve().parents[2]
 SKILLS = sorted(p for p in (REPO / "skills").iterdir() if p.is_dir())
 NAMES = [p.name for p in SKILLS]
 
-# Over the Agent Skills limit on main; paper-graph's description is rewritten by the open PR #44.
-KNOWN_LONG_DESCRIPTIONS = {"paper-graph"}
-
 
 def frontmatter(skill: Path) -> dict:
     return yaml.safe_load(
@@ -51,8 +48,6 @@ WITH_STEP_OVERVIEW = [s.name for s in SKILLS if overview_and_sections(s)]
 @pytest.mark.parametrize("name", NAMES)
 def test_description_within_spec_limit(name):
     description = frontmatter(REPO / "skills" / name)["description"]
-    if name in KNOWN_LONG_DESCRIPTIONS and len(description) > 1024:
-        pytest.xfail(f"{name}: {len(description)} chars, tracked separately")
     assert len(description) <= 1024, f"{len(description)} characters"
     assert "<" not in description and ">" not in description
 
