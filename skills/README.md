@@ -169,15 +169,18 @@ Add your skill to the table in this file, and to the catalog table, detail secti
 
 ### CI Checks
 
-CI runs ruff on every pull request and skill validation whenever anything under `skills/` changes. Run both from the repository root before pushing:
+CI runs ruff and the test suite on every pull request, and skill validation whenever anything under `skills/` changes. Run all three from the repository root before pushing:
 
 ```bash
-pip install pyyaml "ruff==0.15.8"
+pip install pytest pyyaml "ruff==0.15.8"
 python .github/scripts/validate_skills.py --base origin/main   # frontmatter + version bumps
 ruff check . && ruff format --check .                          # all Python in the repository
+pytest tests -q                                                # consistency checks + script tests
 ```
 
 Skill validation checks the frontmatter of every skill (required fields, `name` equal to the directory name, a quoted dotted-number `metadata.version`, `EXPERT.md` matching `metadata.type`). With `--base`, it also fails when a skill has changed files but its version is not higher than on the base branch — which is what CI runs on pull requests. Without `--base` it only checks the frontmatter.
+
+The test suite under `tests/` checks what the validator does not: a description is at most 1024 characters (a skill named as a known exception in the test file is reported without failing), a skill's step overview matches its step sections, relative links and `references/` / `assets/` / `scripts/` paths in a skill's Markdown resolve, and every skill has a row in the tables of `README.md`, `README.zh-CN.md` and this file. It also tests the validation scripts themselves.
 
 ### Manual Testing
 
@@ -238,3 +241,4 @@ Use the appropriate tier based on your change:
 | Create a new skill | Ask EvoSci: `"Create a new skill called my-skill in path/to/EvoSkills/skills"` |
 | Validate skills | `python .github/scripts/validate_skills.py --base origin/main` |
 | Lint scripts | `ruff check . && ruff format --check .` |
+| Run the tests | `pytest tests -q` |
