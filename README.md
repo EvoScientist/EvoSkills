@@ -81,7 +81,7 @@ EvoSci mcp install arxiv  # install by name
   <img src="assets/framework.png" alt="EvoScientist Framework" width="100%" />
 </p>
 
-The diagram above shows the full EvoScientist pipeline. The **Researcher Agent** (top, blue) runs idea tree search and Elo tournament ranking to produce a research proposal. The **Engineer Agent** (bottom, green) executes the 4-stage experiment pipeline. The **Evolution Manager Agent** (right) manages three memory evolution mechanisms — IDE, IVE, and ESE — that feed learned knowledge back into **Ideation Memory (M_I)** and **Experimentation Memory (M_E)** for future cycles.
+The diagram above shows the full EvoScientist pipeline. The **Researcher Agent** (top, blue) runs idea tree search and Elo tournament ranking to produce a research proposal (in this repository, the `research-ideation` skill: three persona-driven refinement tracks whose champions are ranked in a three-match Elo round-robin). The **Engineer Agent** (bottom, green) executes the 4-stage experiment pipeline. The **Evolution Manager Agent** (right) manages three memory evolution mechanisms — IDE, IVE, and ESE — that feed learned knowledge back into **Ideation Memory (M_I)** and **Experimentation Memory (M_E)** for future cycles.
 
 #### 🎢 Skill Pipeline
 

@@ -26,7 +26,7 @@ const CHECKLISTS = {
     "- Paragraph structure: does each paragraph have one clear topic, stated in its first sentence?\n" +
     "- Flow: reverse-outline - write down each paragraph's main message and check the sequence flows logically; flag abrupt breaks (Introduction narrative, Method module order, Experiments result sequence).\n" +
     "- Terminology used consistently throughout?\n" +
-    "- Final checks: all references complete (no '?' or missing bibliography entries; every cited work has authors, title, venue, year); no TODO markers left; supplementary material properly referenced; page count within limits; no double-blind violations or anonymity-breaking self-citations; key related works cited - a missing prominent baseline paper can trigger rejection.\n" +
+    "- Final checks: all references complete (no '?' or missing bibliography entries; every cited work has authors, title, venue, year); no TODO markers left; supplementary material properly referenced; page count within limits; author information matches the venue requirements; acknowledgments section is appropriate; no double-blind violations or anonymity-breaking self-citations; key related works cited - a missing prominent baseline paper can trigger rejection.\n" +
     "Red flag: if reproducibility is in doubt, implementation details or supplementary material are needed.",
   results:
     "- Marginal improvement? If the gain over SOTA is small, is it statistically significant?\n" +
