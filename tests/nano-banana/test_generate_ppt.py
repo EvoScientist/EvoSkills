@@ -152,6 +152,15 @@ def test_partly_generated_deck_is_reported_with_its_missing_slides(
     # The deck that did come out is still written for review and editing.
     assert (out / "images" / "slide-01.png").exists()
     assert (out / "images" / "slide-03.png").exists()
+    assert (out / "index.html").exists()
+    prompts = json.loads((out / "prompts.json").read_text(encoding="utf-8"))
+    assert [s["image_path"] is None for s in prompts["slides"]] == [False, True, False]
+
+
+def test_plan_without_slides_is_a_failure(tmp_path, fake_modules):
+    proc, _ = generate(tmp_path, fake_modules, [])
+    assert proc.returncode == 1
+    assert "no slides" in (proc.stdout + proc.stderr).lower()
 
 
 @pytest.mark.parametrize(

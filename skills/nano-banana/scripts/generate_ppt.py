@@ -476,6 +476,9 @@ def main() -> None:
 
     slides = slides_plan["slides"]
     total_slides = len(slides)
+    if total_slides == 0:
+        print("Error: the plan has no slides.", file=sys.stderr)
+        sys.exit(1)
     print(f"Generating {total_slides} slides to {output_dir}/")
 
     # Initialize prompts data
