@@ -147,8 +147,8 @@ def test_paper_writing_table_labels_describe_the_steps_they_cite():
             )
 
 
-def test_paper_writing_every_section_of_the_handoff_is_written_in_some_step():
-    """The handoff to paper-review lists the sections that must be drafted; each needs a step that drafts it."""
+def test_paper_writing_every_section_of_the_handoff_is_named_in_some_step():
+    """The handoff to paper-review lists the sections that must be drafted; each must be named by a step."""
     text = (REPO / "skills" / "paper-writing" / "SKILL.md").read_text(encoding="utf-8")
     _, steps, _ = paper_writing()
     listed = re.search(r"- \[ \] All sections \(([^)]*)\) drafted", text).group(1)
@@ -156,7 +156,7 @@ def test_paper_writing_every_section_of_the_handoff_is_written_in_some_step():
     assert len(sections) >= 5
     step_text = " ".join(steps.values()).lower()
     for section in sections:
-        assert section.lower() in step_text, f"no step drafts the {section}"
+        assert section.lower() in step_text, f"no step names the {section}"
 
 
 def test_paper_writing_skeleton_cites_the_step_that_writes_each_section():
@@ -172,8 +172,9 @@ def test_paper_writing_skeleton_cites_the_step_that_writes_each_section():
         assert words(section) & words(step), f"{section} (Step {number}): {step!r}"
 
 
-def test_limitation_guidance_agrees_with_paper_review():
-    """paper-review treats a leak, an unfair comparison or an unsupported claim as a finding at any metric level."""
+def test_sota_rule_in_paper_writing_carries_the_boundary_paper_review_sets():
+    """Wherever paper-writing states the "not below SOTA, not a technical defect" rule, it must also say that a
+    leak, an unfair comparison or an unsupported claim is a defect, as paper-review treats them."""
     review = (REPO / "skills" / "paper-review" / "SKILL.md").read_text(encoding="utf-8")
     assert "Beating SOTA does not retire a technical defect" in review
     writing = (REPO / "skills" / "paper-writing" / "SKILL.md").read_text(
@@ -183,9 +184,15 @@ def test_limitation_guidance_agrees_with_paper_review():
     skeleton = (
         REPO / "skills" / "paper-writing" / "assets" / "paper-skeleton.tex"
     ).read_text(encoding="utf-8")
+    stated = 0
     for name, guidance in (("SKILL.md", conclusion), ("paper-skeleton.tex", skeleton)):
-        if "not a technical defect" in guidance:
-            assert "unfair comparison" in guidance, f"{name}: the rule has no boundary"
+        if "not a technical defect" not in guidance:
+            continue
+        stated += 1
+        flat = " ".join(guidance.replace("%", " ").split())
+        for defect in ("leak", "unfair comparison", "unsupported claim"):
+            assert defect in flat, f"{name}: the rule does not exclude a {defect}"
+    assert stated == 2, "the rule moved; point this test at where it lives now"
 
 
 REFERENCE = re.compile(
