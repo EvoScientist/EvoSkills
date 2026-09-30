@@ -11,7 +11,7 @@ between the two services (arxiv2md uses `## N Section`, markxiv uses
 `# Section`) — the section extractor handles both.
 
 Standalone usage:
-    uv run python EvoScientist/skills/paper-graph/scripts/paper_md.py <arxiv_id>
+    python scripts/paper_md.py <arxiv_id>
 """
 
 from __future__ import annotations
