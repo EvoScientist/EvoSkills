@@ -33,8 +33,8 @@ npm install -g pptxgenjs
 # Optional: icons and image processing
 npm install -g react-icons react react-dom sharp
 
-# Text extraction and visual QA
-pip install "markitdown[pptx]" Pillow
+# Text extraction and visual QA (also listed in requirements.txt at the skill root)
+pip install "markitdown[pptx]" pillow
 ```
 
 ### Basic Structure
