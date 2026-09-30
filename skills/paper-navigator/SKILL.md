@@ -28,7 +28,9 @@ The agent does relevance judgment — no LLM-as-judge is called, no numeric scor
 
 ## Setup
 
-Scripts at `skills/paper-navigator/scripts/`. Run via `python skills/paper-navigator/scripts/<name>.py`.
+Script paths in this document are relative to this skill's directory. Run via `python scripts/<name>.py`.
+
+**Dependencies**: `pip install deepxiv-sdk httpx` (also listed in `requirements.txt` at the skill root). Install into the environment the user is working in.
 
 arXiv access (`arxiv_monitor`, `scholar_search` fallback) uses the DeepXiv SDK: `pip install deepxiv-sdk`, then `deepxiv token` once to provision a **free** API token (saved to `~/.env`). The skill reads the token from `DEEPXIV_API_TOKEN`/`DEEPXIV_TOKEN` in the environment, or from `./.env` / `~/.env`.
 

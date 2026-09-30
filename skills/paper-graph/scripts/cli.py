@@ -12,7 +12,7 @@ Stdout: one short success line per invocation. Stderr: errors only.
 JSONL trace is optional via ``--log <path>``.
 
 Run:
-    uv run python EvoScientist/skills/paper-graph/scripts/cli.py <subcmd> [flags]
+    python scripts/cli.py <subcmd> [flags]
 """
 
 from __future__ import annotations

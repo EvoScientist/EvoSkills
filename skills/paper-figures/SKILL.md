@@ -45,6 +45,12 @@ A structured approach to producing publication-ready chart figures (PNG) from ta
 
 ---
 
+## Setup
+
+**Dependencies**: `pip install matplotlib pandas numpy scipy` (also listed in `requirements.txt` at the skill root). Install into the environment the user is working in.
+
+---
+
 ## Core Workflow
 
 ```
@@ -149,17 +155,15 @@ See [references/publication-style.md](references/publication-style.md) for size,
 ### Step 5: Write the script and run it
 
 - Write the script.
-- Execute it with `uv run python plot.py` (this project uses a uv-managed venv — do not invoke `python` directly).
+- Execute it with `python plot.py`.
 - Confirm the PNG was produced.
 - If the script errors, fix and re-run before reporting completion.
 
 When `scripts/validate_figure.py` is available, run it after rendering (the script path is relative to this skill's directory):
 
 ```bash
-uv run python scripts/validate_figure.py --output-dir <output-dir> --spec <output-dir>/figure-spec.md
+python scripts/validate_figure.py --output-dir <output-dir> --spec <output-dir>/figure-spec.md
 ```
-
-If `uv` is not available in the environment, use the Python interpreter available to the current workspace, but still run the same validator script.
 
 ### Step 6: Audit the result
 
