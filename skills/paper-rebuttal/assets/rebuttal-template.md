@@ -4,13 +4,15 @@
 
 Before writing, organize all comments here:
 
-| # | Reviewer | Concern (paraphrased) | Category | Color | Response Status |
-|---|----------|----------------------|----------|-------|-----------------|
-| 1 | R1 | | misunderstanding / missing experiment / missing baseline / clarity / fundamental / minor | red / orange / gray | pending / drafted / done |
-| 2 | R1 | | | | |
-| 3 | R2 | | | | |
-| 4 | R2 | | | | |
-| 5 | R3 | | | | |
+Meta-review / AC comment, if one was given: [the unresolved issues it names, or "none"]
+
+| # | Reviewer (score) | Concern (paraphrased) | Category | Color | Decision it drives (Red only) | Evidence already in the paper | Response Status |
+|---|------------------|----------------------|----------|-------|-------------------------------|-------------------------------|-----------------|
+| 1 | R1 (3) | | misunderstanding / missing experiment / missing baseline / clarity / fundamental / minor | red / orange / gray | e.g. "without this, R1 stays at 3" | table / figure / section, or "none" | pending / drafted / done |
+| 2 | R1 (3) | | | | | | |
+| 3 | R2 (6) | | | | | | |
+| 4 | R2 (6) | | | | | | |
+| 5 | R3 (7) | | | | | | |
 
 ---
 
@@ -74,7 +76,9 @@ We thank the reviewers for their thoughtful feedback. Below we address all conce
 
 ## Pre-Submit Checklist
 
+- [ ] Every Red concern names the decision it drives
 - [ ] Red-coded concerns addressed with evidence (not just arguments)
+- [ ] Evidence already in the paper is cited with its exact location and restated before any new experiment or promise
 - [ ] Common concerns consolidated (not repeated per reviewer)
 - [ ] Key arguments are copy-pasteable for the champion reviewer
 - [ ] Neutral third-party test passed (someone read reviews + rebuttal and confirmed clarity)
