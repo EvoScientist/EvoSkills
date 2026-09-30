@@ -33,6 +33,7 @@ EvoScientist discovers skills by scanning `skills/*/SKILL.md`. Each skill is loa
 | [`research-survey`](research-survey/) | Structured literature survey synthesis |
 | [`paper-graph`](paper-graph/) | Lineage map of a research field as Mermaid diagrams (challenges → solutions → per-solution evolution) |
 | [`nano-banana`](nano-banana/) | AI-generated presentation slides & illustrations via Gemini image generation |
+| [`evomath-tao`](evomath-tao/) | Tao-style olympiad-grade proof workflow with calibrated abstention |
 
 ## Contributing a Skill
 
@@ -45,6 +46,9 @@ my-skill/
   SKILL.md          # required — frontmatter + body
   references/       # optional — docs loaded into agent context
   assets/           # optional — files used in agent output (templates, images)
+  scripts/          # optional — helper scripts the agent runs
+  requirements.txt  # optional — Python packages the skill needs
+  EXPERT.md         # optional — makes the skill dispatchable as an expert
 ```
 
 ### SKILL.md Frontmatter
@@ -60,6 +64,8 @@ metadata:
   tags: [relevant, keywords]
 ---
 ```
+
+All four top-level fields and the three `metadata` fields are required; CI rejects a `SKILL.md` that misses any of them. `name` matches the directory name. Keep the frontmatter to these fields — it is the part of a skill every agent sees before deciding to load it, so anything that is not used for routing or indexing does not belong there. The one addition is `metadata.type` for [expert skills](#expert-skills).
 
 ### Description Tips
 
@@ -77,6 +83,41 @@ The `Do NOT use for` clause helps the agent distinguish skills with overlapping 
 
 After the frontmatter, the body contains the skill's full instructions: workflow steps, rules, examples, and cross-references to `references/` files. Structure varies by skill type — see existing skills for patterns.
 
+### Scripts and Dependencies
+
+Skills are installed into many environments (EvoScientist, and other coding agents via skills.sh), so a `SKILL.md` must not assume where the skill lives or which Python runs it.
+
+- **Write script paths relative to the skill's own directory**, and say so once in the `SKILL.md` ("Script paths in this document are relative to this skill's directory"). The agent knows that directory — it is where it read `SKILL.md` from — and resolves the path against it, wherever the skill happens to be installed:
+
+  ```text
+  python scripts/fetch_paper.py --url <URL>                        # correct
+  python /skills/my-skill/scripts/fetch_paper.py                   # one harness's mount path
+  python skills/my-skill/scripts/fetch_paper.py                    # this repo's layout
+  python <skill-dir>/scripts/fetch_paper.py                        # placeholder the agent has to guess
+  ```
+
+- **Declare dependencies.** If the skill needs packages outside the standard library — in its scripts or in the code it asks the agent to write — list them in a `requirements.txt` at the skill root and add one install line to `SKILL.md`, e.g. `pip install pillow google-genai` (also listed in `requirements.txt` at the skill root).
+- **Do not name an interpreter.** Write plain `python`, never `uv run python` or an absolute interpreter path. Researchers often drive several Python environments at once; the agent should install into and run in whichever one the user is working in.
+
+All Python in the repository, including every skill's `scripts/`, is linted in CI with ruff.
+
+### Expert Skills
+
+A skill can also be dispatched by EvoScientist as a background **expert** — an agent with its own persona that works on a task and reports back. To make a skill an expert, add an `EXPERT.md` next to `SKILL.md`:
+
+- No frontmatter. The directory name is the expert's name, and the file's presence is the declaration.
+- Open with the scope line `> This file defines a dispatchable expert; outside the EvoScientist expert container, ignore it.`
+- `## Persona` — who the expert is, what its task must name (inputs, output path), and when to halt with an error instead of improvising.
+- `## Envelope` — the final message: exactly one JSON object with `status`, `output_path`, `summary`, and `metadata`.
+
+Also add `type: [skill, expert]` under `metadata` so catalog listings can show it. Do not add actor fields such as `role`, `byline`, `capability_tags`, `avatar_hint`, or `default_dispatch` to the frontmatter. `SKILL.md` stays plain knowledge that any agent can load and follow in-turn; `EXPERT.md` is an additive layer other harnesses ignore.
+
+### Orchestration Scripts
+
+When a skill's value is a reliable multi-step loop — fan out over N items, retry the failed subset, stop on a convergence gate — the control flow can ship as a JavaScript file under `scripts/` that EvoScientist's code interpreter runs, dispatching sub-agents with `task()`. Keep judgement in prose and control flow in the script, and keep the prose workflow in `SKILL.md` as the fallback for environments without the interpreter.
+
+[`paper-review`](paper-review/) is the reference for both: see its `EXPERT.md` and `scripts/five_aspect_review.js`.
+
 ## Improving an Existing Skill
 
 | Change | Example |
@@ -88,9 +129,10 @@ After the frontmatter, the body contains the skill's full instructions: workflow
 Workflow:
 
 1. Edit the skill files in `skills/<name>/`
-2. Validate structure: the directory must contain `SKILL.md` with valid frontmatter
-3. Manual test: install the skill and try it in EvoSci (`/install-skill path/to/EvoSkills/skills/<name>`)
-4. If you changed the **description**, we recommend running eval with `skill-creator` (see [Testing & Evaluation](#testing--evaluation))
+2. Bump `metadata.version` in the skill's `SKILL.md`, even for a small fix. EvoScientist's WebUI offers an update for an installed skill only when the version here is higher than the installed one, so a change without a bump never reaches those users. Use dotted numbers such as `1.2.3`.
+3. Validate: run the [CI checks](#ci-checks) locally
+4. Manual test: install the skill and try it in EvoSci (`/install-skill path/to/EvoSkills/skills/<name>`)
+5. If you changed the **description**, we recommend running eval with `skill-creator` (see [Testing & Evaluation](#testing--evaluation))
 
 ## Adding a New Skill
 
@@ -108,6 +150,7 @@ Or manually create `skills/my-new-skill/SKILL.md` following the frontmatter form
 
 - Write a clear `description` in the frontmatter — see [Description Tips](#description-tips) for the recommended pattern
 - Write the body with workflow steps, rules, and examples
+- If the skill ships scripts or needs packages, follow [Scripts and Dependencies](#scripts-and-dependencies)
 - Look at existing skills for inspiration
 
 ### 3. Test
@@ -120,9 +163,19 @@ Install and try the skill in a real EvoSci session:
 
 ### 4. Update README
 
-Add your skill to the table in this file and to the descriptions in the top-level `README.md`.
+Add your skill to the table in this file, and to the catalog table, detail section, and pipeline diagram in the top-level `README.md` and `README.zh-CN.md`.
 
 ## Testing & Evaluation
+
+### CI Checks
+
+CI runs two checks on pull requests: ruff on every PR, and frontmatter validation whenever a `SKILL.md` changes. Run both from the repository root before pushing:
+
+```bash
+pip install pyyaml "ruff==0.15.8"
+python .github/scripts/validate_skills.py    # SKILL.md frontmatter, all skills
+ruff check . && ruff format --check .        # all Python in the repository
+```
 
 ### Manual Testing
 
@@ -150,7 +203,7 @@ EvoScientist ships with a built-in `skill-creator` skill that can systematically
    - Run an automated eval + improvement loop (train/test split, iterative refinement)
    - Report the best description with scores
 
-This is the same methodology used to optimize the existing 10 EvoSkills descriptions.
+This is the same methodology used to optimize the existing EvoSkills descriptions.
 
 See the [`skill-creator` SKILL.md](https://github.com/EvoScientist/EvoScientist/tree/main/EvoScientist/skills/skill-creator) for full details on the eval workflow.
 
@@ -159,8 +212,10 @@ See the [`skill-creator` SKILL.md](https://github.com/EvoScientist/EvoScientist/
 Use the appropriate tier based on your change:
 
 ### Content Changes (no description edit)
-- [ ] SKILL.md frontmatter is valid (name, description, allowed-tools)
+- [ ] [CI checks](#ci-checks) pass locally (frontmatter has name, description, allowed-tools, metadata)
+- [ ] `metadata.version` is bumped (when changing an existing skill)
 - [ ] Cross-references to `references/` files are correct
+- [ ] Script paths are relative to the skill directory; dependencies are in `requirements.txt` with a matching `pip install` line in `SKILL.md`
 - [ ] Manual test: install skill, run a sample query in EvoSci
 
 ### Description Changes
@@ -169,7 +224,7 @@ Use the appropriate tier based on your change:
 
 ### New Skill
 - [ ] All of the above, plus:
-- [ ] README.md updated with skill entry
+- [ ] This file, `README.md`, and `README.zh-CN.md` updated with the skill entry
 
 ## Quick Reference
 
@@ -179,3 +234,5 @@ Use the appropriate tier based on your change:
 | Install all skills | `/install-skill path/to/EvoSkills/skills` (in EvoSci session) |
 | Eval with skill-creator | Ask EvoSci: `"Optimize the description for path/to/skills/my-skill"` |
 | Create a new skill | Ask EvoSci: `"Create a new skill called my-skill in path/to/EvoSkills/skills"` |
+| Validate frontmatter | `python .github/scripts/validate_skills.py` |
+| Lint scripts | `ruff check . && ruff format --check .` |
