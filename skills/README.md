@@ -169,13 +169,15 @@ Add your skill to the table in this file, and to the catalog table, detail secti
 
 ### CI Checks
 
-CI runs two checks on pull requests: ruff on every PR, and frontmatter validation whenever a `SKILL.md` changes. Run both from the repository root before pushing:
+CI runs ruff on every pull request and skill validation whenever anything under `skills/` changes. Run both from the repository root before pushing:
 
 ```bash
 pip install pyyaml "ruff==0.15.8"
-python .github/scripts/validate_skills.py    # SKILL.md frontmatter, all skills
-ruff check . && ruff format --check .        # all Python in the repository
+python .github/scripts/validate_skills.py --base origin/main   # frontmatter + version bumps
+ruff check . && ruff format --check .                          # all Python in the repository
 ```
+
+Skill validation checks the frontmatter of every skill (required fields, `name` equal to the directory name, a quoted dotted-number `metadata.version`, `EXPERT.md` matching `metadata.type`). With `--base`, it also fails when a skill has changed files but its version is not higher than on the base branch — which is what CI runs on pull requests. Without `--base` it only checks the frontmatter.
 
 ### Manual Testing
 
@@ -234,5 +236,5 @@ Use the appropriate tier based on your change:
 | Install all skills | `/install-skill path/to/EvoSkills/skills` (in EvoSci session) |
 | Eval with skill-creator | Ask EvoSci: `"Optimize the description for path/to/skills/my-skill"` |
 | Create a new skill | Ask EvoSci: `"Create a new skill called my-skill in path/to/EvoSkills/skills"` |
-| Validate frontmatter | `python .github/scripts/validate_skills.py` |
+| Validate skills | `python .github/scripts/validate_skills.py --base origin/main` |
 | Lint scripts | `ruff check . && ruff format --check .` |
