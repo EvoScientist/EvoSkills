@@ -4,7 +4,7 @@ description: "Guides writing academic papers section by section using an 11-step
 allowed-tools: "write_file edit_file read_file think_tool"
 metadata:
   author: EvoScientist
-  version: '1.0.0'
+  version: '1.0.1'
   tags: [core, research, writing, academic-writing, latex]
 ---
 
@@ -25,14 +25,14 @@ If you used upstream EvoSkills, pull these artifacts before writing:
 
 | Source Skill | Artifact | Used In |
 |-------------|----------|---------|
-| `paper-planning` | Story summary (task → challenge → insight → contribution → advantage) | Steps 1-2 (Introduction writing plan) |
+| `paper-planning` | Story summary (task → challenge → insight → contribution → advantage) | Step 2 (Introduction writing plan) |
 | `paper-planning` | Module Motivation Mapping table | Step 3 (Method subsections) |
 | `paper-planning` | Experiment plan (comparisons + ablations + demos) | Step 5 (Experiments section) |
 | `paper-planning` | Pipeline figure sketch | Steps 1, 6 (Method overview figure) |
-| `paper-planning` | Claim-to-experiment mapping | Steps 2, 5 (Abstract, Introduction, Experiments) |
-| `paper-planning` | Fallback narrative (if planned) | Steps 7-8 (Introduction / Conclusion pivot) |
+| `paper-planning` | Claim-to-experiment mapping | Steps 2, 5, 9 (Introduction, Experiments, Abstract) |
+| `paper-planning` | Fallback narrative (if planned) | Step 4 (Introduction pivot), Conclusion section |
 | `experiment-pipeline` | Stage 1-4 results, ablation tables, trajectory logs | Step 5 (write experiments) |
-| `experiment-craft` | Failure analysis, implementation tricks | Step 3 (Method section), Step 9 (limitations) |
+| `experiment-craft` | Failure analysis, implementation tricks | Step 3 (Method section / Supplementary), Conclusion section (limitations) |
 
 ## The 11-Step Writing Process
 
