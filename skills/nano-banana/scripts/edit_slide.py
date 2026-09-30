@@ -125,7 +125,7 @@ def main() -> None:
         description="Edit PPT slide images using Gemini API",
         epilog="""
 Example usage:
-  python skills/nano-banana/scripts/edit_slide.py \\
+  python scripts/edit_slide.py \\
     --input ppt_output/images/slide-01.png \\
     --instruction "Remove the footer text at the bottom" \\
     --output ppt_output/images/slide-01.png
