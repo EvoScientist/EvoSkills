@@ -219,7 +219,7 @@ flowchart LR
 
 规格优先的工作流，将 CSV 与自然语言描述转化为独立 PNG 与可复现的 matplotlib 脚本：
 
-- **六步协议** — 规划图表 → 检查数据 → 撰写 `figure-spec.md` → 选择 matplotlib 惯用法 → 渲染 → 审计，始终成对输出 `plot.py` + `plot.png`
+- **七步协议** — 规划图表 → 检查数据 → 撰写 `figure-spec.md` → 选择 matplotlib 惯用法 → 应用出版级样式 → 编写并运行脚本 → 审计，始终成对输出 `plot.py` + `plot.png`
 - **规格优先纪律** — 每张图之前都先有一份精简的 `figure-spec.md` 契约（坐标轴、刻度、序列、禁用元素、假设），审计据此核对
 - **四种诚实状态标签** — `PASSED` / `PASSED_WITH_WARNINGS` / `REPAIRED` / `FAILED_NEEDS_HANDOFF`。脚本能跑通不代表图表符合需求
 - **结构化审计而非目测** — 对照描述核对标题、轴标签、序列顺序、颜色、标注与坐标范围（LLM 目测 PNG 并不可靠）

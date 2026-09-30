@@ -1,10 +1,10 @@
 ---
 name: paper-figures
-description: "Use this skill to produce standalone, publication-ready PNG graphics and reproducible matplotlib scripts from tabular data (CSVs or DataFrames). This tool is built specifically for rendering numerical data into formal scientific visualizations—including scatter, line, bar, pie, ring, bubble, tornado, KDE, violin, box, heatmap, histogram, and area charts, plus composite multi-panel figures that combine these types in a single image—for scholarly manuscripts. Only trigger this skill when the final deliverable is an individual image file. Do not use this skill for interactive dashboards or HTML-rendered outputs (Plotly, Streamlit, Quarto, Jupyter notebooks), nor when the request involves building a container document or presentation that includes charts (slide deck, conference poster). Finally, it is not for non-data conceptual illustrations like flowcharts, algorithm schematics, or process diagrams. This skill focuses on high-fidelity data rendering into final image files, not presentation design, document layout, or reverse-engineering code from existing screenshots."
+description: "Use this skill to produce standalone, publication-ready PNG graphics and reproducible matplotlib scripts from tabular data (CSVs or DataFrames). It renders numerical data into formal scientific visualizations—including scatter, line, bar, pie, ring, bubble, tornado, KDE, violin, box, heatmap, histogram, and area charts, plus composite multi-panel figures that combine these types in a single image—for scholarly manuscripts. Only trigger when the final deliverable is an individual image file. Do not use for interactive dashboards or HTML-rendered outputs (Plotly, Streamlit, Quarto, Jupyter notebooks), nor when the request involves building a container document or presentation that includes charts (slide deck, conference poster). It is not for non-data conceptual illustrations like flowcharts, algorithm schematics, or process diagrams. This skill focuses on high-fidelity data rendering into final image files, not presentation design, document layout, or reverse-engineering code from existing screenshots."
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '0.1.1'
+  version: '0.1.2'
   tags: [core, figures, visualization, academic-writing]
 ---
 
@@ -54,11 +54,14 @@ A structured approach to producing publication-ready chart figures (PNG) from ta
 ## Core Workflow
 
 ```
-Step 1: Plan Figure        -> verify: description/data ambiguity handled
-Step 2: Extract Spec       -> verify: figure-spec.md has all required fields
-Step 3: Implement          -> verify: plot.py runs and plot.png exists
-Step 4: Audit Figure       -> verify: chart matches spec, data, and description
-Step 5: Repair or Finalize -> verify: final-status.md is honest
+Step 1: Plan Figure                      -> verify: description/data ambiguity handled
+Step 2: Inspect the data
+Step 3: Write figure-spec.md             -> verify: figure-spec.md has all required fields
+Step 4: Pick the matplotlib idiom
+Step 5: Apply publication-style defaults
+Step 6: Write the script and run it      -> verify: plot.py runs and plot.png exists
+Step 7: Audit the result                 -> verify: chart matches spec, data, and description;
+                                            repair and re-audit until it does; final-status.md is honest
 ```
 
 Treat the workflow as a small validation protocol, not a one-shot drawing task. The chart is done only after the audit passes or after you explicitly mark the remaining gap.
@@ -102,7 +105,7 @@ Read the first ~10 rows and the column names before writing the plot code. The d
 
 For multi-series data, check whether the data is long-form (one row per (series, x, y)) or wide-form (one column per series). Pivot or melt as needed.
 
-### Step 2.5: Write `figure-spec.md`
+### Step 3: Write `figure-spec.md`
 
 Before coding, write a compact Markdown spec. It is the contract the audit will check. Use this shape:
 
@@ -144,15 +147,15 @@ Rules:
 - `category_order` must preserve the description order when one is given. Otherwise preserve data order unless sorting is explicitly requested.
 - If you derive a statistic, aggregation, fitted line, or smoothed curve, name the calculation under `assumptions`.
 
-### Step 3: Pick the matplotlib idiom
+### Step 4: Pick the matplotlib idiom
 
 See [references/chart-types.md](references/chart-types.md) for a per-type recipe (one short matplotlib snippet per supported chart type). Read it when you need the right idiom for an unfamiliar type, or to refresh on a tricky one (tornado, ring, KDE).
 
-### Step 4: Apply publication-style defaults
+### Step 5: Apply publication-style defaults
 
 See [references/publication-style.md](references/publication-style.md) for size, fonts, palette, DPI, and savefig conventions. Apply these every time unless the description explicitly contradicts them.
 
-### Step 5: Write the script and run it
+### Step 6: Write the script and run it
 
 - Write the script.
 - Execute it with `python plot.py`.
@@ -165,7 +168,7 @@ When `scripts/validate_figure.py` is available, run it after rendering (the scri
 python scripts/validate_figure.py --output-dir <output-dir> --spec <output-dir>/figure-spec.md
 ```
 
-### Step 6: Audit the result
+### Step 7: Audit the result
 
 Re-read the description against your code and the data. Visual inspection of the PNG by the agent is unreliable, so verify structurally instead:
 - Did you set the title, both axis labels, and the legend the description asked for?

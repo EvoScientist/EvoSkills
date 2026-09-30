@@ -4,7 +4,7 @@ description: "Use this skill for creating or refining an academic slide deck and
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '1.0.1'
+  version: '1.0.2'
   tags: [core, writing, presentation, academic-writing]
 ---
 
@@ -44,9 +44,9 @@ Step 1: Define scope and audience
 Step 2: Draft narrative arc (outline)
 Step 3: Design slide structure (section breakdown)
 Step 4: Create individual slides (one idea per slide)
-Step 5: Add visual elements (figures, diagrams, animations)
+Step 5: Build the .pptx file (layouts, figures, charts, QA)
 Step 6: Rehearse and time
-Step 7: Prepare backup / Q&A slides
+Step 7: Prepare backup slides (for Q&A)
 ```
 
 ### Step 1: Define Scope and Audience
