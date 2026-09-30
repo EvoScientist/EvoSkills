@@ -129,9 +129,10 @@ When a skill's value is a reliable multi-step loop — fan out over N items, ret
 Workflow:
 
 1. Edit the skill files in `skills/<name>/`
-2. Validate: run the [CI checks](#ci-checks) locally
-3. Manual test: install the skill and try it in EvoSci (`/install-skill path/to/EvoSkills/skills/<name>`)
-4. If you changed the **description**, we recommend running eval with `skill-creator` (see [Testing & Evaluation](#testing--evaluation))
+2. Bump `metadata.version` in the skill's `SKILL.md`, even for a small fix. EvoScientist's WebUI offers an update for an installed skill only when the version here is higher than the installed one, so a change without a bump never reaches those users. Use dotted numbers such as `1.2.3`.
+3. Validate: run the [CI checks](#ci-checks) locally
+4. Manual test: install the skill and try it in EvoSci (`/install-skill path/to/EvoSkills/skills/<name>`)
+5. If you changed the **description**, we recommend running eval with `skill-creator` (see [Testing & Evaluation](#testing--evaluation))
 
 ## Adding a New Skill
 
@@ -212,6 +213,7 @@ Use the appropriate tier based on your change:
 
 ### Content Changes (no description edit)
 - [ ] [CI checks](#ci-checks) pass locally (frontmatter has name, description, allowed-tools, metadata)
+- [ ] `metadata.version` is bumped (when changing an existing skill)
 - [ ] Cross-references to `references/` files are correct
 - [ ] Script paths are relative to the skill directory; dependencies are in `requirements.txt` with a matching `pip install` line in `SKILL.md`
 - [ ] Manual test: install skill, run a sample query in EvoSci
