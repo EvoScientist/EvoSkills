@@ -3,15 +3,7 @@ name: Validate Skills
 on:
   push:
     branches: ["main"]
-    paths:
-      - "skills/**"
-      - ".github/scripts/validate_skills.py"
-      - ".github/workflows/validate-skills.yml"
   pull_request:
-    paths:
-      - "skills/**"
-      - ".github/scripts/validate_skills.py"
-      - ".github/workflows/validate-skills.yml"
 
 jobs:
   validate-frontmatter:

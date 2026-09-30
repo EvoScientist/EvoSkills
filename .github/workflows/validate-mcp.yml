@@ -3,15 +3,7 @@ name: Validate MCP
 on:
   push:
     branches: ["main"]
-    paths:
-      - "mcp/**"
-      - ".github/scripts/validate_mcp.py"
-      - ".github/workflows/validate-mcp.yml"
   pull_request:
-    paths:
-      - "mcp/**"
-      - ".github/scripts/validate_mcp.py"
-      - ".github/workflows/validate-mcp.yml"
 
 jobs:
   validate-servers:

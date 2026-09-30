@@ -169,7 +169,7 @@ Add your skill to the table in this file, and to the catalog table, detail secti
 
 ### CI Checks
 
-CI runs ruff and the test suite on every pull request, and skill validation whenever anything under `skills/` changes. Run all three from the repository root before pushing:
+CI runs ruff, skill validation, MCP validation and the test suite on every pull request; all four must pass before a merge. Run them from the repository root before pushing:
 
 ```bash
 pip install pytest pyyaml httpx python-dotenv "ruff==0.15.8"
