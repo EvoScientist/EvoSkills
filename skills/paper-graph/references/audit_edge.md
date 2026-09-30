@@ -42,8 +42,12 @@ parallel methods, backwards chronology, or a misdescribed gap.
 
 Quote one verbatim span from each paper. `source_quote` must establish the
 source mechanism or limitation; `target_quote` must establish the target's
-concrete change to that same mechanism or limitation. Use `NONE` when that side lacks evidence;
-any verdict with `NONE` must be `INFERRED` or `REJECT`.
+concrete change to that same mechanism or limitation. Copy each span
+character for character from that paper's title, abstract or excerpt above:
+a full clause, at least 20 and at most 300 characters, with no ellipsis and
+no paraphrase. The quotes are checked against the paper text afterwards, and
+a quote that is not found there removes the edge. Use `NONE` when that side
+lacks evidence; any verdict with `NONE` must be `INFERRED` or `REJECT`.
 
 --- Output ---
 Output ONLY a JSON object with this exact shape (no code fences, no

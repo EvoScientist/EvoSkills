@@ -261,7 +261,7 @@ A skill that turns a research topic or seed paper into a Markdown report tracing
 
 - **Two Graph Layers** — High-level taxonomy (root → challenges → solutions → papers) plus one per-solution evolution path tracing paper-to-paper "evolution from" edges and open challenges
 - **Agent-Driven LLM Calls** — The skill ships deterministic data fetchers (Semantic Scholar / DeepXiv), prompt templates, and Mermaid renderers; the host agent runs every LLM stage, so the skill needs no model API key of its own (a Semantic Scholar API key is required for fetching papers)
-- **Edge Audit Pass** — Every claimed "evolution from" edge between two papers is verified by a separate LLM audit step before it lands in the final graph
+- **Edge Audit Pass** — Every claimed "evolution from" edge is audited by a separate LLM step, then re-checked by the renderer: a verbatim quote from each paper must be found in its text and known publication years must be in order, or the edge is not drawn
 - **Renders Anywhere** — Mermaid in fenced Markdown blocks views directly in GitHub, Obsidian, VS Code (with a Mermaid extension), and other Markdown viewers — no external rendering pipeline
 - **Use Cases** — "History of <topic>", "What did <paper> build on?", "Lineage of ideas in <field>", "Citation tree of <paper>"
 

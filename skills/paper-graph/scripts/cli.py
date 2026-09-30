@@ -31,12 +31,14 @@ try:
     from .config import _require_env
     from .logger import Logger
     from . import pipeline
+    from . import audit as audit_mod
     from . import mermaid as mermaid_mod
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent))
     from config import _require_env  # type: ignore
     from logger import Logger  # type: ignore
     import pipeline  # type: ignore
+    import audit as audit_mod  # type: ignore
     import mermaid as mermaid_mod  # type: ignore
 
 
@@ -534,7 +536,8 @@ def _cmd_parse_outline(args: argparse.Namespace) -> None:
                         parse_detail / render_detail_mermaid steps later.
 
     Exits non-zero if the outline contained no parseable challenges
-    (the LLM's most common failure mode for this stage).
+    (the LLM's most common failure mode for this stage), or if no solution
+    is left with a valid paper.
     """
     raw = Path(args.raw).read_text(encoding="utf-8")
     papers = _read_json(Path(args.papers))
@@ -557,11 +560,29 @@ def _cmd_parse_outline(args: argparse.Namespace) -> None:
 
     logger = _make_logger(args.log, Path(args.out))
 
+    outline_report: dict[str, Any] = {}
     root_title, challenges, challenge_solutions = mermaid_mod.parse_outline_markdown(
         raw,
         allowed=core_set,
         logger=logger,
+        report=outline_report,
     )
+    empty_solutions = outline_report.get("empty_solutions", [])
+
+    if challenges and not any(challenge_solutions.values()):
+        # Headers parsed, but no solution lists a paper the pool contains.
+        logger.event(
+            "error",
+            reason="outline_has_no_solution_members",
+            empty_solutions=empty_solutions,
+        )
+        logger.close()
+        print(
+            "ERROR: no solution in the outline lists a valid paper number "
+            f"(solutions without members: {', '.join(empty_solutions) or 'none'}).",
+            file=sys.stderr,
+        )
+        sys.exit(4)
 
     if not challenges:
         # Expected terminal state — the LLM produced markdown the parser
@@ -588,11 +609,12 @@ def _cmd_parse_outline(args: argparse.Namespace) -> None:
         for s_major, s_minor, sol_name, paper_nums in challenge_solutions.get(
             c_num, []
         ):
-            # ``paper_nums`` is primary taxonomy membership. Detail gets the
-            # full CORE pool as lineage context so a foundational predecessor
-            # or major successor can connect branches without a duplicate
-            # primary placement in the taxonomy.
-            valid = [n for n in paper_nums if 1 <= n <= len(papers) and n in core_set]
+            # ``paper_nums`` is primary taxonomy membership, already limited
+            # to CORE papers by the parser. Detail gets the full CORE pool as
+            # lineage context so a foundational predecessor or major successor
+            # can connect branches without a duplicate primary placement in
+            # the taxonomy.
+            valid = list(paper_nums)
             allowed = core_indices
             solution_key_str = f"{s_major}.{s_minor}"
             ctx_path = solutions_dir / f"{solution_key_str}.json"
@@ -630,6 +652,7 @@ def _cmd_parse_outline(args: argparse.Namespace) -> None:
         n_challenges=len(challenges),
         n_solutions=len(solutions_summary),
         core_indices=core_indices,
+        empty_solutions=empty_solutions,
     )
     logger.close()
     print(
@@ -637,6 +660,11 @@ def _cmd_parse_outline(args: argparse.Namespace) -> None:
         f"{len(solutions_summary)} solution(s) -> {args.out} "
         f"(+ {len(solutions_summary)} context files in {solutions_dir})"
     )
+    if empty_solutions:
+        print(
+            f"  pruned {len(empty_solutions)} solution(s) without any valid "
+            f"paper: {', '.join(empty_solutions)}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -775,9 +803,13 @@ def _cmd_render_detail_mermaid(args: argparse.Namespace) -> None:
       --raw        Raw detail markdown.
       --context    ``solutions/<key>.json`` from parse_outline.
       --papers     Papers JSON (for per-node URLs + display labels).
-      --verdicts   Optional JSON array of
-                   ``[{source_n, target_n, verdict}, ...]`` from the
-                   edge-audit step, filtered to this solution.
+      --verdicts   Required. JSON array of ``[{source_n, target_n,
+                   verdict, source_quote, target_quote, reason}, ...]``
+                   from the edge-audit step, filtered to this solution
+                   (``[]`` when the solution has no edges). An edge is
+                   drawn only when its verdict is SUPPORTED_*, both quotes
+                   are found in the paper's own text and the source is
+                   not newer than the target; see ``audit.py``.
       --theme      light | dark; falls back to MERMAID_THEME env then 'light'.
 
     Output JSON shape (consumed by assemble_report):
@@ -786,8 +818,19 @@ def _cmd_render_detail_mermaid(args: argparse.Namespace) -> None:
           "solution_key": "C.M.N"-style str,
           "solution_name": str,
           "mermaid":      str,   # full graph with %%init%% + linkStyle
-          "footnotes_md": str    # rendered footnotes block or ""
+          "footnotes_md": str,   # rendered footnotes block or ""
+          "audited":      true,  # assemble_report refuses a render without it
+          "verdict_records":    int,   # records read from --verdicts
+          "edges_rendered":     int,
+          "edges_not_rendered": [{source_n, target_n, reason}],
+          "verdicts_unmatched": [{source_n, target_n}],
+          "audit_downgrades":   [{record, source_n, target_n, reason}],
+          "audit_notes":        [{record, source_n, target_n, reason}]
         }
+
+    Every claimed edge that is not drawn, every verdict record that was
+    ignored and every verdict that matches no claimed edge is printed on
+    stdout with its reason.
     """
     raw = Path(args.raw).read_text(encoding="utf-8")
     ctx = _read_json(Path(args.context))
@@ -805,71 +848,62 @@ def _cmd_render_detail_mermaid(args: argparse.Namespace) -> None:
     allowed = set(ctx["allowed"])
     solution_key_str = ctx.get("solution_key_str") or f"{sk_list[0]}.{sk_list[1]}"
 
-    edge_verdicts: dict[tuple[int, int], str] | None = None
-    audit_downgrades: list[dict[str, Any]] = []
-    if args.verdicts:
-        records = _read_json(Path(args.verdicts))
-        if not isinstance(records, list):
-            print(
-                "ERROR: --verdicts must be a JSON list of "
-                "{source_n, target_n, verdict} records.",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-        edge_verdicts = {}
-        supported = {"SUPPORTED_BY_ABSTRACT", "SUPPORTED_BY_SECTION"}
-        valid_labels = supported | {"INFERRED", "REJECT"}
-        for record in records:
-            source_n = int(record["source_n"])
-            target_n = int(record["target_n"])
-            verdict = str(record.get("verdict") or "REJECT")
-            if verdict not in valid_labels:
-                verdict = "REJECT"
-            reason = None
-            if not (1 <= source_n <= len(papers) and 1 <= target_n <= len(papers)):
-                verdict = "REJECT"
-                reason = "paper number outside papers.json"
-            elif verdict in supported:
-                source = papers[source_n - 1]
-                target = papers[target_n - 1]
-                source_quote = str(record.get("source_quote") or "")
-                target_quote = str(record.get("target_quote") or "")
-                source_text = "\n".join(
-                    str(source.get(key) or "")
-                    for key in ("abstract", "_conclusion_section")
-                )
-                target_text = "\n".join(
-                    str(target.get(key) or "")
-                    for key in ("abstract", "_conclusion_section")
-                )
-                source_year = source.get("year")
-                target_year = target.get("year")
-                if source_year and target_year and int(source_year) > int(target_year):
-                    verdict = "REJECT"
-                    reason = "backwards chronology"
-                elif (
-                    not source_quote
-                    or source_quote == "NONE"
-                    or source_quote not in source_text
-                ):
-                    verdict = "REJECT"
-                    reason = "source_quote not verified"
-                elif (
-                    not target_quote
-                    or target_quote == "NONE"
-                    or target_quote not in target_text
-                ):
-                    verdict = "REJECT"
-                    reason = "target_quote not verified"
-            edge_verdicts[(source_n, target_n)] = verdict
-            if reason:
-                audit_downgrades.append(
-                    {
-                        "source_n": source_n,
-                        "target_n": target_n,
-                        "reason": reason,
-                    }
-                )
+    records = _read_json(Path(args.verdicts))
+    if not isinstance(records, list):
+        print(
+            "ERROR: --verdicts must be a JSON list of "
+            "{source_n, target_n, verdict, source_quote, target_quote, reason} "
+            "records (an empty list when the solution has no edges).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    edge_verdicts, audit_downgrades, audit_notes = audit_mod.verify_verdicts(
+        records, papers
+    )
+
+    # What the detail step claimed, and why a claimed edge is not drawn.
+    claimed = mermaid_mod._parse_detail_markdown(raw, allowed=allowed)["edges"]
+    claimed_keys = [(e["source_n"], e["target_n"]) for e in claimed]
+
+    # Edges that pass one by one can still be circular; a cycle is not a
+    # lineage, so none of its edges is drawn.
+    drawable = [
+        k for k in claimed_keys if edge_verdicts.get(k) in audit_mod.SUPPORTED_VERDICTS
+    ]
+    for key in sorted(audit_mod.cycle_edges(drawable)):
+        edge_verdicts[key] = "REJECT"
+        audit_downgrades.append(
+            {
+                "record": None,
+                "source_n": key[0],
+                "target_n": key[1],
+                "reason": "part of a cycle of supported edges",
+            }
+        )
+
+    # A verdict for an edge this detail output does not claim usually means
+    # the verdict file is stale or belongs to another solution.
+    verdicts_unmatched = [
+        {"source_n": s, "target_n": t}
+        for s, t in sorted(set(edge_verdicts) - set(claimed_keys))
+    ]
+
+    downgrade_reason = {
+        (d["source_n"], d["target_n"]): d["reason"] for d in audit_downgrades
+    }
+    edges_not_rendered: list[dict[str, Any]] = []
+    for edge in claimed:
+        key = (edge["source_n"], edge["target_n"])
+        label = edge_verdicts.get(key)
+        if label in audit_mod.SUPPORTED_VERDICTS:
+            continue
+        if label is None:
+            why = "no verdict record"
+        else:
+            why = downgrade_reason.get(key) or f"verdict {label}"
+        edges_not_rendered.append(
+            {"source_n": key[0], "target_n": key[1], "reason": why}
+        )
 
     # Derive per-node URLs + labels from papers.json (matches the standalone
     # generate_graph.py logic — labels come from canonical metadata, never
@@ -904,6 +938,13 @@ def _cmd_render_detail_mermaid(args: argparse.Namespace) -> None:
         "solution_name": ctx.get("solution_name", ""),
         "mermaid": mermaid_body,
         "footnotes_md": footnotes_md,
+        "audited": True,
+        "verdict_records": len(records),
+        "edges_rendered": len(claimed) - len(edges_not_rendered),
+        "edges_not_rendered": edges_not_rendered,
+        "verdicts_unmatched": verdicts_unmatched,
+        "audit_downgrades": audit_downgrades,
+        "audit_notes": audit_notes,
     }
     _write_json(Path(args.out), out)
     logger.event(
@@ -913,16 +954,32 @@ def _cmd_render_detail_mermaid(args: argparse.Namespace) -> None:
         theme=args.theme or os.environ.get("MERMAID_THEME") or "light",
         mermaid_chars=len(mermaid_body),
         footnotes_chars=len(footnotes_md),
-        verdicts_applied=len(edge_verdicts) if edge_verdicts else 0,
+        verdict_records=len(records),
+        edges_rendered=len(claimed) - len(edges_not_rendered),
+        edges_not_rendered=edges_not_rendered,
+        verdicts_unmatched=verdicts_unmatched,
         audit_downgrades=audit_downgrades,
+        audit_notes=audit_notes,
     )
     logger.close()
     print(
         f"render_detail_mermaid: solution {solution_key_str}, "
+        f"{len(claimed)} edge(s) claimed, "
+        f"{len(claimed) - len(edges_not_rendered)} rendered, "
         f"{len(mermaid_body)} mermaid chars"
         + (f", {len(footnotes_md)} footnotes chars" if footnotes_md else "")
         + f" -> {args.out}"
     )
+    for e in edges_not_rendered:
+        print(f"  not rendered ({e['source_n']})->({e['target_n']}): {e['reason']}")
+    for d in audit_downgrades:
+        if d["source_n"] is None:
+            print(f"  ignored verdict record #{d['record'] + 1}: {d['reason']}")
+    for v in verdicts_unmatched:
+        print(
+            f"  verdict for ({v['source_n']})->({v['target_n']}) matches no "
+            "edge in the detail output"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -941,6 +998,8 @@ def _cmd_assemble_report(args: argparse.Namespace) -> None:
       --details-dir   Directory of render_detail_mermaid JSON outputs
                       (one per solution). Files are sorted by
                       (challenge_idx, s_major, s_minor) for the report.
+                      A render without ``"audited": true`` stops the
+                      command with exit code 2 and nothing is written.
       --papers        Papers JSON (with _classification baked in to
                       split CORE vs ADJACENT for the appendix).
       --out           Path to write the assembled .md report.
@@ -982,10 +1041,14 @@ def _cmd_assemble_report(args: argparse.Namespace) -> None:
     )
     details: list[tuple[int, int, int, dict[str, Any]]] = []
     skipped: list[str] = []
+    unaudited: list[str] = []
     for fp in detail_files:
         d = _read_json(fp)
         if not isinstance(d, dict) or "mermaid" not in d:
             skipped.append(fp.name)
+            continue
+        if d.get("audited") is not True:
+            unaudited.append(fp.name)
             continue
         sk_str = str(d.get("solution_key", ""))
         try:
@@ -994,6 +1057,17 @@ def _cmd_assemble_report(args: argparse.Namespace) -> None:
             sm, sn = 0, 0
         details.append((int(d.get("challenge_idx", 0)), sm, sn, d))
     details.sort(key=lambda x: (x[0], x[1], x[2]))
+
+    if unaudited:
+        # The report must not contain lineage that skipped the edge audit.
+        print(
+            "ERROR: these detail renders carry no audit marker (written "
+            "without --verdicts, or by an older version of this skill): "
+            f"{', '.join(unaudited)}. Re-run render_detail_mermaid with "
+            "--verdicts for each of them, then assemble again.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
     logger = _make_logger(args.log, Path(args.out))
 
@@ -1369,13 +1443,18 @@ def main(argv: list[str] | None = None) -> None:
     )
     p.add_argument(
         "--verdicts",
-        default=None,
-        help="Optional JSON list [{source_n, target_n, verdict}] for this solution.",
+        required=True,
+        help="JSON list [{source_n, target_n, verdict, source_quote, "
+        "target_quote, reason}] from the edge audit for this solution; "
+        "[] when it has no edges. Edges without a verified SUPPORTED_* "
+        "verdict are not drawn.",
     )
     p.add_argument(
         "--out",
         required=True,
-        help="Path to write the JSON {challenge_idx, solution_key, solution_name, mermaid, footnotes_md}.",
+        help="Path to write the JSON {challenge_idx, solution_key, solution_name, "
+        "mermaid, footnotes_md, audited, verdict_records, edges_rendered, "
+        "edges_not_rendered, verdicts_unmatched, audit_downgrades, audit_notes}.",
     )
     p.add_argument(
         "--theme",

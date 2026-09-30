@@ -172,7 +172,7 @@ Add your skill to the table in this file, and to the catalog table, detail secti
 CI runs ruff and the test suite on every pull request, and skill validation whenever anything under `skills/` changes. Run all three from the repository root before pushing:
 
 ```bash
-pip install pytest pyyaml "ruff==0.15.8"
+pip install pytest pyyaml httpx python-dotenv "ruff==0.15.8"
 python .github/scripts/validate_skills.py --base origin/main   # frontmatter + version bumps
 ruff check . && ruff format --check .                          # all Python in the repository
 pytest tests -q                                                # consistency checks + script tests
