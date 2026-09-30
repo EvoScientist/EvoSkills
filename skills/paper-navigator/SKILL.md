@@ -4,7 +4,7 @@ description: "Find and read academic papers (S2 + arXiv). Disambiguate ambiguous
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '3.4.0'
+  version: '3.4.1'
   tags: [core, research, literature, papers, search, rubric]
 ---
 
