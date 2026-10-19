@@ -27,6 +27,7 @@ Once installed, the server is available to all agents in future EvoScientist ses
 | [`context7`](context7.yaml) | Fast documentation lookup for libraries and frameworks | stdio |
 | [`deepwiki`](deepwiki.yaml) | Search & read GitHub repo documentation | streamable_http |
 | [`docs-langchain`](docs-langchain.yaml) | Documentation for building agents with LangChain | streamable_http |
+| [`dreamtune`](dreamtune.yaml) | Models, web search and GPU compute with a prepaid workspace | streamable_http |
 | [`exa`](exa.yaml) | Neural web search and content retrieval | http |
 | [`perplexity`](perplexity.yaml) | AI-powered web search via Perplexity | stdio |
 | [`sequential-thinking`](sequential-thinking.yaml) | Chain-of-thought reasoning with sequential thinking steps | stdio |

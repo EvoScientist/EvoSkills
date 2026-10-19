@@ -1,0 +1,19 @@
+name: dreamtune
+label: "Dreamtune  (models, web search and GPU compute — requires DREAMTUNE_API_KEY)"
+
+description: >-
+  Access supported AI models, web search tools and GPU compute through one
+  Dreamtune workspace. Paid operations use the workspace's prepaid balance
+  and the API key's permissions.
+
+tags: [web-search, reasoning, remote-execution]
+transport: streamable_http
+url: "https://mcp.dreamtunelabs.com/mcp"
+headers:
+  X-Dreamtune-API-Key: "${DREAMTUNE_API_KEY}"
+
+env:
+  DREAMTUNE_API_KEY: "${DREAMTUNE_API_KEY}"
+
+env_key: DREAMTUNE_API_KEY
+env_hint: "Create a production key at https://dreamtunelabs.com/dashboard/api-keys/ and export DREAMTUNE_API_KEY. Paid operations require workspace credit; setup: https://docs.dreamtunelabs.com/connect/mcp"
