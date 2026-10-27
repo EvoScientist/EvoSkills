@@ -43,6 +43,27 @@ def resolve_model(provider: str, model: Optional[str]) -> str:
     return selected_model
 
 
+def check_dependencies(provider: str) -> None:
+    """Exit 1 with an install hint when a provider's library is missing."""
+    missing = []
+    try:
+        import PIL  # noqa: F401
+    except ImportError:
+        missing.append("pillow")
+    if provider == "gemini":
+        try:
+            import google.genai  # noqa: F401
+        except ImportError:
+            missing.append("google-genai")
+    if missing:
+        print(
+            f"Error: missing Python packages: {', '.join(missing)}. "
+            f"Run: pip install {' '.join(missing)}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 # =============================================================================
 # API Client
 # =============================================================================
@@ -183,8 +204,10 @@ Example usage:
     except ValueError as exc:
         parser.error(str(exc))
 
+    check_dependencies(args.provider)
+
     output = args.output or args.input
-    edit_slide(
+    result = edit_slide(
         args.input,
         args.instruction,
         output,
@@ -192,6 +215,9 @@ Example usage:
         args.api_key,
         args.provider,
     )
+    if result is None:
+        # The FAIL line above says why; the exit code is for callers.
+        sys.exit(1)
 
 
 if __name__ == "__main__":

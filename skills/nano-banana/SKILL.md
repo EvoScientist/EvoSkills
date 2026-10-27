@@ -209,7 +209,7 @@ python scripts/generate_ppt.py \
 - `--plan` (required): Path to slides_plan.json
 - `--style` (required): Path to style template
 - `--provider`: `gemini` (default) or `atlas`
-- `--model`: Image generation model (default depends on provider)
+- `--model`: Image generation model (default `gemini-3-pro-image-preview`; Atlas accepts only `google/nano-banana-2-lite/text-to-image`)
 - `--resolution`: Gemini supports `2K` (default) or `4K`; Atlas uses `1K`
 - `--output`: Output directory (default: `ppt_output/TIMESTAMP`)
 - `--api-key`: Provider API key (if not in the provider environment variable)
@@ -278,8 +278,10 @@ python scripts/edit_slide.py \
 - `--instruction` (required): The edit instruction (from feedback field)
 - `--output`: Output path (default: overwrite input)
 - `--provider`: `gemini` (default) or `atlas`
-- `--model`: Image generation model (default depends on provider)
+- `--model`: Image editing model (default `gemini-3-pro-image-preview`; Atlas accepts only `google/nano-banana-2-lite/edit`)
 - `--api-key`: Provider API key (if not in the provider environment variable)
+
+`edit_slide.py` prints `OK: <path>` and exits `0` on success, or `FAIL: <reason>` and exits `1`. Both scripts exit `1` before any request when a required Python package is missing.
 
 Atlas generation POST requests are submitted once and are never retried. Only prediction GET requests use bounded polling.
 

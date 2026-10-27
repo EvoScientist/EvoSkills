@@ -3,7 +3,9 @@
 import json
 import mimetypes
 import os
+import re
 import secrets
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -24,13 +26,55 @@ MAX_POLLS = 60
 USER_AGENT = "evoskills-nano-banana/1.0"
 
 
+class _RedirectPolicy(urllib.request.HTTPRedirectHandler):
+    """Refuse redirects, or follow them only to an https:// target.
+
+    API requests carry the Authorization header and are never redirected.
+    Image downloads carry no credential and may follow a redirect as long
+    as it stays on https.
+    """
+
+    def __init__(self, allow_https: bool) -> None:
+        super().__init__()
+        self.allow_https = allow_https
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not self.allow_https or not newurl.startswith("https://"):
+            return None
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_OPENERS = {
+    "none": urllib.request.build_opener(_RedirectPolicy(allow_https=False)),
+    "https": urllib.request.build_opener(_RedirectPolicy(allow_https=True)),
+}
+
+
+def _urlopen(
+    request: urllib.request.Request, timeout: int = 60, redirects: str = "none"
+):
+    """Open ``request`` under the named redirect policy."""
+    return _OPENERS[redirects].open(request, timeout=timeout)
+
+
 def _api_key(explicit_key: Optional[str]) -> str:
-    key = explicit_key or os.environ.get("ATLASCLOUD_API_KEY")
+    key = (explicit_key or os.environ.get("ATLASCLOUD_API_KEY") or "").strip()
     if not key:
         raise RuntimeError(
             "No Atlas Cloud API key provided. Pass --api-key or set ATLASCLOUD_API_KEY."
         )
+    # A key with a line break would make urllib echo the whole header in
+    # its error; never let the key reach any message.
+    if not key.isprintable() or any(c.isspace() for c in key):
+        raise RuntimeError(
+            "The Atlas Cloud API key contains whitespace or control characters."
+        )
     return key
+
+
+def _scrub(text: str, api_key: str) -> str:
+    """Remove the key from text that will be printed."""
+    return text.replace(api_key, "***") if api_key else text
 
 
 def _json_request(
@@ -50,18 +94,20 @@ def _json_request(
 
     request = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(request, timeout=60) as response:
+        with _urlopen(request, timeout=60, redirects="none") as response:
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"Atlas Cloud request failed with HTTP {exc.code}") from exc
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"Atlas Cloud request failed: {exc}") from exc
+        raise RuntimeError(
+            f"Atlas Cloud request failed: {_scrub(str(exc), api_key)}"
+        ) from exc
 
     if not isinstance(payload, dict):
         raise RuntimeError("Atlas Cloud returned an invalid response")
     if payload.get("code") not in (None, 0, 200):
         message = payload.get("message") or payload.get("msg") or "unknown error"
-        raise RuntimeError(f"Atlas Cloud API error: {message}")
+        raise RuntimeError(f"Atlas Cloud API error: {_scrub(str(message), api_key)}")
     return payload
 
 
@@ -74,11 +120,14 @@ def upload_media(path: str, api_key: Optional[str] = None) -> str:
     key = _api_key(api_key)
     boundary = f"----evoskills-{secrets.token_hex(16)}"
     content_type = mimetypes.guess_type(source.name)[0] or "application/octet-stream"
+    # The name goes into a multipart header; keep it to characters that
+    # cannot break or extend that header.
+    safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", source.name) or "upload"
     body = b"".join(
         [
             f"--{boundary}\r\n".encode(),
             (
-                f'Content-Disposition: form-data; name="file"; filename="{source.name}"\r\n'
+                f'Content-Disposition: form-data; name="file"; filename="{safe_name}"\r\n'
             ).encode(),
             f"Content-Type: {content_type}\r\n\r\n".encode(),
             source.read_bytes(),
@@ -116,10 +165,18 @@ def _save_png(url: str, output_path: str) -> str:
 
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary = destination.with_suffix(destination.suffix + ".download")
+    # A fresh temporary name, so nothing that already exists is touched.
+    handle = tempfile.NamedTemporaryFile(
+        dir=destination.parent,
+        prefix=destination.name + ".",
+        suffix=".download",
+        delete=False,
+    )
+    handle.close()
+    temporary = Path(handle.name)
     try:
         download = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        with urllib.request.urlopen(download, timeout=60) as response:
+        with _urlopen(download, timeout=60, redirects="https") as response:
             temporary.write_bytes(response.read())
         with Image.open(temporary) as image:
             image.save(destination, format="PNG")
@@ -186,6 +243,8 @@ def generate_image(
             return _save_png(output_url, output_path)
         if status == "failed":
             message = prediction_data.get("error") or "generation failed"
-            raise RuntimeError(f"Atlas Cloud generation failed: {message}")
+            raise RuntimeError(
+                f"Atlas Cloud generation failed: {_scrub(str(message), key)}"
+            )
 
     raise RuntimeError("Atlas Cloud generation timed out while polling")

@@ -56,6 +56,27 @@ def resolve_provider_options(
     return selected_model, selected_resolution
 
 
+def check_dependencies(provider: str) -> None:
+    """Exit 1 with an install hint when a provider's library is missing."""
+    missing = []
+    try:
+        import PIL  # noqa: F401
+    except ImportError:
+        missing.append("pillow")
+    if provider == "gemini":
+        try:
+            import google.genai  # noqa: F401
+        except ImportError:
+            missing.append("google-genai")
+    if missing:
+        print(
+            f"Error: missing Python packages: {', '.join(missing)}. "
+            f"Run: pip install {' '.join(missing)}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 # Skill root directory (nano-banana/)
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TEMPLATE_PATH = str(SKILL_ROOT / "templates" / "viewer.html")
@@ -500,6 +521,7 @@ def main() -> None:
         )
     except ValueError as exc:
         parser.error(str(exc))
+    check_dependencies(args.provider)
 
     # Load slides plan
     with open(args.plan, "r", encoding="utf-8") as f:
