@@ -169,3 +169,14 @@ def test_plan_without_slides_is_a_failure(tmp_path, fake_modules):
 def test_usage_examples_use_skill_relative_paths(script):
     text = script.read_text(encoding="utf-8")
     assert "skills/nano-banana/" not in text
+
+
+def test_missing_library_is_reported_before_generation(tmp_path, fake_modules):
+    # A stub that refuses to import shadows any Pillow installed on the machine.
+    (fake_modules / "PIL" / "__init__.py").write_text(
+        'raise ImportError("No module named PIL")\n', encoding="utf-8"
+    )
+    proc, out = generate(tmp_path, fake_modules, ["first"])
+    assert proc.returncode == 1
+    assert "pillow" in proc.stderr
+    assert not out.exists()
