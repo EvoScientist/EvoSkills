@@ -1141,6 +1141,25 @@ def _read_existing_ids(path: str, key: str) -> "set[str]":
     return ids
 
 
+def _normalize_tldr(paper: dict) -> dict:
+    """Keep nonempty TLDRs in the S2 object shape; omit absent/empty text.
+
+    S2 can return {"text": None}. Dropping that field avoids leaking null text
+    into JSON consumers without breaking formatters that expect a TLDR object.
+    Do not mutate the API response or other fields in the caller's record.
+    """
+    if "tldr" not in paper:
+        return paper
+    tldr = paper["tldr"]
+    text = tldr.get("text") if isinstance(tldr, dict) else tldr
+    normalized = dict(paper)
+    if isinstance(text, str) and text.strip():
+        normalized["tldr"] = tldr if isinstance(tldr, dict) else {"text": text}
+    else:
+        normalized.pop("tldr")
+    return normalized
+
+
 def emit_results(
     papers: list[dict],
     args: Any,
@@ -1160,7 +1179,11 @@ def emit_results(
       case where repeated `--append` runs (10 scholar queries, 3 citation
       traversals, etc.) leave the same paper 4–5× in the pool.
     - Pass `--no-dedup` to keep the old behavior (raw append, duplicates OK).
+
+    Empty TLDRs are omitted; nonempty TLDRs retain the S2 {"text": ...} shape
+    for JSONL, JSON and Markdown output alike.
     """
+    papers = [_normalize_tldr(paper) for paper in papers]
     no_dedup = getattr(args, "no_dedup", False)
     append = bool(getattr(args, "append", False))
     output = getattr(args, "output", None)

@@ -26,7 +26,7 @@ R4 CLOSE (final gap fill)
 FINALIZE — rank, filter, hand off
 ```
 
-**Setup:** Before Probe, create a TodoWrite list with these items so progress is visible to the user.
+**Setup:** Before Probe, create a TodoWrite list with these items so progress is visible to the user. Follow the SKILL.md workspace-pool setup: choose a fresh `<run-id>`, create `./paper-navigator/<run-id>` in the task workspace, and use that same relative path for execution writes and `read_file` reads throughout this task. Resolve script paths against the skill directory without changing the working directory.
 
 ---
 
@@ -39,8 +39,8 @@ FINALIZE — rank, filter, hand off
 - `Q-narrow` — a specific mechanism / sub-question / method (angle: tagged)
 
 ```bash
-python scripts/scholar_search.py --query "<Q-broad>"  --limit 15 --sort-by relevance --output /tmp/pool.jsonl --append
-python scripts/scholar_search.py --query "<Q-narrow>" --limit 15 --sort-by relevance --output /tmp/pool.jsonl --append
+python scripts/scholar_search.py --query "<Q-broad>"  --limit 15 --sort-by relevance --output "./paper-navigator/<run-id>/pool.jsonl" --append
+python scripts/scholar_search.py --query "<Q-narrow>" --limit 15 --sort-by relevance --output "./paper-navigator/<run-id>/pool.jsonl" --append
 ```
 
 From Probe titles + tldrs, lift: recurring **named entities** (algorithm / benchmark / dataset / model names), **angle gaps** (Step-2 rubric tags not seen), and vocabulary from **adjacent communities**.
@@ -60,7 +60,7 @@ From Probe titles + tldrs, lift: recurring **named entities** (algorithm / bench
 **Action:**
 1. Write 2-3 queries covering different sub-topics / angles from the rubric. At least one query per sub-topic.
 2. For each query:
-   - `scholar_search --query "<q>" --limit 20 --sort-by relevance --output /tmp/pool.jsonl --append`
+   - `scholar_search --query "<q>" --limit 20 --sort-by relevance --output "./paper-navigator/<run-id>/pool.jsonl" --append`
    - If `S2_API_KEY` is set → parallel OK; if not → run sequentially (parallel S2 without key exhausts rate limit and falls back to lower-quality arXiv search; check with `echo $S2_API_KEY`).
 3. In parallel with the above, run `arxiv_monitor --keywords "<v1,v2,v3>" --match-mode flexible --days 365`. The scripts use a shared arXiv pacer, so concurrent agents will queue arXiv API requests instead of bursting.
 4. Deduplicate by `paperId` first, then normalised title (`--output --append` auto-dedupes by `paperId`).
