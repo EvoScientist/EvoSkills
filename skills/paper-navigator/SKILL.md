@@ -4,7 +4,7 @@ description: "Find and read academic papers (S2 + arXiv). Disambiguate ambiguous
 allowed-tools: "write_file edit_file read_file think_tool execute"
 metadata:
   author: EvoScientist
-  version: '3.4.1'
+  version: '3.4.2'
   tags: [core, research, literature, papers, search, rubric]
 ---
 
@@ -28,7 +28,7 @@ The agent does relevance judgment — no LLM-as-judge is called, no numeric scor
 
 ## Setup
 
-Script paths in this document are relative to this skill's directory. Run via `python scripts/<name>.py`.
+Script paths in this document are relative to this skill's directory. Resolve `scripts/<name>.py` against that directory, but keep the execution working directory at the task workspace; do not `cd` into the installed skill directory.
 
 **Dependencies**: `pip install deepxiv-sdk httpx` (also listed in `requirements.txt` at the skill root). Install into the environment the user is working in.
 
@@ -129,16 +129,18 @@ For ITERATIVE, criteria can be lighter (e.g. `covers topic` + `is canonical`); d
 
 Probe first to grasp the user's need comprehensively, then run up to **3 paper rounds** (R2 breadth / R3 deepen / R4 close). Decide round-by-round whether more rounds are needed (Step 5 gate) — **do NOT fix a round count**. There is no R5; the cap is 3 paper rounds.
 
+**Workspace pool:** Choose a fresh `<run-id>` for this task and replace it in every example below. Every `scholar_search`, `citation_traverse` and `recommend` call for this task appends to `./paper-navigator/<run-id>/pool.jsonl` in the task workspace (the folder is created on the first write). `arxiv_monitor` keeps printing its results: its rows have no `paperId`, so `--append` would drop them. Read that exact same workspace-relative path with `read_file` after a successful write, before continuing triage. Keep it for all rounds of this task, and use a different directory for a new task.
+
 **Probe (prerequisite — NOT counted in the 3 rounds, 2 parallel queries):** establish a comprehensive understanding of the need and lift named entities / angle gaps.
 - `Q-broad` — canonical phrasing of the topic (angle: `general`)
 - `Q-narrow` — a specific mechanism / sub-question / method (angle: tagged)
 
 ```bash
-python scripts/scholar_search.py --query "<Q-broad>"  --limit 15 --sort-by relevance --output /tmp/pool.jsonl --append
-python scripts/scholar_search.py --query "<Q-narrow>" --limit 15 --sort-by relevance --output /tmp/pool.jsonl --append
+python scripts/scholar_search.py --query "<Q-broad>"  --limit 15 --sort-by relevance --output "./paper-navigator/<run-id>/pool.jsonl" --append
+python scripts/scholar_search.py --query "<Q-narrow>" --limit 15 --sort-by relevance --output "./paper-navigator/<run-id>/pool.jsonl" --append
 ```
 
-`--output --append` auto-dedupes by `paperId` across rounds (built into the script), so a paper found by two queries is written once. Read `/tmp/pool.jsonl` to inspect (Step 4 triage). From Probe titles + tldrs, lift:
+`--output --append` auto-dedupes by `paperId` across rounds (built into the script), so a paper found by two queries is written once. Nonempty `tldr` values retain the S2 `{ "text": "..." }` shape; empty or null TLDRs are omitted. Read `./paper-navigator/<run-id>/pool.jsonl` to inspect (Step 4 triage). From Probe titles + tldrs, lift:
 - recurring **named entities** (algorithm / benchmark / dataset / model names),
 - **angle gaps** (Step-2 tags not seen),
 - vocabulary from **adjacent communities**.
@@ -175,9 +177,9 @@ python scripts/scholar_search.py --query "<Q-narrow>" --limit 15 --sort-by relev
 
 **Citation expansion** (ITERATIVE, or LIST after ≥3 All-core/Partial seeds):
 ```bash
-python scripts/citation_traverse.py --paper-id <SEED> --direction co-citation --limit 15 --output /tmp/pool.jsonl --append
-python scripts/citation_traverse.py --paper-id <SEED> --direction forward --limit 20 --min-citations 20 --year-min 2022 --output /tmp/pool.jsonl --append
-python scripts/recommend.py --positive <SEED1>,<SEED2> --limit 15 --output /tmp/pool.jsonl --append
+python scripts/citation_traverse.py --paper-id <SEED> --direction co-citation --limit 15 --output "./paper-navigator/<run-id>/pool.jsonl" --append
+python scripts/citation_traverse.py --paper-id <SEED> --direction forward --limit 20 --min-citations 20 --year-min 2022 --output "./paper-navigator/<run-id>/pool.jsonl" --append
+python scripts/recommend.py --positive <SEED1>,<SEED2> --limit 15 --output "./paper-navigator/<run-id>/pool.jsonl" --append
 ```
 
 ### Step 4: Triage — All-core / Partial / Irrelevant
@@ -333,7 +335,7 @@ If any box is unchecked, return to Step 6 — do not output.
 | HF datasets | `dataset_search.py` | Query short-name (`imdb`, `sst2`), not task description |
 | Saturation gate (optional) | `saturation.py` | JSONL log of per-round yields; `estimate` returns STOP/CONTINUE |
 
-All discovery scripts: `--limit N`, `--json`, `--output FILE`, `--append`; accept S2 / arXiv / DOI / CorpusId IDs. `--output --append` auto-dedupes by `paperId` across rounds (within-batch + cross-file), so the pool stays clean.
+Pool writers (`scholar_search`, `citation_traverse`, `recommend`): use `--output FILE --append` to auto-dedupe by `paperId` across rounds (within-batch + cross-file). Keep `arxiv_monitor` on stdout (optionally `--json`), without `--output` or `--append`; its rows use `arxiv_id`, not `paperId`. See each script's `--help` for its supported flags and ID formats.
 
 ---
 
