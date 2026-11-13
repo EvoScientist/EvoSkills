@@ -26,7 +26,7 @@ R4 CLOSE (final gap fill)
 FINALIZE — rank, filter, hand off
 ```
 
-**Setup:** Before Probe, create a TodoWrite list with these items so progress is visible to the user. Follow the SKILL.md workspace-pool setup: choose a fresh `<run-id>`, create `./paper-navigator/<run-id>` in the task workspace, and use that same relative path for execution writes and `read_file` reads throughout this task. Resolve script paths against the skill directory without changing the working directory.
+**Setup:** Before Probe, create a TodoWrite list with these items so progress is visible to the user. Follow the SKILL.md workspace-pool setup: choose a fresh `<run-id>`, append every `scholar_search`, `citation_traverse` and `recommend` call below to `./paper-navigator/<run-id>/pool.jsonl` in the task workspace (not `arxiv_monitor`), and read that same path with `read_file`. Resolve script paths against the skill directory without changing the working directory.
 
 ---
 

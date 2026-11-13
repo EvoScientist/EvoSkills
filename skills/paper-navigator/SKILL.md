@@ -129,13 +129,7 @@ For ITERATIVE, criteria can be lighter (e.g. `covers topic` + `is canonical`); d
 
 Probe first to grasp the user's need comprehensively, then run up to **3 paper rounds** (R2 breadth / R3 deepen / R4 close). Decide round-by-round whether more rounds are needed (Step 5 gate) — **do NOT fix a round count**. There is no R5; the cap is 3 paper rounds.
 
-**Workspace pool:** Choose a fresh `<run-id>` for this task and replace it in every example below. From the task workspace, create the directory before the first search:
-
-```bash
-mkdir -p "./paper-navigator/<run-id>"
-```
-
-All search and expansion calls for this task append to `./paper-navigator/<run-id>/pool.jsonl`. Read that exact same workspace-relative path with `read_file` after a successful write, before continuing triage. Keep it for all rounds of this task, and use a different directory for a new task. Avoid system-directory names such as `tmp`: some hosts normalize `./tmp` to `/tmp` and remap reads differently from execution writes.
+**Workspace pool:** Choose a fresh `<run-id>` for this task and replace it in every example below. Every `scholar_search`, `citation_traverse` and `recommend` call for this task appends to `./paper-navigator/<run-id>/pool.jsonl` in the task workspace (the folder is created on the first write). `arxiv_monitor` keeps printing its results: its rows have no `paperId`, so `--append` would drop them. Read that exact same workspace-relative path with `read_file` after a successful write, before continuing triage. Keep it for all rounds of this task, and use a different directory for a new task.
 
 **Probe (prerequisite — NOT counted in the 3 rounds, 2 parallel queries):** establish a comprehensive understanding of the need and lift named entities / angle gaps.
 - `Q-broad` — canonical phrasing of the topic (angle: `general`)
@@ -341,7 +335,7 @@ If any box is unchecked, return to Step 6 — do not output.
 | HF datasets | `dataset_search.py` | Query short-name (`imdb`, `sst2`), not task description |
 | Saturation gate (optional) | `saturation.py` | JSONL log of per-round yields; `estimate` returns STOP/CONTINUE |
 
-All discovery scripts: `--limit N`, `--json`, `--output FILE`, `--append`; accept S2 / arXiv / DOI / CorpusId IDs. `--output --append` auto-dedupes by `paperId` across rounds (within-batch + cross-file), so the pool stays clean.
+Pool writers (`scholar_search`, `citation_traverse`, `recommend`): use `--output FILE --append` to auto-dedupe by `paperId` across rounds (within-batch + cross-file). Keep `arxiv_monitor` on stdout (optionally `--json`), without `--output` or `--append`; its rows use `arxiv_id`, not `paperId`. See each script's `--help` for its supported flags and ID formats.
 
 ---
 

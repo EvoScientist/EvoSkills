@@ -32,6 +32,7 @@ def modules(monkeypatch):
         "literature_report",
         "match_paper_by_title",
         "trending",
+        "arxiv_monitor",
     )
     saved = {name: sys.modules.pop(name) for name in names if name in sys.modules}
     monkeypatch.syspath_prepend(str(SCRIPTS))
@@ -128,28 +129,38 @@ def test_documented_pool_paths_share_workspace_directory():
     assert len(paths) == 8
     assert set(paths) == {"./paper-navigator/<run-id>/pool.jsonl"}
     skill_text = (SKILL / "SKILL.md").read_text()
-    assert 'mkdir -p "./paper-navigator/<run-id>"' in skill_text
     assert "read_file" in skill_text
     assert "working directory at the task workspace" in skill_text
 
 
-def test_documented_setup_and_search_write_read_round_trip(tmp_path):
-    """Run the real CLI/JSONL writer in a separate workspace with mocked search."""
-    setup = 'mkdir -p "./paper-navigator/<run-id>"'.replace(
-        "<run-id>", "regression-run"
-    )
-    subprocess.run(shlex.split(setup), cwd=tmp_path, check=True)
+@pytest.mark.parametrize(
+    "module_name, fetch_function, arguments",
+    [
+        ("scholar_search", "search", ["--query", "example"]),
+        ("recommend", "recommend", ["--positive", "p1"]),
+        (
+            "citation_traverse",
+            "get_citations",
+            ["--paper-id", "p1", "--direction", "forward", "--no-sanity-check"],
+        ),
+    ],
+)
+def test_documented_pool_writers_write_read_round_trip(
+    tmp_path, module_name, fetch_function, arguments
+):
+    """Run each real CLI/JSONL writer in a fresh workspace with mocked retrieval."""
+    assert not (tmp_path / "paper-navigator").exists()
     pool = "./paper-navigator/regression-run/pool.jsonl"
     script = f"""
 import sys
 from unittest.mock import patch
 sys.path.insert(0, {str(SCRIPTS)!r})
-import scholar_search
+import {module_name} as writer
 paper = {{'paperId': 'p1', 'title': 'Example', 'tldr': {{'text': None}}}}
-sys.argv = ['scholar_search.py', '--query', 'example', '--output', {pool!r}, '--append']
-with patch.object(scholar_search, 'search', return_value=[paper]):
-    scholar_search.main()
-    scholar_search.main()
+sys.argv = [{module_name!r} + '.py'] + {arguments!r} + ['--output', {pool!r}, '--append']
+with patch.object(writer, {fetch_function!r}, return_value=[paper]):
+    writer.main()
+    writer.main()
 """
     proc = subprocess.run(
         [sys.executable, "-c", script],
@@ -164,3 +175,65 @@ with patch.object(scholar_search, 'search', return_value=[paper]):
     assert all(row["output"] == pool for row in summaries)
     records = [json.loads(line) for line in (tmp_path / pool).read_text().splitlines()]
     assert records == [{"paperId": "p1", "title": "Example"}]
+
+
+@pytest.mark.parametrize("append", [False, True])
+@pytest.mark.parametrize("path", ["pool.jsonl", "new/nested/pool.jsonl"])
+def test_write_jsonl_creates_parents_and_preserves_write_modes(
+    modules, tmp_path, monkeypatch, append, path
+):
+    monkeypatch.chdir(tmp_path)
+    first = {"paperId": "p1"}
+    second = {"paperId": "p2"}
+    assert not Path(path).exists()
+    assert modules.utils.write_jsonl(path, [first], append=append) == 1
+    assert modules.utils.read_jsonl(path) == [first]
+    assert modules.utils.write_jsonl(path, [second], append=append) == 1
+    assert modules.utils.read_jsonl(path) == ([first, second] if append else [second])
+
+
+def test_runbooks_name_pool_writers_and_exclude_arxiv_monitor():
+    for document in (SKILL / "SKILL.md", SKILL / "references/iterative-collection.md"):
+        text = document.read_text()
+        setup = next(
+            line
+            for line in text.splitlines()
+            if line.startswith(("**Workspace pool:**", "**Setup:**"))
+        )
+        for writer in ("scholar_search", "citation_traverse", "recommend"):
+            assert f"`{writer}`" in setup
+        assert "`arxiv_monitor`" in setup
+        assert "./paper-navigator/<run-id>/pool.jsonl" in setup
+        for line in text.splitlines():
+            if "python scripts/arxiv_monitor.py" in line:
+                assert "--output" not in line
+                assert "--append" not in line
+    assert "All discovery scripts:" not in (SKILL / "SKILL.md").read_text()
+
+
+@pytest.mark.parametrize("json_output", [False, True])
+def test_arxiv_monitor_stdout_preserves_rows_without_paper_id(
+    modules, tmp_path, monkeypatch, capsys, json_output
+):
+    paper = {
+        "arxiv_id": "2601.00001",
+        "title": "An arXiv example",
+        "authors": ["Example Author"],
+        "categories": ["cs.AI"],
+        "published": "2026-01-01",
+        "summary": "Example summary",
+        "comment": "",
+        "pdf_url": "https://arxiv.org/pdf/2601.00001",
+    }
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(modules.arxiv_monitor, "fetch_by_keywords", lambda *a: [paper])
+    argv = ["arxiv_monitor.py", "--keywords", "example"]
+    monkeypatch.setattr(sys, "argv", argv + (["--json"] if json_output else []))
+    modules.arxiv_monitor.main()
+    output = capsys.readouterr().out
+    if json_output:
+        assert json.loads(output) == [paper]
+    else:
+        assert paper["title"] in output
+        assert paper["arxiv_id"] in output
+    assert list(tmp_path.iterdir()) == []

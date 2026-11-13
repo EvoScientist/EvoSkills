@@ -734,8 +734,11 @@ async def _fetch_citations_by_year(
 
 
 def write_jsonl(path: str, records: list[dict], append: bool = False) -> int:
-    """Write records to a JSONL file. Returns count written."""
+    """Write records to a JSONL file, creating parents. Returns count written."""
     mode = "a" if append else "w"
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     with open(path, mode) as f:
         for r in records:
             f.write(json.dumps(r, default=str) + "\n")
