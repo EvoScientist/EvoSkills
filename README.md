@@ -63,6 +63,7 @@ Simply ask the agent in conversation:
 | [`paper-graph`](#-paper-graph--lineage-map-of-a-research-field-via-mermaid-diagrams) | 🌳 Lineage map of a research field as Mermaid diagrams |
 | [`nano-banana`](#-nano-banana--ai-generated-slides--illustrations) | 🍌 AI-generated presentation slides & illustrations via Gemini |
 | [`evomath-tao`](#-evomath-tao--tao-style-olympiad-proof-workflow) | 🧮 Tao-style olympiad-grade proof workflow with calibrated abstention |
+| [`symbolic-law-discovery`](#-symbolic-law-discovery--interpretable-laws-from-tabular-design-data) | 🔣 Interpretable laws from tabular design data, with an honest compressibility verdict |
 
 > **Paper Suite + Self-Evolution Suite**: Each skill is self-contained — use them individually or combine freely. The self-evolution loop now runs through `research-ideation`, `experiment-pipeline`, and `evo-memory`.
 
@@ -102,6 +103,7 @@ flowchart LR
     H -.-> C
     I["🌳 paper-graph<br/>(standalone)"] -.-> A
     J["📊 paper-figures<br/>(standalone)"] -.-> C
+    K["🔣 symbolic-law-discovery<br/>(standalone)"] -.-> B
 
     style A fill:#7C3AED,stroke:#5B21B6,stroke-width:2px,color:#fff
     style B fill:#D97706,stroke:#B45309,stroke-width:2px,color:#fff
@@ -113,6 +115,7 @@ flowchart LR
     style H fill:#0891B2,stroke:#0E7490,stroke-width:2px,color:#fff
     style I fill:#65A30D,stroke:#4D7C0F,stroke-width:2px,color:#fff
     style J fill:#9333EA,stroke:#7E22CE,stroke-width:2px,color:#fff
+    style K fill:#0F766E,stroke:#115E59,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -287,6 +290,17 @@ A rigorous proof workflow that operationalizes Terence Tao's research-math pract
 - **Calibrated Abstention** — When verification fails repeatedly, the skill downgrades the status instead of bluffing
 
 **IMO 2025 evaluation (Claude Opus 4.7, 6 parallel subagents):** 4 PROVED (P1 / P2 / P4 / P5) · 1 CONJECTURED (P3, c = 4 with odd-prime gap) · 1 HANDED_OFF (P6, 2112 sketched). All 6 numeric/classification answers match the official IMO 2025 keys.
+
+### 🔣 `symbolic-law-discovery` — Interpretable Laws from Tabular Design Data
+
+Finds a short, readable law for a table of designs and a measured response, and reports on an absolute scale whether such a law exists. Built on a study of 82 combinatorial design landscapes, of which only one fully compressed:
+
+- **6-Step Workflow** — Frame the table → Run the scorer → Read the verdict → Probe a low-dimensional miss → Rank candidate designs → Write the report
+- **Absolute Compressibility** — Held-out R² of a bounded-complexity symbolic-regression search (greedy forward selection, node budget 10, cross-validated), never a ratio to a black box
+- **Independent Effective Dimensionality** — Random-forest participation ratio over design variables, computed without looking at the law, so "few variables, short law" is never circular
+- **4 Honest Status Labels** — `COMPRESSIBLE` / `PARTIAL` / `INCOMPRESSIBLE` / `UNPREDICTABLE`, each with a diagnosis (dimension-, interaction- or ceiling-limited) and the next action
+- **Design Selection** — Ranks candidate designs with both the law and a tuned black box; reports top-k agreement, or regret and overlap against the truth when it is known
+- **Reproducible** — The bundled script reproduces the source study's published per-dataset numbers exactly
 
 <p align="right"><a href="#top">🔝Back to top</a></p>
 

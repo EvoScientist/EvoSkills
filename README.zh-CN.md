@@ -68,6 +68,7 @@
 | [`paper-graph`](#-paper-graph--用-mermaid-图谱绘制研究领域脉络) | 🌳 以 Mermaid 图谱呈现研究领域脉络 |
 | [`nano-banana`](#-nano-banana--ai-生成幻灯片与插图) | 🍌 基于 Gemini 的 AI 幻灯片与插图生成 |
 | [`evomath-tao`](#-evomath-tao--陶哲轩式奥数证明工作流) | 🧮 陶哲轩式奥数级证明工作流，支持校准弃答 |
+| [`symbolic-law-discovery`](#-symbolic-law-discovery--从表格设计数据中发现可解释定律) | 🔣 从表格设计数据中发现可解释定律，并诚实判定可压缩性 |
 
 > **论文套件 + 自我进化套件**：每个技能都是自包含的——可单独使用，也可自由组合。自我进化循环现在贯穿 `research-ideation`、`experiment-pipeline` 与 `evo-memory`。
 
@@ -107,6 +108,7 @@ flowchart LR
     H -.-> C
     I["🌳 paper-graph<br/>(独立)"] -.-> A
     J["📊 paper-figures<br/>(独立)"] -.-> C
+    K["🔣 symbolic-law-discovery<br/>(独立)"] -.-> B
 
     style A fill:#7C3AED,stroke:#5B21B6,stroke-width:2px,color:#fff
     style B fill:#D97706,stroke:#B45309,stroke-width:2px,color:#fff
@@ -118,6 +120,7 @@ flowchart LR
     style H fill:#0891B2,stroke:#0E7490,stroke-width:2px,color:#fff
     style I fill:#65A30D,stroke:#4D7C0F,stroke-width:2px,color:#fff
     style J fill:#9333EA,stroke:#7E22CE,stroke-width:2px,color:#fff
+    style K fill:#0F766E,stroke:#115E59,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -292,6 +295,17 @@ flowchart LR
 - **校准弃答** — 当验证反复失败时，降级状态而不是虚张声势
 
 **IMO 2025 评测（Claude Opus 4.7，6 个并行子智能体）：** 4 题 PROVED（P1 / P2 / P4 / P5）· 1 题 CONJECTURED（P3，c = 4，存在奇素数缺口）· 1 题 HANDED_OFF（P6，2112 已给出思路）。全部 6 个数值/分类答案与 IMO 2025 官方答案一致。
+
+### 🔣 `symbolic-law-discovery` — 从表格设计数据中发现可解释定律
+
+为一张“设计 → 测量响应”的数据表寻找简短、可读的定律，并在绝对尺度上判断这样的定律是否存在。方法来自对 82 个组合设计景观的研究，其中只有一个完全可压缩：
+
+- **六步流程** — 整理数据表 → 运行评分脚本 → 读取判定 → 探查低维却未压缩的情形 → 给候选设计排序 → 撰写报告
+- **绝对可压缩性** — 有界复杂度符号回归搜索（贪心前向选择，节点预算 10，交叉验证）的留出 R²，不用与黑箱模型的比值
+- **独立的有效维度** — 基于随机森林的参与比（participation ratio），计算时不看拟合出的定律，避免“变量少所以定律短”的循环论证
+- **四种诚实状态标签** — `COMPRESSIBLE` / `PARTIAL` / `INCOMPRESSIBLE` / `UNPREDICTABLE`，并给出诊断（维度受限、交互受限或上限受限）与下一步建议
+- **设计筛选** — 同时用定律和调参后的黑箱模型给候选设计排序；报告 top-k 一致度，已知真值时报告 regret 与重叠
+- **可复现** — 随附脚本可精确复现原研究公布的逐数据集数值
 
 <p align="right"><a href="#top">🔝回到顶部</a></p>
 
