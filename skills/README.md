@@ -34,6 +34,7 @@ EvoScientist discovers skills by scanning `skills/*/SKILL.md`. Each skill is loa
 | [`paper-graph`](paper-graph/) | Lineage map of a research field as Mermaid diagrams (challenges → solutions → per-solution evolution) |
 | [`nano-banana`](nano-banana/) | AI-generated presentation slides & illustrations via Gemini image generation |
 | [`evomath-tao`](evomath-tao/) | Tao-style olympiad-grade proof workflow with calibrated abstention |
+| [`symbolic-law-discovery`](symbolic-law-discovery/) | Interpretable laws from tabular design data, with an honest compressibility verdict |
 
 ## Contributing a Skill
 
